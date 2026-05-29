@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
-import { VOCAB, imgFor, type VocabItem } from "@/content/vocab";
+import { VOCAB, vocabByCategory, imgFor, CATEGORIES, type VocabCategory, type VocabItem } from "@/content/vocab";
 import { sample, shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord, playWin } from "@/lib/audio";
 import { store } from "@/lib/store";
@@ -29,9 +30,19 @@ function labelText(item: VocabItem, mode: Mode) {
   return item.kk;
 }
 
-export default function SozdikMatch() {
+function pool(cat: string | null): VocabItem[] {
+  if (cat && (CATEGORIES as string[]).includes(cat)) {
+    const items = vocabByCategory(cat as VocabCategory);
+    return items.length >= ROUND_SIZE ? items : VOCAB;
+  }
+  return VOCAB;
+}
+
+function SozdikMatchInner() {
+  const cat = useSearchParams().get("cat");
+  const source = useMemo(() => pool(cat), [cat]);
   const [mode, setMode] = useState<Mode>("image-kk");
-  const [round, setRound] = useState(() => sample(VOCAB, ROUND_SIZE));
+  const [round, setRound] = useState(() => sample(source, ROUND_SIZE));
   const [labels, setLabels] = useState(() => shuffle(round));
   const [matched, setMatched] = useState<Set<string>>(new Set());
   const [attempts, setAttempts] = useState(0);
@@ -44,7 +55,7 @@ export default function SozdikMatch() {
   const elapsed = useMemo(() => Math.round((Date.now() - startedAt) / 1000), [done, startedAt]); // recompute on finish
 
   function reset(newMode = mode) {
-    const r = sample(VOCAB, ROUND_SIZE);
+    const r = sample(source, ROUND_SIZE);
     setRound(r);
     setLabels(shuffle(r));
     setMatched(new Set());
@@ -187,5 +198,13 @@ export default function SozdikMatch() {
         </motion.div>
       )}
     </GameShell>
+  );
+}
+
+export default function SozdikMatch() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-warm" />}>
+      <SozdikMatchInner />
+    </Suspense>
   );
 }
