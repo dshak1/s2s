@@ -59,6 +59,7 @@ export default function FallingSozder() {
     });
   }, []);
 
+  const loopRef = useRef<(ts: number) => void>(() => {});
   const loop = useCallback(
     (ts: number) => {
       if (!runningRef.current) return;
@@ -80,10 +81,13 @@ export default function FallingSozder() {
         spawn();
         lastTs.current = ts;
       }
-      raf.current = requestAnimationFrame(loop);
+      raf.current = requestAnimationFrame(loopRef.current);
     },
     [endGame, spawn],
   );
+  useEffect(() => {
+    loopRef.current = loop;
+  }, [loop]);
 
   function start() {
     const trio = sample(VOCAB, 3);

@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Steppe to Screen
 
-## Getting Started
+A Kazakh language + culture learning platform for kids 5–12, built for the
+UBC/SFU CC-UNESCO workshop series. One projector, kids on phones/iPads, craft
+materials on the tables — ten games, a facilitator console, and outcome metrics.
 
-First, run the development server:
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app runs **fully offline** — no login or backend required. Progress, art,
+badges and `game_runs` persist in `localStorage`. See **DEMO.md** for the
+5-minute walkthrough and **DECISIONS.md** for every design choice.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## The ten games (`/play`)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Game | Kazakh | What it teaches |
+|------|--------|-----------------|
+| Sözdik Match | Сөздік сәйкестік | Drag words to pictures (3 modes) |
+| Tańba Studio | Таңба студиясы | Draw your tańba → it becomes your avatar |
+| Dala Quest | Дала квесі | Steppe-map hub, 8 unlockable regions |
+| Jaryq Hunter | Жарық аңшысы | Flashlight-in-the-dark (touch + webcam) |
+| Esten Qaldyrma | Естен қалдырма | Flip-card memory |
+| Aitys Battle | Айтыс | Fill the rhyming Kazakh couplet |
+| Falling Sözder | Құлайтын сөздер | Catch falling words into baskets |
+| Yurt Builder | Үй құрушы | Master letters → build an SVG yurt |
+| Snow Leopard Patrol | Қар барысы | QR scavenger hunt across the room |
+| Story Maker | Әңгіме жасаушы | Comic from the kid's own art |
 
-## Learn More
+## Routes
+- `/` landing · `/join` kid join · `/play` games hub
+- `/profile/[id]` kid hub (avatar, mastery, yurt, badges, gallery)
+- `/quest` + `/quest/[region]` Dala Quest
+- `/facilitator` console · `/facilitator/[code]/live` projector · `/facilitator/[code]/print` printable QR hunt
+- `/admin/content` password-gated content tools
 
-To learn more about Next.js, take a look at the following resources:
+## Going to a real backend (Supabase + Vercel)
+1. Create a Supabase project; run `supabase/migrations/0001_init.sql` then `0002_seed.sql`.
+2. Set env vars (see `.env.example`): `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+3. Deploy to Vercel. The Supabase helpers in `src/lib/supabase/` activate
+   automatically when the env vars are present.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Regenerate seed/art after editing content: `node scripts/gen-seed.mjs`,
+`node scripts/gen-svgs.mjs`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Stack
+Next.js 16 (App Router, React 19, TS strict) · Tailwind v4 · Framer Motion ·
+TanStack Query · Zod · qrcode · Supabase (@supabase/ssr).

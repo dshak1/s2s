@@ -49,7 +49,10 @@ export function playWin() {
 
 // Placeholder "speak the Kazakh word" — until real audio assets are uploaded
 // via /admin/content we play a short friendly chime so the cue still lands.
-export function speakWord(_kk: string) {
-  tone(660, 0, 0.12, "sine", 0.2);
-  tone(880, 0.1, 0.16, "sine", 0.18);
+export function speakWord(kk: string) {
+  // Until real Kazakh audio is uploaded, give each word a slightly different
+  // friendly two-note motif based on its length so the cue feels word-specific.
+  const base = 600 + (kk.length % 5) * 30;
+  tone(base, 0, 0.12, "sine", 0.2);
+  tone(base * 1.33, 0.1, 0.16, "sine", 0.18);
 }
