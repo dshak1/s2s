@@ -1,0 +1,12 @@
+{
+  "name": "Steppe to Screen",
+  "short_name": "Steppe2Screen",
+  "description": "Learn Kazakh language and culture through games.",
+  "start_url": "/play",
+  "display": "standalone",
+  "background_color": "#faf6e9",
+  "theme_color": "#1e4d8c",
+  "icons": [
+    { "src": "/img/wall-map.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

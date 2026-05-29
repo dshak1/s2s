@@ -1,0 +1,72 @@
+"use client";
+
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { store } from "@/lib/store";
+import { Button } from "@/components/ui/button";
+
+function JoinForm() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const [code, setCode] = useState(params.get("code")?.toUpperCase() ?? "");
+  const [name, setName] = useState("");
+  const [table, setTable] = useState("1");
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    store.joinSession(code || "DEMO", name, table);
+    const id = store.get().id;
+    router.push(`/profile/${id}`);
+  }
+
+  return (
+    <form onSubmit={submit} className="flex w-full max-w-sm flex-col gap-4 rounded-3xl bg-felt p-6 shadow-lg">
+      <label className="text-sm font-bold text-steppe-700">
+        Session code
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="ABCD"
+          maxLength={6}
+          className="mt-1 w-full rounded-2xl border-2 border-steppe/30 bg-white px-4 py-3 text-center text-2xl font-black tracking-widest uppercase outline-none focus:border-steppe"
+        />
+      </label>
+      <label className="text-sm font-bold text-steppe-700">
+        Your first name
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Asay"
+          className="mt-1 w-full rounded-2xl border-2 border-steppe/30 bg-white px-4 py-3 text-lg font-bold outline-none focus:border-steppe"
+        />
+      </label>
+      <label className="text-sm font-bold text-steppe-700">
+        Table number
+        <select
+          value={table}
+          onChange={(e) => setTable(e.target.value)}
+          className="mt-1 w-full rounded-2xl border-2 border-steppe/30 bg-white px-4 py-3 text-lg font-bold outline-none focus:border-steppe"
+        >
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <option key={n} value={String(n)}>Table {n}</option>
+          ))}
+        </select>
+      </label>
+      <Button type="submit" variant="gold" size="lg" disabled={!name.trim()}>
+        Join the steppe!
+      </Button>
+    </form>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-steppe px-6 py-10 text-warm">
+      <h1 className="text-3xl font-black">Join a Session</h1>
+      <p className="text-warm/80">Type the code on the projector to join your table.</p>
+      <Suspense fallback={<div className="text-warm/70">Loading…</div>}>
+        <JoinForm />
+      </Suspense>
+    </div>
+  );
+}
