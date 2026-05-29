@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { store } from "@/lib/store";
+import { sessions } from "@/lib/sessions";
 import { Button } from "@/components/ui/button";
 
 function JoinForm() {
@@ -14,9 +15,12 @@ function JoinForm() {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    store.joinSession(code || "DEMO", name, table);
-    const id = store.get().id;
-    router.push(`/profile/${id}`);
+    const finalCode = code || "DEMO";
+    store.joinSession(finalCode, name, table);
+    const p = store.get();
+    const avatar = p.artifacts.find((a) => a.id === p.avatarArtifactId)?.dataUrl ?? null;
+    sessions.registerJoin(finalCode, { id: p.id, name: p.displayName, table, avatar });
+    router.push(`/profile/${p.id}`);
   }
 
   return (
