@@ -5,6 +5,7 @@
 // present it can be synced server-side later (see /supabase/migrations + the
 // Supabase helpers) — the schema mirrors this shape 1:1.
 import { useSyncExternalStore } from "react";
+import { syncJoin, syncGameRun, syncArtifact } from "@/lib/supabase/sync";
 import type { BadgeId } from "@/content/badges";
 import type { RegionId } from "@/content/regions";
 
@@ -107,6 +108,7 @@ export const store = {
       p.pawPrints = [];
       award(p, "aul_member");
     });
+    syncJoin(load(), code, table).catch(() => {});
   },
 
   setDisplayName(name: string) {
@@ -115,8 +117,9 @@ export const store = {
 
   addArtifact(kind: Artifact["kind"], dataUrl: string): string {
     const id = crypto.randomUUID();
+    const artifact: Artifact = { id, kind, dataUrl, createdAt: Date.now() };
     update((p) => {
-      p.artifacts.unshift({ id, kind, dataUrl, createdAt: Date.now() });
+      p.artifacts.unshift(artifact);
       if (kind === "tanba") {
         p.avatarArtifactId = id;
         award(p, "tanba_artist");
@@ -127,6 +130,8 @@ export const store = {
         p.xp += 25;
       }
     });
+    const p = load();
+    syncArtifact(p.id, p.avatarArtifactId, artifact).catch(() => {});
     return id;
   },
 
@@ -145,8 +150,9 @@ export const store = {
   },
 
   recordGameRun(run: Omit<GameRun, "id" | "at">) {
+    const newRun: GameRun = { ...run, id: crypto.randomUUID(), at: Date.now() };
     update((p) => {
-      p.gameRuns.unshift({ ...run, id: crypto.randomUUID(), at: Date.now() });
+      p.gameRuns.unshift(newRun);
       p.gameRuns = p.gameRuns.slice(0, 20);
       for (const slug of run.vocabCorrect) {
         p.vocabCorrect[slug] = (p.vocabCorrect[slug] ?? 0) + 1;
@@ -155,6 +161,8 @@ export const store = {
       if (run.game === "sozdik-match") award(p, "first_match");
       if (run.game === "memory-match") award(p, "memory_master");
     });
+    const p = load();
+    syncGameRun(p.id, p.sessionCode, newRun).catch(() => {});
   },
 
   answerLetter(cyr: string, correct: boolean) {

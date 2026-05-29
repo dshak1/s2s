@@ -5,6 +5,12 @@
 // real time (exactly the in-room workshop setup). When Supabase is configured
 // this is the seam to swap for Realtime channels — the shapes match the schema.
 import { useSyncExternalStore } from "react";
+import {
+  syncSessionCreate,
+  syncSessionMember,
+  syncLaunchGame,
+  subscribeRealtimeSession,
+} from "@/lib/supabase/sync";
 
 export type Member = {
   id: string;
@@ -26,6 +32,8 @@ const chan = typeof window !== "undefined" && "BroadcastChannel" in window ? new
 const listeners = new Map<string, Set<() => void>>();
 // Cache stable snapshot references so useSyncExternalStore doesn't loop.
 const cache = new Map<string, SessionState>();
+// Realtime unsubscribe functions keyed by session code.
+const rtUnsubs = new Map<string, () => void>();
 
 function key(code: string) {
   return PREFIX + code.toUpperCase();
@@ -76,6 +84,7 @@ export const sessions = {
   create(code: string) {
     const s = read(code);
     write({ ...s, code: code.toUpperCase(), createdAt: Date.now() });
+    syncSessionCreate(code).catch(() => {});
   },
   registerJoin(code: string, member: Omit<Member, "paws">) {
     const s = read(code);
@@ -88,6 +97,7 @@ export const sessions = {
       s.members.push({ ...member, paws: [] });
     }
     write(s);
+    syncSessionMember(code, member).catch(() => {});
   },
   recordPaw(code: string, memberId: string, clueId: string) {
     const s = read(code);
@@ -99,13 +109,31 @@ export const sessions = {
   },
   launchGame(code: string, game: string | null) {
     write({ ...read(code), currentGame: game });
+    syncLaunchGame(code, game).catch(() => {});
   },
   get: read,
   subscribe(code: string, cb: () => void) {
     const c = code.toUpperCase();
-    if (!listeners.has(c)) listeners.set(c, new Set());
+    if (!listeners.has(c)) {
+      listeners.set(c, new Set());
+      // Wire Supabase Realtime on first subscriber (no-op when env vars absent).
+      const unsub = subscribeRealtimeSession(c, (members) => {
+        const current = readRaw(c);
+        cache.set(c, { ...current, members });
+        notify(c);
+      });
+      rtUnsubs.set(c, unsub);
+    }
     listeners.get(c)!.add(cb);
-    return () => listeners.get(c)?.delete(cb);
+    return () => {
+      const set = listeners.get(c);
+      set?.delete(cb);
+      if (set?.size === 0) {
+        rtUnsubs.get(c)?.();
+        rtUnsubs.delete(c);
+        listeners.delete(c);
+      }
+    };
   },
 };
 
