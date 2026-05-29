@@ -76,7 +76,7 @@ function load(): Profile {
   } catch {
     state = freshProfile();
   }
-  return state;
+  return state!;
 }
 
 function persist() {
