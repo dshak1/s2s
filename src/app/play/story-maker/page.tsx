@@ -6,7 +6,6 @@ import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { PHRASES } from "@/content/phrases";
 import { VOCAB, imgFor } from "@/content/vocab";
-import { sample } from "@/lib/utils";
 import { store, useProfile } from "@/lib/store";
 import { playCorrect } from "@/lib/audio";
 import { Download, Send } from "lucide-react";
@@ -18,7 +17,7 @@ const PH = 340;
 export default function StoryMaker() {
   const profile = useProfile();
   // image choices: kid art first, then a few vocab placeholders so it always works
-  const fallback = sample(VOCAB, 6).map((v) => imgFor(v));
+  const fallback = VOCAB.slice(0, 6).map((v) => imgFor(v));
   const choices = [...profile.artifacts.map((a) => a.dataUrl), ...fallback];
 
   const [panels, setPanels] = useState<PanelState[]>([
@@ -138,7 +137,7 @@ export default function StoryMaker() {
       {shareMsg && <p className="mt-3 text-center text-sm font-bold text-steppe">{shareMsg}</p>}
       {profile.artifacts.filter((a) => a.kind === "tanba").length === 0 && (
         <p className="mt-3 text-center text-sm text-wolf">
-          Tip: draw a tańba in Tańba Studio first and it&apos;ll show up here as a picture choice!
+          Tip: design an avatar first and it&apos;ll show up here as a picture choice.
         </p>
       )}
     </GameShell>

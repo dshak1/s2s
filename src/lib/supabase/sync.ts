@@ -149,6 +149,15 @@ type RealtimeMember = {
   paws: string[];
 };
 
+function joinedProfileName(value: unknown): string {
+  const profile = Array.isArray(value) ? value[0] : value;
+  if (profile && typeof profile === "object" && "display_name" in profile) {
+    const name = (profile as { display_name?: unknown }).display_name;
+    if (typeof name === "string" && name.trim()) return name;
+  }
+  return "Kid";
+}
+
 export function subscribeRealtimeSession(
   code: string,
   onMembers: (members: RealtimeMember[]) => void,
@@ -170,7 +179,7 @@ export function subscribeRealtimeSession(
     if (!data || torn) return;
     const members: RealtimeMember[] = data.map((row) => ({
       id: row.profile_id as string,
-      name: (row.profiles as { display_name: string } | null)?.display_name ?? "Kid",
+      name: joinedProfileName(row.profiles),
       table: (row.table_no as string | null) ?? "1",
       avatar: null,
       paws: Array.from({ length: (row.paw_prints as number) ?? 0 }, (_, i) => String(i)),

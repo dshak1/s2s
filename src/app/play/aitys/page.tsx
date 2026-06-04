@@ -1,5 +1,7 @@
 "use client";
 
+// TODO: This route is intentionally unlinked. Re-enable Aitys only after the
+// couplets are replaced with real rhyming Kazakh lines.
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
@@ -7,7 +9,7 @@ import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { COUPLETS, type Couplet } from "@/content/aitys-couplets";
 import { shuffle } from "@/lib/utils";
-import { playCorrect, playWrong, playWin, speakWord } from "@/lib/audio";
+import { playWrong, playWin, speakWord } from "@/lib/audio";
 
 type Mode = "cpu" | "teams";
 

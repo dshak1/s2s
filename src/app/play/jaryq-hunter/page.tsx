@@ -1,332 +1,228 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { GameShell, Scoreboard } from "@/components/game/game-shell";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, Maximize2, Minimize2, RotateCcw } from "lucide-react";
 import { Confetti } from "@/components/game/confetti";
-import { Button } from "@/components/ui/button";
-import { VOCAB, imgFor } from "@/content/vocab";
-import { sample } from "@/lib/utils";
-import { playCorrect, playWrong, playWin, speakWord } from "@/lib/audio";
+import { playCorrect, playWin, speakWord } from "@/lib/audio";
 import { store } from "@/lib/store";
-import { Camera, MousePointer2 } from "lucide-react";
 
-const W = 720;
-const H = 460;
-const LIGHT = 78;
-const COLLECT = 46;
+type FlashWord = {
+  kk: string;
+  en: string;
+  slug: string;
+  x: number;
+  y: number;
+};
 
-type Token = { id: string; x: number; y: number; ch: string };
-type Wolf = { id: string; x: number; y: number; vx: number; vy: number };
+const FLASH_WORDS: FlashWord[] = [
+  { kk: "ҚАСҚЫР", en: "wolf", slug: "qasqyr", x: 50, y: 46 },
+  { kk: "ТҮЛКІ", en: "fox", slug: "tulki", x: 80, y: 30 },
+  { kk: "АЮ", en: "bear", slug: "aiu", x: 18, y: 30 },
+  { kk: "ҚОЙ", en: "sheep", slug: "qoi", x: 84, y: 74 },
+  { kk: "БҮРКІТ", en: "eagle", slug: "burkit", x: 24, y: 72 },
+  { kk: "БАРЫС", en: "snow leopard", slug: "barys", x: 62, y: 60 },
+  { kk: "ТҮЙЕ", en: "camel", slug: "tuie", x: 40, y: 58 },
+  { kk: "АТ", en: "horse", slug: "at", x: 52, y: 82 },
+];
 
-// pick a short target word with <=6 letters
-function pickTarget() {
-  const candidates = VOCAB.filter((v) => v.kk.replace(/\s/g, "").length >= 3 && v.kk.length <= 6);
-  return sample(candidates, 1)[0];
+const BEAM_PERCENT = 22;
+
+function litWord(pos: { x: number; y: number }, found: string[]) {
+  return FLASH_WORDS.find((word) => {
+    if (found.includes(word.kk)) return false;
+    return Math.hypot(word.x - pos.x * 100, word.y - pos.y * 100) < BEAM_PERCENT * 0.62;
+  });
 }
 
-function layout(word: string): Token[] {
-  const chars = word.toUpperCase().replace(/\s/g, "").split("");
-  return chars.map((ch, i) => ({
-    id: `${i}-${ch}`,
-    ch,
-    x: 70 + Math.random() * (W - 140),
-    y: 60 + Math.random() * (H - 120),
-  }));
-}
-
-export default function JaryqHunter() {
-  const [mode, setMode] = useState<"touch" | "webcam">("touch");
-  const target = useRef(pickTarget());
-  const [tokens, setTokens] = useState<Token[]>(() => layout(target.current.kk));
-  const [collected, setCollected] = useState(0);
-  const [pos, setPos] = useState({ x: W / 2, y: H / 2 });
-  const posRef = useRef({ x: W / 2, y: H / 2 });
-  const [status, setStatus] = useState<"play" | "won" | "caught">("play");
-  const [wolves, setWolves] = useState<Wolf[]>([]);
-  const wolvesRef = useRef<Wolf[]>([]);
-  const collectedRef = useRef(0);
-  const fieldRef = useRef<HTMLDivElement>(null);
-  const raf = useRef(0);
-
-  // webcam refs
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const sampleCanvas = useRef<HTMLCanvasElement | null>(null);
-  const [camState, setCamState] = useState<"idle" | "calibrating" | "tracking" | "error">("idle");
-  const streamRef = useRef<MediaStream | null>(null);
-
-  const reset = useCallback(() => {
-    target.current = pickTarget();
-    setTokens(layout(target.current.kk));
-    setCollected(0);
-    collectedRef.current = 0;
-    setStatus("play");
-    const ws: Wolf[] = Array.from({ length: 2 }, (_, i) => ({
-      id: `w${i}`,
-      x: 120 + i * 320,
-      y: 120 + i * 160,
-      vx: (Math.random() > 0.5 ? 1 : -1) * (1.4 + Math.random()),
-      vy: (Math.random() > 0.5 ? 1 : -1) * (1.4 + Math.random()),
-    }));
-    wolvesRef.current = ws;
-    setWolves(ws);
-  }, []);
+export default function FlashlightWords() {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+  const [found, setFound] = useState<string[]>([]);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    reset();
-  }, [reset]);
+    const onFullscreen = () => setFullscreen(document.fullscreenElement === stageRef.current);
+    document.addEventListener("fullscreenchange", onFullscreen);
+    return () => document.removeEventListener("fullscreenchange", onFullscreen);
+  }, []);
 
-  const setLight = useCallback((x: number, y: number) => {
-    const cx = Math.max(0, Math.min(W, x));
-    const cy = Math.max(0, Math.min(H, y));
-    posRef.current = { x: cx, y: cy };
-    setPos({ x: cx, y: cy });
-
-    // collect next needed letter in order
-    const needIdx = collectedRef.current;
-    setTokens((prev) => {
-      const tok = prev[needIdx];
-      if (tok && Math.hypot(tok.x - cx, tok.y - cy) < COLLECT) {
-        collectedRef.current += 1;
-        setCollected(collectedRef.current);
-        speakWord(target.current.kk);
-        if (collectedRef.current >= prev.length) {
-          playWin();
-          setStatus("won");
-          store.recordGameRun({
-            game: "jaryq-hunter",
-            score: 40,
-            vocabSeen: [target.current.slug],
-            vocabCorrect: [target.current.slug],
-          });
-        } else {
-          playCorrect();
-        }
-      }
-      return prev;
+  function move(event: React.PointerEvent<HTMLDivElement>) {
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPos({
+      x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
     });
-  }, []);
-
-  // pointer control (touch + mouse)
-  function onPointer(e: React.PointerEvent) {
-    if (mode !== "touch" || status !== "play") return;
-    const r = fieldRef.current!.getBoundingClientRect();
-    setLight(((e.clientX - r.left) / r.width) * W, ((e.clientY - r.top) / r.height) * H);
   }
 
-  // keyboard fallback
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (status !== "play" || mode !== "touch") return;
-      const step = 26;
-      const { x, y } = posRef.current;
-      if (e.key === "ArrowLeft") setLight(x - step, y);
-      else if (e.key === "ArrowRight") setLight(x + step, y);
-      else if (e.key === "ArrowUp") setLight(x, y - step);
-      else if (e.key === "ArrowDown") setLight(x, y + step);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [status, mode, setLight]);
-
-  // wolf patrol + collision loop
-  useEffect(() => {
-    function tick() {
-      if (status === "play") {
-        const ws = wolvesRef.current.map((w) => {
-          let { x, y, vx, vy } = w;
-          x += vx; y += vy;
-          if (x < 40 || x > W - 40) vx = -vx;
-          if (y < 40 || y > H - 40) vy = -vy;
-          return { ...w, x: Math.max(40, Math.min(W - 40, x)), y: Math.max(40, Math.min(H - 40, y)), vx, vy };
-        });
-        wolvesRef.current = ws;
-        setWolves(ws);
-        const { x, y } = posRef.current;
-        if (ws.some((w) => Math.hypot(w.x - x, w.y - y) < LIGHT * 0.5)) {
-          playWrong();
-          setStatus("caught");
-        }
-      }
-      raf.current = requestAnimationFrame(tick);
-    }
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
-  }, [status]);
-
-  // ---- webcam flashlight (v2) ----
-  async function startWebcam() {
-    setMode("webcam");
-    setCamState("calibrating");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      sampleCanvas.current = document.createElement("canvas");
-      sampleCanvas.current.width = 64;
-      sampleCanvas.current.height = 48;
-    } catch {
-      setCamState("error");
-      setTimeout(() => { setMode("touch"); setCamState("idle"); }, 1800);
+  function catchActive() {
+    const active = litWord(pos, found);
+    if (!active || done) return;
+    const next = [...found, active.kk];
+    setFound(next);
+    speakWord(active.kk);
+    playCorrect();
+    if (next.length === FLASH_WORDS.length) {
+      setDone(true);
+      playWin();
+      store.recordGameRun({
+        game: "jaryq-hunter",
+        score: FLASH_WORDS.length * 8,
+        vocabSeen: FLASH_WORDS.map((word) => word.slug),
+        vocabCorrect: FLASH_WORDS.map((word) => word.slug),
+      });
     }
   }
-  function stopWebcam() {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    setMode("touch");
-    setCamState("idle");
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      stageRef.current?.requestFullscreen?.().catch(() => {});
+      return;
+    }
+    document.exitFullscreen?.();
   }
-  useEffect(() => () => { streamRef.current?.getTracks().forEach((t) => t.stop()); }, []);
 
-  // brightest-blob detection loop while tracking
-  useEffect(() => {
-    if (mode !== "webcam" || camState !== "tracking") return;
-    let id = 0;
-    function frame() {
-      const v = videoRef.current;
-      const c = sampleCanvas.current;
-      if (v && c && v.videoWidth) {
-        const ctx = c.getContext("2d")!;
-        ctx.drawImage(v, 0, 0, c.width, c.height);
-        const data = ctx.getImageData(0, 0, c.width, c.height).data;
-        let best = -1, bx = c.width / 2, by = c.height / 2;
-        for (let py = 0; py < c.height; py++) {
-          for (let px = 0; px < c.width; px++) {
-            const i = (py * c.width + px) * 4;
-            const lum = data[i] + data[i + 1] + data[i + 2];
-            if (lum > best) { best = lum; bx = px; by = py; }
-          }
-        }
-        if (best > 560) {
-          // mirror X so it feels natural; map to field
-          setLight((1 - bx / c.width) * W, (by / c.height) * H);
-        }
-      }
-      id = requestAnimationFrame(frame);
-    }
-    id = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(id);
-  }, [mode, camState, setLight]);
+  function reset() {
+    setFound([]);
+    setDone(false);
+  }
 
-  // press space to finish calibration
-  useEffect(() => {
-    function onSpace(e: KeyboardEvent) {
-      if (e.code === "Space" && camState === "calibrating") {
-        e.preventDefault();
-        setCamState("tracking");
-      }
-    }
-    window.addEventListener("keydown", onSpace);
-    return () => window.removeEventListener("keydown", onSpace);
-  }, [camState]);
-
-  const word = target.current.kk.toUpperCase();
+  const active = litWord(pos, found);
+  const remaining = FLASH_WORDS.length - found.length;
 
   return (
-    <GameShell title="Jaryq Hunter" kk="Жарық аңшысы" right={<Scoreboard label="Found" value={`${collected}/${tokens.length}`} />}>
-      {status === "won" && <Confetti />}
-
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-2">
-          <button
-            onClick={() => { stopWebcam(); setMode("touch"); }}
-            className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold ${mode === "touch" ? "bg-steppe text-warm" : "bg-felt text-steppe"}`}
-          >
-            <MousePointer2 size={15} /> Touch / Mouse
-          </button>
-          <button
-            onClick={startWebcam}
-            className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold ${mode === "webcam" ? "bg-steppe text-warm" : "bg-felt text-steppe"}`}
-          >
-            <Camera size={15} /> Webcam Flashlight
-          </button>
-        </div>
-        <div className="text-lg font-black tracking-widest text-steppe">
-          {word.split("").map((c, i) => (
-            <span key={i} className={i < collected ? "text-gold" : "text-steppe/30"}>{c}</span>
-          ))}
-        </div>
-      </div>
-
-      <p className="mb-2 text-center text-sm text-wolf">
-        Find the letters of <span className="font-black text-steppe">{target.current.kk}</span> ({target.current.en}) — and don&apos;t shine on the wolves (қасқыр)!
-      </p>
-
+    <div className="min-h-dvh bg-[#06101f] p-0 sm:p-4">
+      {done && <Confetti />}
       <div
-        ref={fieldRef}
-        onPointerMove={onPointer}
-        onPointerDown={onPointer}
-        className="relative mx-auto select-none overflow-hidden rounded-3xl bg-[#0c1322]"
-        style={{ aspectRatio: `${W} / ${H}`, maxWidth: W, touchAction: "none" }}
+        ref={stageRef}
+        onPointerMove={move}
+        onPointerDown={(event) => {
+          move(event);
+          catchActive();
+        }}
+        className="flashlight-stage relative mx-auto h-dvh max-h-none min-h-[620px] w-full max-w-6xl cursor-none overflow-hidden rounded-none bg-[#06101f] text-warm sm:h-[calc(100dvh-2rem)] sm:rounded-2xl"
+        style={{
+          background: "radial-gradient(120% 90% at 50% 0%, #16335c 0%, #0c1f3a 55%, #06101f 100%)",
+          touchAction: "none",
+        }}
       >
-        <div className="absolute inset-0" style={{ width: "100%", height: "100%" }}>
-          <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full">
-            {/* letter tokens */}
-            {tokens.map((t, i) => (
-              <g key={t.id} opacity={i < collected ? 0.25 : 1}>
-                <circle cx={t.x} cy={t.y} r={24} fill="#1E4D8C" stroke="#FFD700" strokeWidth={3} />
-                <text x={t.x} y={t.y + 8} textAnchor="middle" fontSize={24} fontWeight={900} fill="#FFD700">{t.ch}</text>
-              </g>
-            ))}
-            {/* a couple of vocab picture rewards for flavor */}
-            <image href={imgFor(target.current)} x={W - 90} y={H - 90} width={64} height={64} opacity={status === "won" ? 1 : 0.9} />
-            {/* wolves */}
-            {wolves.map((w) => (
-              <g key={w.id}>
-                <circle cx={w.x} cy={w.y} r={26} fill="#5B6770" stroke="#1B1B1B" strokeWidth={3} />
-                <text x={w.x} y={w.y + 7} textAnchor="middle" fontSize={20} fontWeight={900} fill="#FAF6E9">Қ</text>
-              </g>
-            ))}
-          </svg>
-        </div>
-
-        {/* darkness overlay with spotlight hole */}
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 z-10"
           style={{
-            background: `radial-gradient(circle ${LIGHT}px at ${(pos.x / W) * 100}% ${(pos.y / H) * 100}%, transparent 0%, transparent 55%, rgba(5,8,16,0.97) 78%)`,
+            background: `radial-gradient(circle 150px at ${pos.x * 100}% ${pos.y * 100}%, transparent 0%, transparent 42%, rgba(4,10,20,.88) 74%)`,
           }}
         />
 
-        {/* webcam overlays */}
-        {mode === "webcam" && (
-          <div className="absolute right-2 top-2 z-10 w-28 overflow-hidden rounded-xl border-2 border-gold">
-            <video ref={videoRef} muted playsInline className="h-20 w-full scale-x-[-1] object-cover" />
-          </div>
-        )}
-        {mode === "webcam" && camState !== "tracking" && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/80 text-center text-warm">
-            {camState === "calibrating" && (
-              <>
-                <Camera className="text-gold" />
-                <p className="max-w-xs font-bold">Aim a flashlight (or bright phone) at the center, then press <span className="text-gold">Space</span>.</p>
-                <Button variant="gold" onClick={() => setCamState("tracking")}>Start tracking</Button>
-              </>
-            )}
-            {camState === "error" && <p className="font-bold text-gold">Calibrating webcam… no camera found, falling back to touch.</p>}
-          </div>
-        )}
-
-        {/* end states */}
-        <AnimatePresence>
-          {status !== "play" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-steppe/85 text-center text-warm"
+        {FLASH_WORDS.map((word) => {
+          const distance = Math.hypot(word.x - pos.x * 100, word.y - pos.y * 100);
+          const isFound = found.includes(word.kk);
+          const lit = !isFound && distance < BEAM_PERCENT;
+          return (
+            <div
+              key={word.kk}
+              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 text-center transition-opacity"
+              style={{
+                left: `${word.x}%`,
+                top: `${word.y}%`,
+                opacity: isFound ? 0.34 : lit ? 1 : 0.07,
+              }}
             >
-              <p className="text-3xl font-black text-gold">{status === "won" ? "You found the word!" : "A wolf caught you!"}</p>
-              {status === "won" && <p className="text-xl font-bold">{target.current.kk} — {target.current.en}</p>}
-              <Button variant="gold" size="lg" onClick={reset}>Play again</Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              <div
+                className="text-3xl font-black tracking-wide sm:text-4xl"
+                style={{
+                  color: isFound ? "#82d49d" : lit ? "#3a2a06" : "rgba(255,255,255,.65)",
+                  textShadow: lit ? "0 1px 0 rgba(255,236,170,.9)" : "none",
+                }}
+              >
+                {word.kk}
+              </div>
+              {lit && <div className="text-base font-black text-[#6b5212]">{word.en}</div>}
+              {isFound && <div className="text-xl font-black text-[#82d49d]">✓</div>}
+              {active?.kk === word.kk && (
+                <div className="mt-2 inline-block rounded-full bg-steppe-700 px-3 py-1 text-xs font-black text-gold shadow-lg">
+                  Click to catch
+                </div>
+              )}
+            </div>
+          );
+        })}
 
-      <p className="mt-3 text-center text-xs text-wolf">Tip: drag with your finger, move the mouse, or use arrow keys to move the light.</p>
-    </GameShell>
+        <div
+          className="pointer-events-none absolute z-20 rounded-full"
+          style={{
+            left: `${pos.x * 100}%`,
+            top: `${pos.y * 100}%`,
+            width: 300,
+            height: 300,
+            transform: "translate(-50%,-50%)",
+            background: "radial-gradient(circle, rgba(255,236,170,.42) 0%, rgba(255,221,120,.16) 45%, transparent 68%)",
+            mixBlendMode: "screen",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute z-30 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/70"
+          style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
+        />
+
+        <div className="absolute left-3 right-3 top-3 z-40 flex items-start justify-between gap-3 sm:left-4 sm:right-4 sm:top-4">
+          <div className="flex items-start gap-3">
+            <Link
+              href="/play"
+              className="grid h-11 w-11 place-items-center rounded-xl border border-white/30 bg-white/10 text-warm transition hover:bg-white/20"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <ArrowLeft size={22} />
+            </Link>
+            <div>
+              <div className="text-xs font-black uppercase tracking-[0.18em] text-gold">Жарық · Flashlight Words</div>
+              <h1 className="text-xl font-black sm:text-3xl">
+                Find the animals · <span className="text-gold">{found.length}/{FLASH_WORDS.length}</span>
+              </h1>
+            </div>
+          </div>
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleFullscreen();
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/10 px-4 py-2 text-sm font-black text-warm transition hover:bg-white/20"
+          >
+            {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {fullscreen ? "Exit fullscreen" : "Go Fullscreen"}
+          </button>
+        </div>
+
+        <div className="absolute bottom-4 left-4 right-4 z-40 flex flex-wrap items-center gap-3">
+          <span className="text-sm font-bold text-white/75">
+            Move the light with mouse or finger. Click inside the beam to catch a word. {remaining > 0 ? `${remaining} to go.` : "Done."}
+          </span>
+          <div className="ml-auto flex max-w-full flex-wrap justify-end gap-2">
+            {found.map((word) => (
+              <span key={word} className="rounded-full border border-gold/40 bg-gold/15 px-3 py-1 text-xs font-black text-gold">
+                ✓ {word}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {done && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-steppe/85 p-6 text-center">
+            <div className="text-4xl font-black text-gold">All words found!</div>
+            <p className="max-w-md text-lg font-bold text-warm/90">+{FLASH_WORDS.length * 8} points · replay for more practice.</p>
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                reset();
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3 font-black text-steppe-700"
+            >
+              <RotateCcw size={18} /> Replay
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

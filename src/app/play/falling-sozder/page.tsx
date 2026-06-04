@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Button } from "@/components/ui/button";
 import { VOCAB, type VocabItem } from "@/content/vocab";
@@ -29,22 +29,28 @@ export default function FallingSozder() {
   const lastTs = useRef(0);
   const runningRef = useRef(false);
   const currentRef = useRef<VocabItem | null>(null);
+  const basketsRef = useRef<VocabItem[]>([]);
   const seen = useRef<Set<string>>(new Set());
   const correctSet = useRef<Set<string>>(new Set());
   const catchesRef = useRef(0);
   const missesRef = useRef(0);
   const levelRef = useRef(1);
 
-  const spawn = useCallback(() => {
-    const trio = baskets.length ? baskets : sample(VOCAB, 3);
+  const spawn = useCallback((basketSet = basketsRef.current) => {
+    const trio = basketSet.length ? basketSet : sample(VOCAB, 3);
+    if (!basketSet.length) {
+      basketsRef.current = trio;
+      setBaskets(trio);
+    }
     const pick = trio[Math.floor(Math.random() * trio.length)];
+    console.assert(trio.some((item) => item.slug === pick.slug), "Falling Words answer must be in the active baskets");
     currentRef.current = pick;
     setCurrent(pick);
     seen.current.add(pick.slug);
     yRef.current = 0;
     setY(0);
     setX(15 + Math.random() * 70);
-  }, [baskets]);
+  }, []);
 
   const endGame = useCallback(() => {
     runningRef.current = false;
@@ -91,6 +97,7 @@ export default function FallingSozder() {
 
   function start() {
     const trio = sample(VOCAB, 3);
+    basketsRef.current = trio;
     setBaskets(trio);
     setCatches(0);
     setMisses(0);
@@ -103,14 +110,7 @@ export default function FallingSozder() {
     setOver(false);
     runningRef.current = true;
     setRunning(true);
-    // spawn first word from the new trio
-    const pick = trio[Math.floor(Math.random() * trio.length)];
-    currentRef.current = pick;
-    setCurrent(pick);
-    seen.current.add(pick.slug);
-    yRef.current = 0;
-    setY(0);
-    setX(15 + Math.random() * 70);
+    spawn(trio);
     lastTs.current = 0;
     raf.current = requestAnimationFrame(loop);
   }
@@ -128,9 +128,13 @@ export default function FallingSozder() {
       if (catchesRef.current % 8 === 0) {
         levelRef.current += 1;
         setLevel(levelRef.current);
-        setBaskets(sample(VOCAB, 3));
+        const nextBaskets = sample(VOCAB, 3);
+        basketsRef.current = nextBaskets;
+        setBaskets(nextBaskets);
+        spawn(nextBaskets);
+      } else {
+        spawn();
       }
-      spawn();
       lastTs.current = 0;
     } else {
       playWrong();
@@ -144,7 +148,7 @@ export default function FallingSozder() {
 
   return (
     <GameShell
-      title="Falling Sözder"
+      title="Falling Words"
       kk="Құлайтын сөздер"
       right={<Scoreboard label="Lvl" value={level} />}
     >
@@ -165,7 +169,7 @@ export default function FallingSozder() {
               className="absolute -translate-x-1/2 rounded-2xl bg-gold px-4 py-2 text-xl font-black text-steppe-700 shadow-lg"
               style={{ top: y, left: `${x}%` }}
             >
-              {current.kk}
+              {current.en}
             </div>
           )}
         </AnimatePresence>
@@ -179,7 +183,7 @@ export default function FallingSozder() {
               disabled={!running}
               className="rounded-2xl border-4 border-gold/60 bg-warm/95 py-3 text-center text-base font-black text-steppe shadow-md transition active:scale-95 disabled:opacity-60"
             >
-              {b.en}
+              {b.kk}
             </button>
           ))}
         </div>
@@ -192,7 +196,7 @@ export default function FallingSozder() {
                 <p>You caught {catches} words and reached level {level}.</p>
               </>
             ) : (
-              <p className="max-w-xs text-warm/90">Tap the basket that matches the falling Kazakh word before it lands!</p>
+              <p className="max-w-xs text-warm/90">Tap the Kazakh basket that matches the falling English word before it lands!</p>
             )}
             <Button variant="gold" size="lg" onClick={start}>{over ? "Play again" : "Start"}</Button>
           </div>

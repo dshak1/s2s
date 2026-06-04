@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { store, useProfile } from "@/lib/store";
+import { JOURNEY, normalizeCode } from "@/content/journey";
 import { Upload } from "lucide-react";
 
 // Single-password gate via env var (not a role system — see DECISIONS.md).
@@ -16,6 +17,11 @@ export default function AdminContent() {
   const [pw, setPw] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState("");
+  const [codes, setCodes] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setCodes(profile.weeklyCodes);
+  }, [profile.weeklyCodes]);
 
   if (!ok) {
     return (
@@ -58,6 +64,13 @@ export default function AdminContent() {
 
   const canva = profile.artifacts.filter((a) => a.kind === "canva");
 
+  function saveCodes() {
+    JOURNEY.forEach((stop) => {
+      store.setWeekCode(stop.id, codes[stop.id] ?? stop.defaultCode);
+    });
+    setNote("Weekly unlock codes saved.");
+  }
+
   return (
     <div className="min-h-dvh bg-warm font-admin">
       <TopNav />
@@ -67,8 +80,8 @@ export default function AdminContent() {
         <Card>
           <h2 className="font-black text-steppe">Canva imports</h2>
           <p className="text-sm text-wolf">
-            Upload the PNGs kids made in Canva. They appear in the kid&apos;s gallery, Tańba
-            Studio picker, and Story Maker.
+            Upload the PNGs kids made in Canva. They appear in the kid&apos;s gallery,
+            avatar picker, and Story Maker.
           </p>
           <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={uploadCanva} />
           <Button variant="gold" className="mt-3" onClick={() => fileRef.current?.click()}>
@@ -83,6 +96,33 @@ export default function AdminContent() {
               ))}
             </div>
           )}
+        </Card>
+
+        <Card>
+          <h2 className="font-black text-steppe">Silk Road weekly codes</h2>
+          <p className="text-sm text-wolf">
+            Kids unlock the next workshop stop by entering the code handed out in person.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {JOURNEY.map((stop) => (
+              <label key={stop.id} className="rounded-2xl bg-white p-3">
+                <span className="text-xs font-black uppercase tracking-wider text-wolf">
+                  Week {stop.week} · {stop.name}
+                </span>
+                <input
+                  value={codes[stop.id] ?? stop.defaultCode}
+                  onChange={(event) => {
+                    const value = normalizeCode(event.target.value);
+                    setCodes((current) => ({ ...current, [stop.id]: value }));
+                  }}
+                  className="mt-1 w-full rounded-xl border-2 border-steppe/20 px-3 py-2 font-black uppercase tracking-widest text-steppe outline-none focus:border-steppe"
+                />
+              </label>
+            ))}
+          </div>
+          <Button variant="gold" className="mt-3" onClick={saveCodes}>
+            Save weekly codes
+          </Button>
         </Card>
 
         <Card>

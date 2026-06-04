@@ -19,21 +19,21 @@ badges and `game_runs` persist in `localStorage`. See **DEMO.md** for the
 
 | Game | Kazakh | What it teaches |
 |------|--------|-----------------|
-| Sözdik Match | Сөздік сәйкестік | Drag words to pictures (3 modes) |
-| Tańba Studio | Таңба студиясы | Draw your tańba → it becomes your avatar |
-| Dala Quest | Дала квесі | Steppe-map hub, 8 unlockable regions |
-| Jaryq Hunter | Жарық аңшысы | Flashlight-in-the-dark (touch + webcam) |
-| Esten Qaldyrma | Естен қалдырма | Flip-card memory |
-| Aitys Battle | Айтыс | Fill the rhyming Kazakh couplet |
-| Falling Sözder | Құлайтын сөздер | Catch falling words into baskets |
-| Yurt Builder | Үй құрушы | Master letters → build an SVG yurt |
+| Sound It Out | Дыбыс | Hear a Kazakh letter sound and pick the Cyrillic letter |
+| Word Match | Сөз сәйкестік | Match English prompts or pictures to Kazakh words |
+| Memory Match | Естен қалдырма | Pair English and Kazakh cards |
+| Falling Words | Құлайтын сөздер | Catch English prompts in Kazakh baskets |
+| Where in Kazakhstan? | Қайда? | Drop a pin on a stylized Kazakhstan map |
+| Steppe Bazaar | Базар | Food vocab, quantities, and teńge addition |
 | Snow Leopard Patrol | Қар барысы | QR scavenger hunt across the room |
-| Story Maker | Әңгіме жасаушы | Comic from the kid's own art |
+| Flashlight Words | Жарық | Fullscreen projector/touch word hunt |
+| Design Your Avatar | Сурет салу | Draw or upload art → it becomes your avatar |
+| Story Maker | Әңгіме | Comic from the kid's own art |
 
 ## Routes
 - `/` landing · `/join` kid join · `/play` games hub
 - `/profile/[id]` kid hub (avatar, mastery, yurt, badges, gallery)
-- `/quest` + `/quest/[region]` Dala Quest
+- `/quest` + `/quest/[region]` legacy region routes; `/play` is the Silk Road hub
 - `/facilitator` console · `/facilitator/[code]/live` projector · `/facilitator/[code]/print` printable QR hunt
 - `/admin/content` password-gated content tools
 

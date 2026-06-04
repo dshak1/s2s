@@ -11,22 +11,23 @@ import { sample, shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord, playWin } from "@/lib/audio";
 import { store } from "@/lib/store";
 
-type Mode = "image-kk" | "kk-en" | "en-kk";
+type Mode = "image-kk" | "en-kk";
 const MODE_LABEL: Record<Mode, string> = {
   "image-kk": "Picture → Kazakh",
-  "kk-en": "Kazakh → English",
   "en-kk": "English → Kazakh",
 };
 const ROUND_SIZE = 6;
 
+function initialRound(source: VocabItem[]) {
+  return source.slice(0, ROUND_SIZE);
+}
+
 function cardFace(item: VocabItem, mode: Mode) {
   if (mode === "image-kk") return <img src={imgFor(item)} alt={item.en} className="h-20 w-20" />;
-  if (mode === "kk-en") return <span className="text-2xl font-black text-steppe">{item.kk}</span>;
   return <span className="text-xl font-black text-steppe">{item.en}</span>;
 }
 function labelText(item: VocabItem, mode: Mode) {
   if (mode === "image-kk") return item.kk;
-  if (mode === "kk-en") return item.en;
   return item.kk;
 }
 
@@ -42,8 +43,8 @@ function SozdikMatchInner() {
   const cat = useSearchParams().get("cat");
   const source = useMemo(() => pool(cat), [cat]);
   const [mode, setMode] = useState<Mode>("image-kk");
-  const [round, setRound] = useState(() => sample(source, ROUND_SIZE));
-  const [labels, setLabels] = useState(() => shuffle(round));
+  const [round, setRound] = useState(() => initialRound(source));
+  const [labels, setLabels] = useState(() => [...initialRound(source)].reverse());
   const [matched, setMatched] = useState<Set<string>>(new Set());
   const [attempts, setAttempts] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -104,8 +105,8 @@ function SozdikMatchInner() {
 
   return (
     <GameShell
-      title="Sözdik Match"
-      kk="Сөздік сәйкестік"
+      title="Word Match"
+      kk="Сөз сәйкестік"
       right={<Scoreboard label="✓" value={`${matched.size}/${round.length}`} />}
     >
       {done && accuracy === 100 && <Confetti />}

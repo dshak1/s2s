@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Games Hub — Design Directions · Steppe to Screen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #ece6d8; }
+  * { box-sizing: border-box; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="s2s-shared.jsx"></script>
+<script type="text/babel" src="s2s-directions-a.jsx"></script>
+<script type="text/babel" src="s2s-directions-b.jsx"></script>
+
+<script type="text/babel">
+const { useEffect, useState } = React;
+
+// ---- Design brief (opens the canvas) -------------------------------------
+function Brief() {
+  const swatches = [
+    ["Steppe", PALETTE.steppe], ["Steppe 700", PALETTE.steppe700], ["Gold", PALETTE.gold],
+    ["Warm", PALETTE.warm], ["Felt", PALETTE.felt], ["Terra", PALETTE.terra], ["Wolf", PALETTE.wolf],
+  ];
+  const dirs = [
+    ["1 · Tidy Grid", "Your current /play, refined — crisp 4-up grid, filters, per-tile progress. The safe baseline."],
+    ["2 · Sticker Book", "Games as chunky die-cut stickers in a felt album. Locked ones wait to be collected. Max joy."],
+    ["3 · Steppe Trail", "A winding gold trail across the steppe; games are numbered stops you unlock in order. Quest feel."],
+    ["4 · Felt & Ornament", "Deep-felt page, stitched gold-dashed patches, ram's-horn ornament bands. Leans into Kazakh craft."],
+    ["5 · Hero Spotlight", "A big 'jump back in' card + daily challenge + streak, then all ten as a compact rail. Habit-forming."],
+    ["6 · Category Shelves", "Sorted onto Words / Make / Adventure shelves so a kid picks by mood, not by scanning ten tiles."],
+  ];
+  return (
+    <div style={{ width: "100%", height: "100%", background: "#fff", fontFamily: "Nunito, sans-serif", padding: "34px 38px", overflow: "hidden" }}>
+      <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 2, color: PALETTE.terra }}>STEPPE TO SCREEN · GAMES HUB (/play)</div>
+      <h1 style={{ margin: "6px 0 8px", fontSize: 38, fontWeight: 900, color: PALETTE.steppe, letterSpacing: -1 }}>Six directions to compare</h1>
+      <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: PALETTE.wolf, maxWidth: 760, lineHeight: 1.5 }}>
+        All desktop, all aimed at kids 5–12, all built from your live brand kit — steppe blue, Kazakh gold, warm felt,
+        rounded Nunito, and the same gold line-art language as your in-app vocab cards. Same ten games everywhere; what
+        changes is layout, metaphor, and how much "game-world" personality we lean into. Mix and match — pick a layout
+        from one and the texture from another.
+      </p>
+      <div style={{ display: "flex", gap: 28, marginTop: 22 }}>
+        <div style={{ flex: "0 0 auto" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: PALETTE.wolf, marginBottom: 8, letterSpacing: 1 }}>PALETTE</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {swatches.map(([n, c]) => (
+              <div key={n} style={{ textAlign: "center" }}>
+                <div style={{ width: 46, height: 46, borderRadius: 12, background: c, border: "1px solid rgba(0,0,0,.1)" }} />
+                <div style={{ fontSize: 10, fontWeight: 700, color: PALETTE.wolf, marginTop: 4 }}>{n}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: PALETTE.wolf, margin: "18px 0 8px", letterSpacing: 1 }}>TYPE · NUNITO</div>
+          <div style={{ fontSize: 30, fontWeight: 900, color: PALETTE.steppe, lineHeight: 1 }}>Aa Бб 900</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: PALETTE.wolf }}>Sálemetsiz be! · Сәлеметсіз бе!</div>
+        </div>
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 22px" }}>
+          {dirs.map(([t, d]) => (
+            <div key={t} style={{ display: "flex", gap: 10 }}>
+              <div style={{ width: 6, alignSelf: "stretch", borderRadius: 4, background: PALETTE.gold, flex: "0 0 auto" }} />
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: PALETTE.steppe }}>{t}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: PALETTE.wolf, lineHeight: 1.35 }}>{d}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ position: "absolute", left: 38, bottom: 26, fontSize: 13, fontWeight: 700, color: PALETTE.wolf }}>
+        → Scroll right through the six frames. Click any to open it fullscreen. Drag to reorder.
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="brief" title="Start here" subtitle="The kit + the six directions at a glance">
+        <DCArtboard id="brief" label="Design brief" width={1000} height={520}><Brief /></DCArtboard>
+      </DCSection>
+      <DCSection id="dirs" title="Games hub — six directions" subtitle="Desktop · /play · kids 5–12">
+        <DCArtboard id="d1" label="1 · Tidy Grid (baseline)" width={1240} height={880}><DirTidyGrid /></DCArtboard>
+        <DCArtboard id="d2" label="2 · Sticker Book" width={1240} height={740}><DirStickerBook /></DCArtboard>
+        <DCArtboard id="d3" label="3 · Steppe Trail Map" width={1240} height={820}><DirTrailMap /></DCArtboard>
+        <DCArtboard id="d4" label="4 · Felt & Ornament" width={1240} height={740}><DirFeltCraft /></DCArtboard>
+        <DCArtboard id="d5" label="5 · Hero Spotlight + Rail" width={1240} height={720}><DirHeroSpotlight /></DCArtboard>
+        <DCArtboard id="d6" label="6 · Category Shelves" width={1240} height={900}><DirShelves /></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

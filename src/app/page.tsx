@@ -13,7 +13,7 @@ export default function Home() {
           Steppe <span className="text-gold">to</span> Screen
         </h1>
         <p className="max-w-xl text-lg text-warm/90">
-          Learn Kazakh words, draw your own <span className="font-bold text-gold">tańba</span>,
+          Learn Kazakh words, design your own <span className="font-bold text-gold">avatar</span>,
           explore the steppe, and earn badges — one workshop at a time.
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">

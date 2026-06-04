@@ -27,7 +27,9 @@ export default function TanbaStudio() {
   const [color, setColor] = useState(PALETTE[1].hex);
   const [brush, setBrush] = useState(14);
   const [saved, setSaved] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState<"draw" | "upload">("draw");
+  const canvasFileRef = useRef<HTMLInputElement>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
@@ -91,7 +93,7 @@ export default function TanbaStudio() {
     c.fillRect(0, 0, SIZE, SIZE);
     snapshot();
   }
-  function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function onCanvasUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const img = new Image();
@@ -107,6 +109,19 @@ export default function TanbaStudio() {
     };
     img.src = URL.createObjectURL(file);
   }
+  function onAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      store.addArtifact("tanba", String(reader.result));
+      playCorrect();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    };
+    reader.readAsDataURL(file);
+    e.currentTarget.value = "";
+  }
   function save() {
     const dataUrl = canvasRef.current!.toDataURL("image/png");
     store.addArtifact("tanba", dataUrl);
@@ -118,14 +133,41 @@ export default function TanbaStudio() {
   const canvaImports = profile.artifacts.filter((a) => a.kind === "canva");
 
   return (
-    <GameShell title="Tańba Studio" kk="Таңба студиясы">
+    <GameShell title="Design Your Avatar" kk="Сурет салу">
       {saved && <Confetti count={60} />}
       <p className="mb-4 text-center text-wolf">
-        Draw your own <span className="font-bold text-steppe">tańba</span> — your family&apos;s mark.
-        Save it and it becomes your avatar everywhere.
+        Draw your own avatar, or import artwork you made somewhere else. Save it and it becomes your avatar everywhere.
       </p>
 
-      <div className="flex flex-col items-center gap-5 lg:flex-row lg:items-start lg:justify-center">
+      <div className="mx-auto mb-5 flex w-fit rounded-full bg-felt p-1">
+        {(["draw", "upload"] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setTab(mode)}
+            className={`rounded-full px-5 py-2 text-sm font-black capitalize transition ${
+              tab === mode ? "bg-steppe text-warm" : "text-steppe hover:bg-white/60"
+            }`}
+          >
+            {mode}
+          </button>
+        ))}
+      </div>
+
+      {tab === "upload" && (
+        <div className="mx-auto mb-8 max-w-xl rounded-2xl border-2 border-dashed border-steppe/30 bg-white p-7 text-center">
+          <Upload className="mx-auto text-steppe" size={36} />
+          <h2 className="mt-3 text-xl font-black text-steppe">Upload avatar art</h2>
+          <p className="mt-1 text-sm font-bold text-wolf">
+            PNG, JPG, or SVG works. The uploaded image is saved directly as your avatar.
+          </p>
+          <input ref={avatarFileRef} type="file" accept="image/png,image/jpeg,image/svg+xml" hidden onChange={onAvatarUpload} />
+          <Button variant="gold" size="lg" className="mt-4" onClick={() => avatarFileRef.current?.click()}>
+            <Upload size={18} /> Choose image
+          </Button>
+        </div>
+      )}
+
+      <div className={`flex flex-col items-center gap-5 lg:flex-row lg:items-start lg:justify-center ${tab === "draw" ? "" : "hidden"}`}>
         <div className="flex flex-col items-center gap-3">
           <canvas
             ref={canvasRef}
@@ -141,10 +183,10 @@ export default function TanbaStudio() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={undo}><Undo2 size={16} /> Undo</Button>
             <Button variant="outline" size="sm" onClick={clear}><Eraser size={16} /> Clear</Button>
-            <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-              <Upload size={16} /> Photo
+            <Button variant="outline" size="sm" onClick={() => canvasFileRef.current?.click()}>
+              <Upload size={16} /> Import
             </Button>
-            <input ref={fileRef} type="file" accept="image/*" hidden onChange={onUpload} />
+            <input ref={canvasFileRef} type="file" accept="image/*" hidden onChange={onCanvasUpload} />
           </div>
         </div>
 
@@ -179,7 +221,7 @@ export default function TanbaStudio() {
           <Button variant="gold" size="lg" className="w-full" onClick={save}>
             Save as my avatar
           </Button>
-          {saved && <div className="text-center font-bold text-steppe">Saved! Tańba artist badge earned ✸</div>}
+          {saved && <div className="text-center font-bold text-steppe">Saved as your avatar.</div>}
 
           <div>
             <div className="mb-2 flex items-center gap-1 text-sm font-bold text-steppe-700">
@@ -187,7 +229,7 @@ export default function TanbaStudio() {
             </div>
             {canvaImports.length === 0 ? (
               <p className="text-xs text-wolf">
-                None yet. A facilitator can upload your Canva art in /admin/content.
+                None yet. A facilitator can upload your workshop art in /admin/content.
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">

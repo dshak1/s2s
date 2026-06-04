@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Games Hub v2 — Silk Road + Fresh Games · Steppe to Screen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #ece6d8; }
+  * { box-sizing: border-box; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="s2s-shared.jsx"></script>
+<script type="text/babel" src="s2s-revised.jsx"></script>
+<script type="text/babel" src="s2s-games.jsx"></script>
+
+<script type="text/babel">
+function BriefV2() {
+  const changes = [
+    ["Reframed as the Silk Road", "Play → clear levels → progress along a map. Each week's stop unlocks with an in-person code from the workshop. Replay anything for more points."],
+    ["English → Kazakh, alphabet first", "Every prompt goes English→Kazakh; the Kazakh alphabet is the goal (Cyrillic-Russian readers can't lean on it)."],
+    ["Aitys removed", "It didn't actually rhyme — commented out until we have couplets that work."],
+    ["Tańba → Design Your Avatar", "No jargon. It's a maker tool (draw or import your Canva art), not a scored game."],
+    ["3 fresh games", "Where in Kazakhstan? (photo→map), Sound It Out (hear→letter), Steppe Bazaar (food + teńge)."],
+    ["Fixes flagged for dev", "Card logic that prints the answer, Falling Words missing the right option, and a real fullscreen Flashlight — all in the build notes."],
+  ];
+  return (
+    <div style={{ width: "100%", height: "100%", background: "#fff", fontFamily: "Nunito, sans-serif", padding: "32px 38px", overflow: "hidden" }}>
+      <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 2, color: PALETTE.terra }}>STEPPE TO SCREEN · GAMES HUB v2</div>
+      <h1 style={{ margin: "6px 0 8px", fontSize: 34, fontWeight: 900, color: PALETTE.steppe, letterSpacing: -1 }}>What changed after the workshop</h1>
+      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PALETTE.wolf, maxWidth: 820, lineHeight: 1.5 }}>
+        Two hub layouts to choose between (Hero or Shelves), now wired to the Silk Road weekly-unlock idea, plus three new
+        game concepts. The fixes that need code live in <b>For Opus — Build Notes.md</b> — pass that straight to your dev.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 26px", marginTop: 20 }}>
+        {changes.map(([t, d]) => (
+          <div key={t} style={{ display: "flex", gap: 10 }}>
+            <div style={{ width: 6, alignSelf: "stretch", borderRadius: 4, background: PALETTE.gold, flex: "0 0 auto" }} />
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 900, color: PALETTE.steppe }}>{t}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: PALETTE.wolf, lineHeight: 1.4 }}>{d}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ position: "absolute", left: 38, bottom: 24, fontSize: 13, fontWeight: 700, color: PALETTE.wolf }}>→ Pick a hub layout below, then scroll through the fresh game concepts. Click any frame to open it fullscreen.</div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="brief" title="Start here" subtitle="What changed after your notes">
+        <DCArtboard id="brief" label="What changed" width={1040} height={470}><BriefV2 /></DCArtboard>
+      </DCSection>
+      <DCSection id="hub" title="Revised hub — pick A or B" subtitle="Same roster, Silk Road weekly unlock">
+        <DCArtboard id="hubA" label="A · Hero (Silk Road journey)" width={1240} height={760}><DirHeroV2 /></DCArtboard>
+        <DCArtboard id="hubB" label="B · Shelves (pick by mood)" width={1240} height={1020}><DirShelvesV2 /></DCArtboard>
+      </DCSection>
+      <DCSection id="fresh" title="Fresh game concepts" subtitle="New mechanics, English → Kazakh">
+        <DCArtboard id="g1" label="Where in Kazakhstan? (GeoGuessr)" width={1120} height={650}><GameWhereKZ /></DCArtboard>
+        <DCArtboard id="g2" label="Sound It Out (letter → sound)" width={1060} height={700}><GameSoundItOut /></DCArtboard>
+        <DCArtboard id="g3" label="Flashlight Words (fullscreen redesign)" width={1120} height={700}><GameFlashlight /></DCArtboard>
+        <DCArtboard id="g4" label="Steppe Bazaar (food + teńge)" width={1100} height={480}><GameBazaar /></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

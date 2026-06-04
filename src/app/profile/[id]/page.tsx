@@ -108,7 +108,7 @@ export default function ProfilePage() {
           <h2 className="mb-3 text-lg font-black text-steppe">My gallery</h2>
           {p.artifacts.length === 0 ? (
             <p className="text-sm text-wolf">
-              Nothing yet — draw a tańba or make a comic and it&apos;ll appear here.{" "}
+              Nothing yet — design an avatar or make a comic and it&apos;ll appear here.{" "}
               <Link href="/play/tanba-studio" className="font-bold text-steppe underline">Start drawing →</Link>
             </p>
           ) : (

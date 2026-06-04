@@ -7,7 +7,12 @@
 import { useSyncExternalStore } from "react";
 import { syncJoin, syncGameRun, syncArtifact } from "@/lib/supabase/sync";
 import type { BadgeId } from "@/content/badges";
+import { BADGES } from "@/content/badges";
 import type { RegionId } from "@/content/regions";
+import { REGIONS } from "@/content/regions";
+import { JOURNEY, defaultWeekCodes, normalizeCode } from "@/content/journey";
+
+const BADGE_IDS = BADGES.map((b) => b.id);
 
 export type Artifact = {
   id: string;
@@ -35,6 +40,8 @@ export type Profile = {
   xp: number;
   streakWeeks: number;
   avatarArtifactId: string | null;
+  unlockedWeeks: number;
+  weeklyCodes: Record<RegionId, string>;
   regionProgress: RegionId[];
   vocabCorrect: Record<string, number>; // slug -> times correct
   letterStats: Record<string, LetterStat>; // cyr letter -> Leitner
@@ -55,6 +62,8 @@ function freshProfile(): Profile {
     xp: 0,
     streakWeeks: 1,
     avatarArtifactId: null,
+    unlockedWeeks: 1,
+    weeklyCodes: defaultWeekCodes(),
     regionProgress: ["almaty"], // first region starts unlocked
     vocabCorrect: {},
     letterStats: {},
@@ -65,19 +74,37 @@ function freshProfile(): Profile {
   };
 }
 
+const SERVER_PROFILE: Profile = {
+  ...freshProfile(),
+  id: "server-profile",
+};
+
 let state: Profile | null = null;
 const listeners = new Set<() => void>();
 
 function load(): Profile {
   if (state) return state;
-  if (typeof window === "undefined") return freshProfile();
+  if (typeof window === "undefined") return SERVER_PROFILE;
   try {
     const raw = localStorage.getItem(KEY);
-    state = raw ? { ...freshProfile(), ...JSON.parse(raw) } : freshProfile();
+    state = normalizeProfile(raw ? { ...freshProfile(), ...JSON.parse(raw) } : freshProfile());
   } catch {
     state = freshProfile();
   }
   return state!;
+}
+
+function normalizeProfile(profile: Profile): Profile {
+  const fallbackCodes = defaultWeekCodes();
+  const unlockedWeeks = Number.isFinite(profile.unlockedWeeks)
+    ? Math.min(JOURNEY.length, Math.max(1, Math.floor(profile.unlockedWeeks)))
+    : 1;
+  return {
+    ...profile,
+    unlockedWeeks,
+    weeklyCodes: { ...fallbackCodes, ...(profile.weeklyCodes ?? {}) },
+    regionProgress: profile.regionProgress?.length ? profile.regionProgress : ["almaty"],
+  };
 }
 
 function persist() {
@@ -137,6 +164,34 @@ export const store = {
 
   setAvatar(artifactId: string) {
     update((p) => { p.avatarArtifactId = artifactId; });
+  },
+
+  setWeekCode(stopId: RegionId, code: string) {
+    update((p) => {
+      p.weeklyCodes[stopId] = normalizeCode(code) || defaultWeekCodes()[stopId];
+    });
+  },
+
+  unlockWeekWithCode(code: string): { ok: boolean; message: string; stopName?: string } {
+    const normalized = normalizeCode(code);
+    const p = load();
+    if (p.unlockedWeeks >= JOURNEY.length) {
+      return { ok: true, message: "Whole Silk Road complete — replay any game for more points." };
+    }
+    const nextStop = JOURNEY[p.unlockedWeeks];
+    const expected = normalizeCode(p.weeklyCodes[nextStop.id] ?? nextStop.defaultCode);
+    if (!normalized || normalized !== expected) {
+      return { ok: false, message: "Ask your facilitator for today's code." };
+    }
+    update((profile) => {
+      profile.unlockedWeeks = Math.min(JOURNEY.length, profile.unlockedWeeks + 1);
+      if (!profile.regionProgress.includes(nextStop.id)) {
+        profile.regionProgress.push(nextStop.id);
+      }
+      profile.xp += 50;
+      award(profile, "explorer");
+    });
+    return { ok: true, message: `${nextStop.name} unlocked! +50 points`, stopName: nextStop.name };
   },
 
   unlockRegion(id: RegionId) {
@@ -208,6 +263,37 @@ export const store = {
     state = freshProfile();
     persist();
   },
+
+  // --- debug-only helpers (safe to call in prod; just XP/unlock manipulation) ---
+  debugUnlockAll() {
+    update((p) => {
+      p.unlockedWeeks = JOURNEY.length;
+      p.regionProgress = REGIONS.map((r) => r.id);
+      p.xp = Math.max(p.xp, 9999);
+      JOURNEY.forEach((stop) => {
+        if (!p.regionProgress.includes(stop.id)) p.regionProgress.push(stop.id);
+        award(p, "explorer");
+      });
+    });
+  },
+
+  debugSetWeek(week: number) {
+    const target = Math.min(JOURNEY.length, Math.max(1, week));
+    update((p) => {
+      p.unlockedWeeks = target;
+      p.regionProgress = REGIONS.slice(0, target).map((r) => r.id);
+    });
+  },
+
+  debugAwardAllBadges() {
+    update((p) => {
+      BADGE_IDS.forEach((id) => award(p, id));
+    });
+  },
+
+  debugMaxXp() {
+    update((p) => { p.xp = 99999; });
+  },
 };
 
 function award(p: Profile, id: BadgeId) {
@@ -227,5 +313,5 @@ export function isVocabMastered(p: Profile, slug: string): boolean {
 
 // React hook
 export function useProfile(): Profile {
-  return useSyncExternalStore(store.subscribe, store.get, freshProfile);
+  return useSyncExternalStore(store.subscribe, store.get, () => SERVER_PROFILE);
 }
