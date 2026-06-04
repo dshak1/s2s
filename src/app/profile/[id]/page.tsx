@@ -38,7 +38,10 @@ export default function ProfilePage() {
               </span>
             </div>
           </div>
-          <Link href="/play" className="rounded-full bg-gold px-5 py-2.5 font-black text-steppe-700">Play games</Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/play" className="rounded-full bg-gold px-5 py-2.5 font-black text-steppe-700">Play games</Link>
+            <Link href={`/profile/${p.id}/certificate`} className="rounded-full bg-white/20 px-5 py-2.5 font-black text-warm">🏅 Certificate</Link>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">

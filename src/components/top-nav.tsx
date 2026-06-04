@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useProfile } from "@/lib/store";
 import { Avatar } from "@/components/avatar";
-import { Flame, Star } from "lucide-react";
+import { Flame, Lightbulb, Star } from "lucide-react";
 
 export function TopNav() {
   const p = useProfile();
@@ -13,6 +13,13 @@ export function TopNav() {
         Steppe<span className="text-gold">2</span>Screen
       </Link>
       <div className="flex items-center gap-3">
+        <Link
+          href="/wishlist"
+          title="Feature wishlist"
+          className="hidden items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-sm font-extrabold hover:bg-white/25 sm:flex"
+        >
+          <Lightbulb size={15} className="text-gold" />
+        </Link>
         <span className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-sm font-extrabold">
           <Star size={15} className="text-gold" /> {p.xp}
         </span>

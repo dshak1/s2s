@@ -1,12 +1,24 @@
 {
   "name": "Steppe to Screen",
   "short_name": "Steppe2Screen",
-  "description": "Learn Kazakh language and culture through games.",
+  "description": "Learn Kazakh language and culture through games, art, and the steppe.",
   "start_url": "/play",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#faf6e9",
   "theme_color": "#1e4d8c",
+  "categories": ["education", "games"],
+  "lang": "en-KK",
   "icons": [
-    { "src": "/img/wall-map.svg", "sizes": "any", "type": "image/svg+xml" }
+    { "src": "/img/wall-map.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Play Games", "short_name": "Play", "url": "/play", "description": "Open the games hub" },
+    { "name": "Join Session", "short_name": "Join", "url": "/join", "description": "Join a workshop session" },
+    { "name": "My Profile", "short_name": "Profile", "url": "/profile", "description": "View your progress" }
+  ],
+  "screenshots": [
+    { "src": "/img/wall-map.svg", "type": "image/svg+xml", "sizes": "512x512", "form_factor": "wide" }
   ]
 }

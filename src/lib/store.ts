@@ -8,6 +8,7 @@ import { useSyncExternalStore } from "react";
 import { syncJoin, syncGameRun, syncArtifact } from "@/lib/supabase/sync";
 import type { BadgeId } from "@/content/badges";
 import { BADGES } from "@/content/badges";
+import { toastBus } from "@/lib/toast";
 import type { RegionId } from "@/content/regions";
 import { REGIONS } from "@/content/regions";
 import { JOURNEY, defaultWeekCodes, normalizeCode } from "@/content/journey";
@@ -300,6 +301,8 @@ function award(p: Profile, id: BadgeId) {
   if (!p.badges.includes(id)) {
     p.badges.push(id);
     p.xp += 15;
+    const badge = BADGES.find((b) => b.id === id);
+    if (badge) toastBus.show({ title: `${badge.symbol} ${badge.name}`, body: badge.hint, duration: 4500 });
   }
 }
 

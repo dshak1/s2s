@@ -75,7 +75,13 @@ export default function AdminContent() {
     <div className="min-h-dvh bg-warm font-admin">
       <TopNav />
       <main className="mx-auto max-w-3xl space-y-5 px-4 py-8">
-        <h1 className="text-2xl font-black text-steppe">Content tools</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-black text-steppe">Content tools</h1>
+          <div className="flex gap-2">
+            <a href="/admin/wishlist" className="rounded-full bg-gold px-4 py-2 text-sm font-black text-steppe-700">💡 Wishlist</a>
+            <a href="/admin/feedback" className="rounded-full bg-steppe px-4 py-2 text-sm font-black text-warm">💬 Feedback</a>
+          </div>
+        </div>
 
         <Card>
           <h2 className="font-black text-steppe">Canva imports</h2>
