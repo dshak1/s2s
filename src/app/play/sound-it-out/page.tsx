@@ -186,8 +186,12 @@ export default function SoundItOut() {
               return (
                 <button
                   key={option.cyr}
-                  disabled={phase !== "guess"}
                   onClick={() => {
+                    // After the reveal, taps just replay the option's sound.
+                    if (phase !== "guess") {
+                      playCue(option);
+                      return;
+                    }
                     setPicked(option.cyr);
                     if (round.mode === "match-audio") playCue(option);
                   }}

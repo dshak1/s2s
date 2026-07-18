@@ -7,11 +7,14 @@ import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { KID_COVERS } from "@/content/kid-covers";
 import { playCorrect } from "@/lib/audio";
+import { store, useProfile } from "@/lib/store";
+import { toastBus } from "@/lib/toast";
 
 // Start screens the workshop kids designed in Canva, made real: their drawn
 // button is the actual clickable hotspot that launches the games.
 export default function KidCoversPage() {
   const router = useRouter();
+  const { homeCoverId } = useProfile();
   // Start deterministic for SSR, then shuffle to a random kid's cover on mount.
   const [index, setIndex] = useState(0);
   useEffect(() => {
@@ -66,6 +69,21 @@ export default function KidCoversPage() {
           <p className="text-sm font-bold text-warm/60">
             {cover.hotspot ? "Tap their button to play!" : "Tap anywhere on the cover to play!"}
           </p>
+          <button
+            onClick={() => {
+              store.setHomeCover(cover.id);
+              toastBus.show({
+                title: "Home background set!",
+                body: cover.artist ? `Cover by ${cover.artist} is now your home page.` : "This cover is now your home page.",
+                icon: "🎨",
+              });
+            }}
+            className={`mt-2 rounded-full px-4 py-1.5 text-sm font-black transition active:scale-95 ${
+              homeCoverId === cover.id ? "bg-gold text-steppe-700" : "bg-white/10 text-warm hover:bg-white/20"
+            }`}
+          >
+            {homeCoverId === cover.id ? "✓ Your home background" : "Make this my home background"}
+          </button>
         </div>
 
         {/* cover picker */}

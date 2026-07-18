@@ -51,6 +51,7 @@ export type Profile = {
   gameRuns: GameRun[];
   pawPrints: string[]; // clue ids collected this session
   gameBackgrounds: Record<string, string>; // game slug -> uploaded background dataUrl
+  homeCoverId: string | null; // KidCover id chosen as the home-page background
 };
 
 const KEY = "s2s_profile_v1";
@@ -74,6 +75,7 @@ function freshProfile(): Profile {
     gameRuns: [],
     pawPrints: [],
     gameBackgrounds: {},
+    homeCoverId: null,
   };
 }
 
@@ -108,6 +110,7 @@ function normalizeProfile(profile: Profile): Profile {
     weeklyCodes: { ...fallbackCodes, ...(profile.weeklyCodes ?? {}) },
     regionProgress: profile.regionProgress?.length ? profile.regionProgress : ["almaty"],
     gameBackgrounds: profile.gameBackgrounds ?? {},
+    homeCoverId: profile.homeCoverId ?? null,
   };
 }
 
@@ -168,6 +171,10 @@ export const store = {
 
   setAvatar(artifactId: string) {
     update((p) => { p.avatarArtifactId = artifactId; });
+  },
+
+  setHomeCover(coverId: string | null) {
+    update((p) => { p.homeCoverId = coverId; });
   },
 
   // Per-game custom background. Stores the dataUrl locally (so it renders offline)

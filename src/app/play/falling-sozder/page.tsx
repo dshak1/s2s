@@ -22,9 +22,14 @@ const RAMP_LEVEL_BONUS = 1.5; // higher levels ramp a little steeper
 
 const BEST_KEY = "s2s.falling.best.v2";
 
-const CATEGORY_META = VOCAB_CATEGORY_META;
+// All the vocab packs plus a mixed pack that draws from every category.
+type PackKey = VocabCategory | "random";
+const PACKS: Array<{ key: PackKey; kk: string; en: string; emoji: string }> = [
+  { key: "random", kk: "Аралас", en: "Random Mix", emoji: "🎲" },
+  ...VOCAB_CATEGORY_META,
+];
 
-function readBests(): Partial<Record<VocabCategory, number>> {
+function readBests(): Partial<Record<PackKey, number>> {
   try {
     return JSON.parse(localStorage.getItem(BEST_KEY) ?? "{}");
   } catch {
@@ -36,8 +41,8 @@ type Phase = "pick" | "play" | "over" | "mastered";
 
 export default function FallingSozder() {
   const [phase, setPhase] = useState<Phase>("pick");
-  const [category, setCategory] = useState<VocabCategory>("family");
-  const [bests, setBests] = useState<Partial<Record<VocabCategory, number>>>({});
+  const [category, setCategory] = useState<PackKey>("family");
+  const [bests, setBests] = useState<Partial<Record<PackKey, number>>>({});
   const [catches, setCatches] = useState(0);
   const [misses, setMisses] = useState(0);
   const [level, setLevel] = useState(1);
@@ -109,7 +114,7 @@ export default function FallingSozder() {
   }, [pickTarget]);
 
   const saveBest = useCallback(
-    (cat: VocabCategory, reached: number) => {
+    (cat: PackKey, reached: number) => {
       const next = { ...readBests() };
       if ((next[cat] ?? 0) < reached) {
         next[cat] = reached;
@@ -170,8 +175,8 @@ export default function FallingSozder() {
     loopRef.current = loop;
   }, [loop]);
 
-  function start(cat: VocabCategory) {
-    const catDeck = VOCAB.filter((w) => w.category === cat);
+  function start(cat: PackKey) {
+    const catDeck = cat === "random" ? VOCAB : VOCAB.filter((w) => w.category === cat);
     deck.current = shuffle(catDeck);
     pool.current = deck.current.slice(0, WORDS_AT_START);
     freshSlugs.current = new Set(pool.current.map((w) => w.slug));
@@ -242,7 +247,7 @@ export default function FallingSozder() {
     }
   }
 
-  const meta = CATEGORY_META.find((c) => c.key === category)!;
+  const meta = PACKS.find((c) => c.key === category)!;
   const playing = phase === "play";
 
   return (
@@ -315,7 +320,7 @@ export default function FallingSozder() {
               Each pack starts with 3 words and adds more as you level up. Catch the Kazakh basket before the English word lands!
             </p>
             <div className="grid w-full max-w-md grid-cols-2 gap-2 sm:grid-cols-4">
-              {CATEGORY_META.map((c) => (
+              {PACKS.map((c) => (
                 <button
                   key={c.key}
                   onClick={() => start(c.key)}

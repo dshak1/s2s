@@ -165,8 +165,12 @@ export default function GreetingsQuiz() {
               return (
                 <button
                   key={option.kk}
-                  disabled={phase !== "guess"}
                   onClick={() => {
+                    // After the reveal, taps just replay the option's sound.
+                    if (phase !== "guess") {
+                      speak(option);
+                      return;
+                    }
                     setPicked(option.kk);
                     if (round.mode === "match-audio") speak(option);
                   }}

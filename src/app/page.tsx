@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { ClipboardList, PlayCircle, Users } from "lucide-react";
-import { MountainBackdrop } from "@/components/game/mountain-backdrop";
+import { HomeCoverBackdrop } from "@/components/home-cover-backdrop";
 import { IS_LITE } from "@/lib/lite";
 
 export default function Home() {
   return (
     <div className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
-      <MountainBackdrop scene="home" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.28)_48%,rgba(255,246,206,.12))]" />
+      <HomeCoverBackdrop />
 
       <main className="relative z-10 mx-auto grid min-h-dvh max-w-6xl items-center gap-8 px-6 pb-28 pt-16 md:grid-cols-[1.05fr_.95fr] md:pb-20">
         <section className="max-w-2xl text-center md:text-left">
@@ -22,7 +21,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row md:items-start">
             <Link
-              href="/covers"
+              href="/play"
               className="inline-flex items-center justify-center gap-3 rounded-full bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] px-8 py-4 text-lg font-black text-steppe-700 shadow-lg shadow-orange-200/60 transition hover:-translate-y-0.5 hover:brightness-105 active:scale-95"
             >
               <PlayCircle size={24} /> Ойнау
