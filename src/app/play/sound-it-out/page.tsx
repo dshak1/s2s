@@ -6,7 +6,7 @@ import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { ALPHABET } from "@/content/alphabet";
-import { playCorrect, playWrong, playWin, speakWord } from "@/lib/audio";
+import { playCorrect, playLetterPronunciation, playWrong, playWin } from "@/lib/audio";
 import { store } from "@/lib/store";
 
 type LetterCue = {
@@ -52,13 +52,7 @@ function buildRound(previous?: string, index = 0): Round {
 }
 
 function playCue(cue: LetterCue) {
-  speakWord(cue.example);
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(cue.example);
-  utterance.lang = "kk-KZ";
-  utterance.rate = 0.78;
-  window.speechSynthesis.speak(utterance);
+  playLetterPronunciation(cue.cyr, cue.example);
 }
 
 export default function SoundItOut() {
@@ -171,6 +165,7 @@ export default function SoundItOut() {
               <button
                 type="button"
                 onClick={() => playCue(round.answer)}
+                aria-label={`Play pronunciation for ${round.answer.cyr}`}
                 className="grid h-32 w-32 place-items-center rounded-full bg-steppe text-gold shadow-xl shadow-steppe/20 transition active:scale-95"
               >
                 <Volume2 size={56} />

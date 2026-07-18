@@ -7,7 +7,7 @@ import { Confetti } from "@/components/game/confetti";
 import { YurtSVG, YURT_TOTAL } from "@/components/yurt";
 import { ALPHABET, type Letter } from "@/content/alphabet";
 import { store, useProfile, masteredLetterCount } from "@/lib/store";
-import { playCorrect, playWrong, speakWord } from "@/lib/audio";
+import { playCorrect, playLetterPronunciation, playWrong } from "@/lib/audio";
 import { shuffle, sample } from "@/lib/utils";
 import { Volume2 } from "lucide-react";
 
@@ -79,7 +79,11 @@ export default function YurtBuilder() {
                 </button>
               ))}
             </div>
-            <button onClick={() => speakWord(target.cyr)} className="flex items-center gap-1 rounded-full bg-gold px-3 py-1.5 text-sm font-bold text-steppe-700">
+            <button
+              onClick={() => playLetterPronunciation(target.cyr)}
+              aria-label={`Play pronunciation for ${target.cyr}`}
+              className="flex items-center gap-1 rounded-full bg-gold px-3 py-1.5 text-sm font-bold text-steppe-700"
+            >
               <Volume2 size={16} /> Sound
             </button>
           </div>

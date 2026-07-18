@@ -31,6 +31,277 @@ body {
   font-family: var(--font-kid);
 }
 
+/* Shared Canva-inspired Kazakh meadow scene. Individual features provide colors via CSS variables. */
+.mountain-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, var(--scene-sky-top) 0%, var(--scene-sky-mid) 52%, var(--scene-sky-bottom) 76%, var(--scene-grass) 100%);
+  isolation: isolate;
+}
+
+.mountain-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.4;
+  background-image:
+    radial-gradient(circle at 20px 20px, var(--scene-accent-soft) 0 3px, transparent 4px),
+    radial-gradient(circle at 64px 44px, rgba(255, 255, 255, .58) 0 2px, transparent 3px);
+  background-size: 92px 72px, 118px 82px;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 34%, #000 100%);
+  animation: mountain-pattern-drift 32s linear infinite;
+}
+
+.mountain-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .14) 0%, transparent 42%, rgba(255, 255, 255, .08) 100%),
+    radial-gradient(ellipse at 50% 100%, rgba(255, 246, 206, .28) 0%, transparent 72%);
+}
+
+.scene-sun {
+  position: absolute;
+  left: clamp(1.25rem, 6vw, 6rem);
+  top: clamp(1.5rem, 8vh, 5.5rem);
+  z-index: 2;
+  width: clamp(72px, 9vw, 122px);
+  filter: drop-shadow(0 8px 0 rgba(255, 169, 57, .16));
+  animation: scene-sun-wobble 9s ease-in-out infinite alternate;
+}
+
+.mountain-clouds {
+  position: absolute;
+  inset: 9% -24% auto -24%;
+  z-index: 3;
+  height: 25%;
+  opacity: 0.95;
+}
+
+.mountain-clouds span {
+  position: absolute;
+  display: block;
+  height: clamp(22px, 4vw, 46px);
+  border-radius: 999px;
+  background: var(--scene-cloud);
+  box-shadow: 18px 8px 0 var(--scene-cloud), 42px -3px 0 var(--scene-cloud), 72px 8px 0 var(--scene-cloud);
+  animation: mountain-cloud-drift calc(var(--mountain-speed) * 1.8) linear infinite;
+}
+
+.mountain-clouds span::before,
+.mountain-clouds span::after {
+  content: "";
+  position: absolute;
+  bottom: 8px;
+  border-radius: 50%;
+  background: var(--scene-cloud);
+}
+
+.mountain-clouds span::before {
+  left: 20px;
+  width: 48px;
+  height: 48px;
+}
+
+.mountain-clouds span::after {
+  left: 64px;
+  width: 34px;
+  height: 34px;
+}
+
+.mountain-clouds span:nth-child(1) {
+  top: 16%;
+  left: 4%;
+  width: 130px;
+}
+
+.mountain-clouds span:nth-child(2) {
+  top: 46%;
+  left: 38%;
+  width: 112px;
+  animation-delay: -11s;
+}
+
+.mountain-clouds span:nth-child(3) {
+  top: 18%;
+  left: 72%;
+  width: 96px;
+  animation-delay: -18s;
+}
+
+.scene-dotted-path {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 28%;
+  z-index: 4;
+  width: 100%;
+  height: 36%;
+  opacity: 0.58;
+  pointer-events: none;
+  animation: scene-path-bob 7s ease-in-out infinite alternate;
+}
+
+.mountain-range {
+  position: absolute;
+  left: -6%;
+  width: 112%;
+  pointer-events: none;
+  transform-origin: center bottom;
+  animation: mountain-range-breathe var(--mountain-speed) ease-in-out infinite alternate;
+}
+
+.mountain-range-far {
+  bottom: 13%;
+  z-index: 5;
+  height: 43%;
+  opacity: 0.86;
+  animation-delay: -8s;
+}
+
+.mountain-range-mid {
+  bottom: 4%;
+  z-index: 6;
+  height: 46%;
+  opacity: 0.92;
+  animation-duration: calc(var(--mountain-speed) * 1.14);
+}
+
+.mountain-range-front {
+  bottom: -8%;
+  z-index: 9;
+  height: 44%;
+  animation-duration: calc(var(--mountain-speed) * .92);
+  animation-delay: -4s;
+}
+
+.scene-yurt {
+  position: absolute;
+  right: clamp(8rem, 18vw, 20rem);
+  bottom: clamp(2.5rem, 9vh, 6.5rem);
+  z-index: 8;
+  width: clamp(116px, 15vw, 210px);
+  filter: drop-shadow(0 14px 0 rgba(36, 78, 132, .1));
+  animation: scene-path-bob 9s ease-in-out infinite alternate;
+}
+
+.scene-cat {
+  position: absolute;
+  right: clamp(1.75rem, 8vw, 8rem);
+  bottom: clamp(2.25rem, 8vh, 6rem);
+  z-index: 10;
+  width: clamp(112px, 16vw, 210px);
+  filter: drop-shadow(0 18px 0 rgba(36, 78, 132, .08));
+  transform-origin: 50% 100%;
+  animation: scene-cat-wave 4.6s ease-in-out infinite alternate;
+}
+
+.mountain-ornament {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 11;
+  height: 82px;
+  background:
+    radial-gradient(circle at 12px 46px, var(--scene-flower) 0 4px, transparent 5px),
+    radial-gradient(circle at 22px 36px, #fff6b5 0 3px, transparent 4px),
+    linear-gradient(108deg, transparent 0 44%, var(--scene-grass-deep) 45% 49%, transparent 50% 100%),
+    linear-gradient(72deg, transparent 0 46%, var(--scene-grass-deep) 47% 50%, transparent 51% 100%);
+  background-size: 86px 72px, 86px 72px, 34px 64px, 38px 68px;
+  opacity: 0.78;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 32%, #000 100%);
+}
+
+.mountain-backdrop.canva-card-backdrop .scene-sun {
+  left: 0.65rem;
+  top: 0.55rem;
+  width: 54px;
+}
+
+.mountain-backdrop.canva-card-backdrop .mountain-clouds {
+  opacity: 0.72;
+  transform: scale(.82);
+}
+
+.mountain-backdrop.canva-card-backdrop .scene-dotted-path,
+.mountain-backdrop.canva-card-backdrop .scene-yurt,
+.mountain-backdrop.canva-card-backdrop .scene-cat {
+  opacity: 0.36;
+  transform: scale(.82);
+}
+
+@keyframes mountain-range-breathe {
+  from {
+    transform: translateX(-0.8%) scale(1);
+  }
+  to {
+    transform: translateX(0.8%) scale(1.01);
+  }
+}
+
+@keyframes mountain-cloud-drift {
+  from {
+    transform: translateX(-8%);
+  }
+  to {
+    transform: translateX(18%);
+  }
+}
+
+@keyframes mountain-pattern-drift {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 92px 72px, -118px 82px;
+  }
+}
+
+@keyframes scene-sun-wobble {
+  from {
+    transform: rotate(-2deg) scale(1);
+  }
+  to {
+    transform: rotate(3deg) scale(1.025);
+  }
+}
+
+@keyframes scene-path-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes scene-cat-wave {
+  from {
+    transform: rotate(-1deg) translateY(0);
+  }
+  to {
+    transform: rotate(1.4deg) translateY(-5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mountain-backdrop::before,
+  .mountain-clouds span,
+  .mountain-range,
+  .scene-sun,
+  .scene-dotted-path,
+  .scene-yurt,
+  .scene-cat {
+    animation: none;
+  }
+}
+
 /* Felt texture pattern used on memory card backs and yurt panels */
 .felt-pattern {
   background-color: var(--color-steppe);

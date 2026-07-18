@@ -20,6 +20,8 @@ export const toastBus = {
   },
   subscribe(cb: ToastListener) {
     listeners.add(cb);
-    return () => listeners.delete(cb);
+    return () => {
+      listeners.delete(cb);
+    };
   },
 };

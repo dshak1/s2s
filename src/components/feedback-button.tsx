@@ -49,14 +49,14 @@ export function FeedbackButton() {
       <button
         onClick={() => setOpen((o) => !o)}
         title="Send feedback"
-        className="fixed bottom-4 left-4 z-[99] flex items-center gap-2 rounded-full bg-steppe px-4 py-3 text-sm font-black text-warm shadow-xl shadow-steppe/40 transition hover:scale-105"
+        className="fixed right-4 top-20 z-[99] flex items-center gap-2 rounded-full border border-white/80 bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] px-4 py-3 text-sm font-black text-steppe-700 shadow-xl shadow-orange-200/70 transition hover:scale-105"
       >
         <MessageCircle size={18} />
         <span className="hidden sm:inline">Feedback</span>
       </button>
 
       {open && (
-        <div className="fixed bottom-20 left-4 z-[99] w-80 rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-black/8">
+        <div className="fixed right-4 top-36 z-[99] w-80 max-w-[calc(100vw-2rem)] rounded-lg bg-white p-4 shadow-2xl ring-1 ring-steppe/10">
           <div className="mb-3 flex items-center justify-between">
             <span className="font-black text-steppe">Send feedback</span>
             <button onClick={() => setOpen(false)} className="text-wolf hover:text-steppe">
@@ -73,7 +73,7 @@ export function FeedbackButton() {
                   onClick={() => setKind(k.id)}
                   className={`rounded-xl p-2 text-left text-xs font-black transition ${
                     kind === k.id
-                      ? "bg-steppe text-warm"
+                      ? "bg-steppe text-white"
                       : "bg-felt text-steppe hover:bg-felt/80"
                   }`}
                 >

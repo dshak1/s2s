@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { YurtSVG, YURT_TOTAL } from "@/components/yurt";
 import { VOCAB, CATEGORIES, CATEGORY_LABELS, vocabByCategory, type VocabCategory } from "@/content/vocab";
 import { BADGES } from "@/content/badges";
-import { GAMES } from "@/content/games";
+import { VISIBLE_GAMES } from "@/content/games";
 import { useProfile, masteredLetterCount, isVocabMastered } from "@/lib/store";
 import { Snowflake } from "lucide-react";
 
@@ -97,7 +97,7 @@ export default function ProfilePage() {
         <div>
           <h2 className="mb-3 text-lg font-black text-steppe">Jump back in</h2>
           <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
-            {GAMES.map((g) => (
+            {VISIBLE_GAMES.map((g) => (
               <Link key={g.slug} href={g.href} className={`min-w-[160px] rounded-2xl ${g.accent} p-4 text-warm`}>
                 <div className="text-xs font-bold text-gold">{g.kk}</div>
                 <div className="font-black">{g.title}</div>

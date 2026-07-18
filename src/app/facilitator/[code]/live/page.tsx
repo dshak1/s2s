@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { QR } from "@/components/qr";
 import { Button } from "@/components/ui/button";
-import { GAMES } from "@/content/games";
+import { VISIBLE_GAMES } from "@/content/games";
 import { REGIONS } from "@/content/regions";
 import { useSession, sessions } from "@/lib/sessions";
 import { VolumeX, Pause, Map, Power, Printer } from "lucide-react";
@@ -81,7 +81,7 @@ export default function LiveProjector() {
         <div>
           <h2 className="mb-3 text-xl font-black text-gold">Launch a game</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {GAMES.map((g) => (
+            {VISIBLE_GAMES.map((g) => (
               <Link
                 key={g.slug}
                 href={g.href}

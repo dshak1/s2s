@@ -17,7 +17,7 @@ const BADGE_IDS = BADGES.map((b) => b.id);
 
 export type Artifact = {
   id: string;
-  kind: "tanba" | "canva" | "story";
+  kind: "tanba" | "canva" | "story" | "background";
   dataUrl: string;
   createdAt: number;
 };
@@ -50,6 +50,7 @@ export type Profile = {
   artifacts: Artifact[];
   gameRuns: GameRun[];
   pawPrints: string[]; // clue ids collected this session
+  gameBackgrounds: Record<string, string>; // game slug -> uploaded background dataUrl
 };
 
 const KEY = "s2s_profile_v1";
@@ -72,6 +73,7 @@ function freshProfile(): Profile {
     artifacts: [],
     gameRuns: [],
     pawPrints: [],
+    gameBackgrounds: {},
   };
 }
 
@@ -105,6 +107,7 @@ function normalizeProfile(profile: Profile): Profile {
     unlockedWeeks,
     weeklyCodes: { ...fallbackCodes, ...(profile.weeklyCodes ?? {}) },
     regionProgress: profile.regionProgress?.length ? profile.regionProgress : ["almaty"],
+    gameBackgrounds: profile.gameBackgrounds ?? {},
   };
 }
 
@@ -165,6 +168,23 @@ export const store = {
 
   setAvatar(artifactId: string) {
     update((p) => { p.avatarArtifactId = artifactId; });
+  },
+
+  // Per-game custom background. Stores the dataUrl locally (so it renders offline)
+  // and fires the same artifact sync used for avatars to back it up to Supabase.
+  setGameBackground(slug: string, dataUrl: string) {
+    const id = crypto.randomUUID();
+    const artifact: Artifact = { id, kind: "background", dataUrl, createdAt: Date.now() };
+    update((p) => {
+      p.artifacts.unshift(artifact);
+      p.gameBackgrounds[slug] = dataUrl;
+    });
+    const p = load();
+    syncArtifact(p.id, p.avatarArtifactId, artifact).catch(() => {});
+  },
+
+  clearGameBackground(slug: string) {
+    update((p) => { delete p.gameBackgrounds[slug]; });
   },
 
   setWeekCode(stopId: RegionId, code: string) {

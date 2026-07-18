@@ -1,6 +1,46 @@
 // Synthesized SFX via WebAudio so the games are never silent, even without
 // uploaded audio assets. Major-chord arpeggio for correct, low pulse for wrong.
 let ctx: AudioContext | null = null;
+let activeClip: HTMLAudioElement | null = null;
+
+const LETTER_AUDIO_SRC: Record<string, string> = {
+  А: "/audio/letters/a.mp3",
+  Ә: "/audio/letters/ae.mp3",
+  Б: "/audio/letters/b.mp3",
+  В: "/audio/letters/v.mp3",
+  Г: "/audio/letters/g.mp3",
+  Ғ: "/audio/letters/gh.mp3",
+  Д: "/audio/letters/d.mp3",
+  Е: "/audio/letters/e.mp3",
+  Ж: "/audio/letters/zh.mp3",
+  З: "/audio/letters/z.mp3",
+  И: "/audio/letters/i-cyr.mp3",
+  І: "/audio/letters/i-kaz.mp3",
+  К: "/audio/letters/k.mp3",
+  Қ: "/audio/letters/q.mp3",
+  Л: "/audio/letters/l.mp3",
+  М: "/audio/letters/m.mp3",
+  Н: "/audio/letters/n.mp3",
+  Ң: "/audio/letters/ng.mp3",
+  О: "/audio/letters/o.mp3",
+  Ө: "/audio/letters/oe.mp3",
+  П: "/audio/letters/p.mp3",
+  Р: "/audio/letters/r.mp3",
+  С: "/audio/letters/s.mp3",
+  Т: "/audio/letters/t.mp3",
+  У: "/audio/letters/u-cyr.mp3",
+  Ұ: "/audio/letters/u-short.mp3",
+  Ү: "/audio/letters/u-front.mp3",
+  Ф: "/audio/letters/f.mp3",
+  Х: "/audio/letters/h-hard.mp3",
+  Һ: "/audio/letters/h-breathy.mp3",
+  Ч: "/audio/letters/ch.mp3",
+  Ш: "/audio/letters/sh.mp3",
+  Щ: "/audio/letters/shch.mp3",
+  Ы: "/audio/letters/y.mp3",
+  Ю: "/audio/letters/yu.mp3",
+  Я: "/audio/letters/ya.mp3",
+};
 
 function ac(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -47,8 +87,59 @@ export function playWin() {
   [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, i * 0.1, 0.3, "triangle", 0.22));
 }
 
-// Placeholder "speak the Kazakh word" — until real audio assets are uploaded
-// via /admin/content we play a short friendly chime so the cue still lands.
+export function letterAudioSrc(cyr: string): string | null {
+  return LETTER_AUDIO_SRC[cyr] ?? null;
+}
+
+// Play an arbitrary audio clip (e.g. a greeting MP3). Falls back to a synthesized
+// cue when the file is missing or playback is blocked, so the game is never silent.
+export function playClip(src: string, fallbackText: string): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    activeClip?.pause();
+    activeClip = new Audio(src);
+    activeClip.preload = "auto";
+    activeClip.currentTime = 0;
+    activeClip.volume = 1;
+    const promise = activeClip.play();
+    if (promise) {
+      void promise.catch(() => speakWord(fallbackText));
+    }
+    return true;
+  } catch {
+    speakWord(fallbackText);
+    return false;
+  }
+}
+
+export function playLetterPronunciation(cyr: string, fallbackText = cyr): boolean {
+  const src = letterAudioSrc(cyr);
+  if (!src || typeof window === "undefined") {
+    speakWord(fallbackText);
+    return false;
+  }
+
+  try {
+    activeClip?.pause();
+    activeClip = new Audio(src);
+    activeClip.preload = "auto";
+    activeClip.currentTime = 0;
+    activeClip.volume = 1;
+    const promise = activeClip.play();
+    if (promise) {
+      void promise.catch(() => speakWord(fallbackText));
+    }
+    return true;
+  } catch {
+    speakWord(fallbackText);
+    return false;
+  }
+}
+
+// Placeholder "speak the Kazakh word" for vocab/phrase audio. Letter games use
+// real uploaded MP3s through playLetterPronunciation when a clip exists.
 export function speakWord(kk: string) {
   // Until real Kazakh audio is uploaded, give each word a slightly different
   // friendly two-note motif based on its length so the cue feels word-specific.

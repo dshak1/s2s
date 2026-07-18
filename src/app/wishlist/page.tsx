@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronUp, Lightbulb, Loader2, Plus, X } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { TopNav } from "@/components/top-nav";
 import { Button } from "@/components/ui/button";
+import { MountainBackdrop } from "@/components/game/mountain-backdrop";
 import { toastBus } from "@/lib/toast";
 
 type WishlistItem = {
@@ -50,7 +51,7 @@ function saveVoted(v: Set<string>) {
 
 export default function WishlistPage() {
   const [items, setItems] = useState<WishlistItem[]>([]);
-  const [voted, setVoted] = useState<Set<string>>(new Set());
+  const [voted, setVoted] = useState<Set<string>>(() => (typeof window === "undefined" ? new Set() : getVoted()));
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState<WishlistItem["status"] | "all">("all");
@@ -62,12 +63,7 @@ export default function WishlistPage() {
   const [cat, setCat] = useState<WishlistItem["category"]>("feature");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    setVoted(getVoted());
-    fetchItems();
-  }, []);
-
-  async function fetchItems() {
+  const fetchItems = useCallback(async () => {
     setLoading(true);
     const sb = getSupabaseBrowser();
     if (sb) {
@@ -78,7 +74,11 @@ export default function WishlistPage() {
       if (data) setItems(data as WishlistItem[]);
     }
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    void fetchItems();
+  }, [fetchItems]);
 
   async function vote(item: WishlistItem) {
     const v = getVoted();
@@ -126,13 +126,15 @@ export default function WishlistPage() {
   const visible = filter === "all" ? items : items.filter((i) => i.status === filter);
 
   return (
-    <div className="min-h-dvh bg-warm">
+    <div className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
+      <MountainBackdrop scene="maker" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.28)_42%,rgba(255,246,206,.1))]" />
       <TopNav />
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className="relative z-10 mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-steppe">Feature Wishlist</h1>
-            <p className="mt-1 text-sm font-semibold text-wolf">
+            <p className="mt-1 text-sm font-semibold text-steppe/[.68]">
               Ideas from the team. Vote for what matters most.
             </p>
           </div>
@@ -198,7 +200,7 @@ export default function WishlistPage() {
               key={s}
               onClick={() => setFilter(s)}
               className={`rounded-full px-3 py-1.5 text-xs font-black transition ${
-                filter === s ? "bg-steppe text-warm" : "bg-white text-wolf hover:bg-felt"
+                filter === s ? "bg-steppe text-white" : "bg-white text-wolf hover:bg-felt"
               }`}
             >
               {s === "all" ? "All" : STATUS_META[s].label}

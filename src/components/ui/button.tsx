@@ -7,8 +7,8 @@ type Variant = "primary" | "gold" | "ghost" | "outline" | "danger";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-steppe text-warm hover:bg-steppe-700 shadow-md",
-  gold: "bg-gold text-steppe-700 hover:brightness-95 shadow-md",
+  primary: "bg-steppe text-white hover:bg-steppe-700 shadow-md",
+  gold: "bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] text-steppe-700 hover:brightness-105 shadow-md shadow-orange-200/60",
   ghost: "bg-transparent text-steppe hover:bg-steppe/10",
   outline: "bg-white text-steppe border-2 border-steppe hover:bg-steppe/5",
   danger: "bg-terra text-white hover:brightness-95 shadow-md",
