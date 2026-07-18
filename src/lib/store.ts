@@ -5,7 +5,7 @@
 // present it can be synced server-side later (see /supabase/migrations + the
 // Supabase helpers) — the schema mirrors this shape 1:1.
 import { useSyncExternalStore } from "react";
-import { syncJoin, syncGameRun, syncArtifact } from "@/lib/supabase/sync";
+import { syncJoin, syncGameRun, syncArtifact, syncHomework } from "@/lib/supabase/sync";
 import type { BadgeId } from "@/content/badges";
 import { BADGES } from "@/content/badges";
 import { toastBus } from "@/lib/toast";
@@ -17,9 +17,11 @@ const BADGE_IDS = BADGES.map((b) => b.id);
 
 export type Artifact = {
   id: string;
-  kind: "tanba" | "canva" | "story" | "background";
+  kind: "tanba" | "canva" | "story" | "background" | "homework";
   dataUrl: string;
   createdAt: number;
+  // Optional labels — used by homework submissions ("what is it", date, title).
+  meta?: { title?: string; date?: string; note?: string };
 };
 
 export type GameRun = {
@@ -175,6 +177,20 @@ export const store = {
 
   setHomeCover(coverId: string | null) {
     update((p) => { p.homeCoverId = coverId; });
+  },
+
+  // Homework submission: stored like any artifact (offline-first), plus a
+  // best-effort sync to the homework_items table when Supabase is wired up.
+  addHomework(dataUrl: string, meta: { title?: string; date?: string; note?: string }): string {
+    const id = crypto.randomUUID();
+    const artifact: Artifact = { id, kind: "homework", dataUrl, createdAt: Date.now(), meta };
+    update((p) => {
+      p.artifacts.unshift(artifact);
+      p.xp += 20;
+    });
+    const p = load();
+    syncHomework(p.id, p.displayName, artifact).catch(() => {});
+    return id;
   },
 
   // Per-game custom background. Stores the dataUrl locally (so it renders offline)

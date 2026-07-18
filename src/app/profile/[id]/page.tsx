@@ -42,6 +42,7 @@ export default function ProfilePage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/play" className="rounded-full bg-gold px-5 py-2.5 font-black text-steppe-700">Play games</Link>
+            <Link href="/homework" className="rounded-full bg-white/20 px-5 py-2.5 font-black text-warm">📚 Homework</Link>
             <Link href={`/profile/${p.id}/certificate`} className="rounded-full bg-white/20 px-5 py-2.5 font-black text-warm">🏅 Certificate</Link>
           </div>
         </div>
@@ -169,7 +170,9 @@ export default function ProfilePage() {
                 <motion.div key={a.id} whileHover={{ scale: 1.05 }} className="overflow-hidden rounded-2xl border-2 border-steppe/20 bg-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={a.dataUrl} alt={a.kind} className="aspect-square w-full object-cover" />
-                  <div className="bg-felt py-0.5 text-center text-[10px] font-bold text-steppe-700">{a.kind}</div>
+                  <div className="bg-felt py-0.5 text-center text-[10px] font-bold text-steppe-700">
+                    {a.kind === "homework" ? `📚 ${a.meta?.title || "homework"}` : a.kind}
+                  </div>
                 </motion.div>
               ))}
             </div>
