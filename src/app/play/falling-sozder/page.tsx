@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Button } from "@/components/ui/button";
-import { VOCAB, type VocabCategory, type VocabItem } from "@/content/vocab";
+import { VOCAB, VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
 import { shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord } from "@/lib/audio";
 import { store } from "@/lib/store";
@@ -22,16 +22,7 @@ const RAMP_LEVEL_BONUS = 1.5; // higher levels ramp a little steeper
 
 const BEST_KEY = "s2s.falling.best.v2";
 
-const CATEGORY_META: Array<{ key: VocabCategory; kk: string; en: string; emoji: string }> = [
-  { key: "family", kk: "Отбасы", en: "Family", emoji: "👨‍👩‍👧‍👦" },
-  { key: "numbers", kk: "Сандар", en: "Numbers", emoji: "🔢" },
-  { key: "animals", kk: "Жануарлар", en: "Animals", emoji: "🐎" },
-  { key: "colors", kk: "Түстер", en: "Colors", emoji: "🎨" },
-  { key: "food", kk: "Тағам", en: "Food", emoji: "🍎" },
-  { key: "places", kk: "Жерлер", en: "Places", emoji: "🏔️" },
-  { key: "greetings", kk: "Сәлемдесу", en: "Greetings", emoji: "👋" },
-  { key: "body", kk: "Дене", en: "Body", emoji: "🖐️" },
-];
+const CATEGORY_META = VOCAB_CATEGORY_META;
 
 function readBests(): Partial<Record<VocabCategory, number>> {
   try {

@@ -59,7 +59,7 @@ export const GAMES: GameMeta[] = [
   { slug: "where-kz", title: "Where in Kazakhstan?", kk: "Қайда?", blurb: "See a place, drop a pin on the map.", href: "/play/where-kz", accent: "bg-terra", group: "Places & Culture", isNew: true },
   { slug: "bazaar", title: "Steppe Bazaar", kk: "Базар", blurb: "Shop for food and count your teńge.", href: "/play/bazaar", accent: "bg-terra", group: "Places & Culture", hidden: true },
   { slug: "snow-leopard", title: "Snow Leopard Patrol", kk: "Қар барысы", blurb: "Scan QR clues hidden around the room.", href: "/play/snow-leopard", accent: "bg-wolf", group: "Get Up & Move", hidden: true },
-  { slug: "jaryq-hunter", title: "Flashlight Words", kk: "Жарық", blurb: "Shine a light to reveal animal words.", href: "/play/jaryq-hunter", accent: "bg-[#1b1b1b]", group: "Get Up & Move" },
+  { slug: "jaryq-hunter", title: "Spotlight Panic", kk: "Жарық", blurb: "Hunt words in the dark — dodge the ghosts!", href: "/play/jaryq-hunter", accent: "bg-[#1b1b1b]", group: "Get Up & Move", isNew: true },
   // tanba-studio is not a game — it stays reachable from the profile gallery.
   { slug: "tanba-studio", title: "Design Your Avatar", kk: "Сурет салу", blurb: "Draw or import art to become your avatar.", href: "/play/tanba-studio", accent: "bg-gold", group: "Make Your Own", hidden: true },
   { slug: "story-maker", title: "Story Maker", kk: "Әңгіме", blurb: "Build a comic with your art.", href: "/play/story-maker", accent: "bg-steppe", group: "Make Your Own", hidden: true },

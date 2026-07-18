@@ -129,6 +129,24 @@ export function vocabByCategory(cat: VocabCategory): VocabItem[] {
   return VOCAB.filter((v) => v.category === cat);
 }
 
+// Shared pack-select metadata for the vocab category games
+// (Falling Words, Spotlight Panic).
+export const VOCAB_CATEGORY_META: Array<{
+  key: VocabCategory;
+  kk: string;
+  en: string;
+  emoji: string;
+}> = [
+  { key: "family", kk: "Отбасы", en: "Family", emoji: "👨‍👩‍👧‍👦" },
+  { key: "numbers", kk: "Сандар", en: "Numbers", emoji: "🔢" },
+  { key: "animals", kk: "Жануарлар", en: "Animals", emoji: "🐎" },
+  { key: "colors", kk: "Түстер", en: "Colors", emoji: "🎨" },
+  { key: "food", kk: "Тағам", en: "Food", emoji: "🍎" },
+  { key: "places", kk: "Жерлер", en: "Places", emoji: "🏔️" },
+  { key: "greetings", kk: "Сәлемдесу", en: "Greetings", emoji: "👋" },
+  { key: "body", kk: "Дене", en: "Body", emoji: "🖐️" },
+];
+
 export function imgFor(item: VocabItem): string {
   return `/img/${item.category}/${item.slug}.svg`;
 }
