@@ -3,7 +3,7 @@ import { ROLE_LABELS, type TeamMember } from "@/lib/auth";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/wishlist", label: "Ideas" },
+  { href: "/ideas", label: "Ideas" },
   { href: "/admin/feedback", label: "Feedback" },
   { href: "/admin/team", label: "Team" },
   { href: "/play", label: "The app" },

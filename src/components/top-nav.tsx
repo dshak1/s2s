@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useProfile } from "@/lib/store";
 import { IS_LITE } from "@/lib/lite";
 import { Avatar } from "@/components/avatar";
-import { BookOpenCheck, Flame, Lightbulb, Star } from "lucide-react";
+import { BookOpenCheck, Flame, Star } from "lucide-react";
 
 export function TopNav() {
   const p = useProfile();
@@ -22,13 +22,6 @@ export function TopNav() {
               className="flex items-center gap-1 rounded-lg border border-steppe/10 bg-white/80 px-3 py-1 text-sm font-extrabold shadow-sm hover:bg-[#fff3cf]"
             >
               <BookOpenCheck size={15} className="text-steppe" />
-            </Link>
-            <Link
-              href="/wishlist"
-              title="Feature wishlist"
-              className="hidden items-center gap-1 rounded-lg border border-steppe/10 bg-white/80 px-3 py-1 text-sm font-extrabold shadow-sm hover:bg-[#fff3cf] sm:flex"
-            >
-              <Lightbulb size={15} className="text-[#ff9a4f]" />
             </Link>
           </>
         )}
