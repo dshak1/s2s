@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { ALPHABET } from "@/content/alphabet";
-import { playCorrect, playWrong, playWin, speakWord } from "@/lib/audio";
+import { playCorrect, playLetterPronunciation, playWrong, playWin } from "@/lib/audio";
 import { store } from "@/lib/store";
+import { logAnswer } from "@/lib/telemetry";
+import { letterItemId } from "@/lib/items";
 
 type LetterCue = {
   cyr: string;
@@ -52,13 +54,7 @@ function buildRound(previous?: string, index = 0): Round {
 }
 
 function playCue(cue: LetterCue) {
-  speakWord(cue.example);
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(cue.example);
-  utterance.lang = "kk-KZ";
-  utterance.rate = 0.78;
-  window.speechSynthesis.speak(utterance);
+  playLetterPronunciation(cue.cyr, cue.example);
 }
 
 export default function SoundItOut() {
@@ -69,6 +65,9 @@ export default function SoundItOut() {
   const [score, setScore] = useState(0);
   const [phase, setPhase] = useState<"guess" | "right" | "wrong" | "done">("guess");
   const [burst, setBurst] = useState(false);
+  // Telemetry: when this round was first shown, and how often the clip replayed.
+  const shownAt = useRef(Date.now());
+  const audioPlays = useRef(0);
 
   const prompt = useMemo(() => {
     if (round.mode === "hear-letter") return "Listen — which Kazakh letter makes this sound?";
@@ -96,6 +95,16 @@ export default function SoundItOut() {
     if (!picked || phase !== "guess") return;
     const correct = picked === round.answer.cyr;
     store.answerLetter(round.answer.cyr, correct);
+    logAnswer({
+      gameSlug: "sound-it-out",
+      itemId: letterItemId(round.answer.cyr),
+      promptKind: round.mode === "hear-letter" ? "audio" : "text",
+      response: picked,
+      isCorrect: correct,
+      latencyMs: Date.now() - shownAt.current,
+      attemptIndex: roundIndex + 1,
+      audioPlays: audioPlays.current,
+    });
     if (correct) {
       const nextScore = score + 1;
       setScore(nextScore);
@@ -122,6 +131,8 @@ export default function SoundItOut() {
     setRound(buildRound(round.answer.cyr, nextIndex));
     setPicked(null);
     setPhase("guess");
+    shownAt.current = Date.now();
+    audioPlays.current = 0;
   }
 
   function replay() {
@@ -131,6 +142,8 @@ export default function SoundItOut() {
     setLives(3);
     setScore(0);
     setPhase("guess");
+    shownAt.current = Date.now();
+    audioPlays.current = 0;
   }
 
   return (
@@ -170,7 +183,11 @@ export default function SoundItOut() {
             <div className="flex flex-col items-center gap-3">
               <button
                 type="button"
-                onClick={() => playCue(round.answer)}
+                onClick={() => {
+                  audioPlays.current += 1;
+                  playCue(round.answer);
+                }}
+                aria-label={`Play pronunciation for ${round.answer.cyr}`}
                 className="grid h-32 w-32 place-items-center rounded-full bg-steppe text-gold shadow-xl shadow-steppe/20 transition active:scale-95"
               >
                 <Volume2 size={56} />
@@ -191,8 +208,12 @@ export default function SoundItOut() {
               return (
                 <button
                   key={option.cyr}
-                  disabled={phase !== "guess"}
                   onClick={() => {
+                    // After the reveal, taps just replay the option's sound.
+                    if (phase !== "guess") {
+                      playCue(option);
+                      return;
+                    }
                     setPicked(option.cyr);
                     if (round.mode === "match-audio") playCue(option);
                   }}

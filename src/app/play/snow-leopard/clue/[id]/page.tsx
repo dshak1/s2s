@@ -11,6 +11,8 @@ import { CLUES } from "@/content/phrases";
 import { store, useProfile } from "@/lib/store";
 import { sessions } from "@/lib/sessions";
 import { playCorrect, playWrong } from "@/lib/audio";
+import { logAnswer } from "@/lib/telemetry";
+import { itemId } from "@/lib/items";
 
 export default function CluePage() {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +33,15 @@ export default function CluePage() {
 
   function answer(opt: string) {
     if (result === "right") return;
+    logAnswer({
+      gameSlug: "snow-leopard",
+      // Clues live in src/content/phrases.ts and have no content_items row yet;
+      // the derived id still groups events per clue for the coverage panel.
+      itemId: itemId("generated", `clue:${clue!.id}`),
+      promptKind: "image",
+      response: opt,
+      isCorrect: opt === clue!.answer,
+    });
     if (opt === clue!.answer) {
       store.addPawPrint(clue!.id);
       if (p.sessionCode) sessions.recordPaw(p.sessionCode, p.id, clue!.id);

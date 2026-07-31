@@ -83,11 +83,13 @@ export async function syncArtifact(
 
   const res = await fetch(artifact.dataUrl);
   const blob = await res.blob();
-  const path = `${profileId}/${artifact.id}.png`;
+  const contentType = blob.type || "image/png";
+  const ext = contentType.split("/")[1]?.split("+")[0] || "png";
+  const path = `${profileId}/${artifact.id}.${ext}`;
 
   const { error } = await sb.storage
     .from("kid-art")
-    .upload(path, blob, { contentType: "image/png", upsert: true });
+    .upload(path, blob, { contentType, upsert: true });
   if (error) return;
 
   await sb.from("kid_artifacts").upsert(
@@ -98,6 +100,39 @@ export async function syncArtifact(
   if (avatarArtifactId === artifact.id) {
     await sb.from("profiles").update({ avatar_artifact_id: artifact.id }).eq("id", profileId);
   }
+}
+
+export async function syncHomework(
+  profileId: string,
+  studentName: string,
+  artifact: Artifact,
+) {
+  const sb = getSupabaseBrowser();
+  if (!sb) return;
+
+  const res = await fetch(artifact.dataUrl);
+  const blob = await res.blob();
+  const contentType = blob.type || "image/jpeg";
+  const ext = contentType.split("/")[1]?.split("+")[0] || "jpg";
+  const path = `${profileId}/homework-${artifact.id}.${ext}`;
+
+  const { error } = await sb.storage
+    .from("kid-art")
+    .upload(path, blob, { contentType, upsert: true });
+  if (error) return;
+
+  await sb.from("homework_items").upsert(
+    {
+      id: artifact.id,
+      profile_id: profileId,
+      student_name: studentName,
+      title: artifact.meta?.title || null,
+      note: artifact.meta?.note || null,
+      homework_date: artifact.meta?.date || null,
+      storage_path: path,
+    },
+    { onConflict: "id" },
+  );
 }
 
 export async function syncSessionCreate(code: string) {

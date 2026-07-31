@@ -2,26 +2,44 @@
 
 import Link from "next/link";
 import { useProfile } from "@/lib/store";
+import { IS_LITE } from "@/lib/lite";
 import { Avatar } from "@/components/avatar";
-import { Flame, Star } from "lucide-react";
+import { BookOpenCheck, Flame, Star } from "lucide-react";
 
 export function TopNav() {
   const p = useProfile();
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between bg-steppe px-4 py-3 text-warm shadow-md">
+    <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/70 bg-white/75 px-4 py-3 text-steppe shadow-[0_10px_26px_rgba(30,77,140,.12)] backdrop-blur-md">
       <Link href="/play" className="text-xl font-black">
-        Steppe<span className="text-gold">2</span>Screen
+        Steppe<span className="text-[#ff8f4f]">2</span>Screen
       </Link>
       <div className="flex items-center gap-3">
-        <span className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-sm font-extrabold">
-          <Star size={15} className="text-gold" /> {p.xp}
+        {!IS_LITE && (
+          <>
+            <Link
+              href="/homework"
+              title="Turn in homework"
+              className="flex items-center gap-1 rounded-lg border border-steppe/10 bg-white/80 px-3 py-1 text-sm font-extrabold shadow-sm hover:bg-[#fff3cf]"
+            >
+              <BookOpenCheck size={15} className="text-steppe" />
+            </Link>
+          </>
+        )}
+        <span className="flex items-center gap-1 rounded-lg border border-steppe/10 bg-white/80 px-3 py-1 text-sm font-extrabold shadow-sm">
+          <Star size={15} className="text-[#ff9a4f]" /> {p.xp}
         </span>
-        <span className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-sm font-extrabold">
-          <Flame size={15} className="text-gold" /> {p.streakWeeks}
-        </span>
-        <Link href={`/profile/${p.id}`}>
+        {!IS_LITE && (
+          <span className="flex items-center gap-1 rounded-lg border border-steppe/10 bg-white/80 px-3 py-1 text-sm font-extrabold shadow-sm">
+            <Flame size={15} className="text-[#ff6f9f]" /> {p.streakWeeks}
+          </span>
+        )}
+        {IS_LITE ? (
           <Avatar size={40} />
-        </Link>
+        ) : (
+          <Link href={`/profile/${p.id}`}>
+            <Avatar size={40} />
+          </Link>
+        )}
       </div>
     </header>
   );

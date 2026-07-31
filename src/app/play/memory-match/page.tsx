@@ -9,6 +9,8 @@ import { VOCAB, type VocabItem } from "@/content/vocab";
 import { sample, shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord, playWin } from "@/lib/audio";
 import { store } from "@/lib/store";
+import { logAnswer } from "@/lib/telemetry";
+import { vocabItemId } from "@/lib/items";
 
 type Tile = { key: string; item: VocabItem; face: "en" | "kk" };
 
@@ -53,6 +55,15 @@ export default function MemoryMatch() {
     if (next.length === 2) {
       setMoves((m) => m + 1);
       const [a, b] = next.map((k) => board.find((t) => t.key === k)!);
+      // One event per pair attempt, keyed on the card flipped first.
+      logAnswer({
+        gameSlug: "memory-match",
+        itemId: vocabItemId(a.item),
+        promptKind: a.face === "en" ? "text" : "text",
+        response: b.item.slug,
+        isCorrect: a.item.slug === b.item.slug,
+        attemptIndex: moves + 1,
+      });
       if (a.item.slug === b.item.slug) {
         const nm = new Set(matched);
         nm.add(a.key);

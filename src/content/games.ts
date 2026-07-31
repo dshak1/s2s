@@ -7,6 +7,9 @@ export type GameMeta = {
   accent: string; // tailwind bg class for the tile
   group: GameGroup;
   isNew?: boolean;
+  // Hidden games stay routable (the "locker") but never render on the hub,
+  // profile shelf, or facilitator launcher.
+  hidden?: boolean;
 };
 
 export type GameGroup =
@@ -49,16 +52,21 @@ export const GAME_GROUPS: Array<{
 
 export const GAMES: GameMeta[] = [
   { slug: "sound-it-out", title: "Sound It Out", kk: "Дыбыс", blurb: "Hear it, tap the matching Kazakh letter.", href: "/play/sound-it-out", accent: "bg-steppe", group: "Words & Letters", isNew: true },
-  { slug: "sozdik-match", title: "Word Match", kk: "Сөз сәйкестік", blurb: "English word or picture → Kazakh.", href: "/play/sozdik-match", accent: "bg-steppe-700", group: "Words & Letters" },
-  { slug: "memory-match", title: "Memory Match", kk: "Естен қалдырма", blurb: "Flip cards, pair English + Kazakh.", href: "/play/memory-match", accent: "bg-steppe", group: "Words & Letters" },
+  { slug: "greetings-quiz", title: "Greetings Quiz", kk: "Сәлемдесу", blurb: "Hear a Kazakh greeting, tap the match.", href: "/play/greetings-quiz", accent: "bg-steppe-700", group: "Words & Letters", isNew: true },
+  { slug: "sozdik-match", title: "Word Match", kk: "Сөз сәйкестік", blurb: "English word or picture → Kazakh.", href: "/play/sozdik-match", accent: "bg-steppe-700", group: "Words & Letters", hidden: true },
+  { slug: "memory-match", title: "Memory Match", kk: "Естен қалдырма", blurb: "Flip cards, pair English + Kazakh.", href: "/play/memory-match", accent: "bg-steppe", group: "Words & Letters", hidden: true },
   { slug: "falling-sozder", title: "Falling Words", kk: "Құлайтын сөздер", blurb: "Catch each English prompt in the Kazakh basket.", href: "/play/falling-sozder", accent: "bg-steppe-700", group: "Words & Letters" },
   { slug: "where-kz", title: "Where in Kazakhstan?", kk: "Қайда?", blurb: "See a place, drop a pin on the map.", href: "/play/where-kz", accent: "bg-terra", group: "Places & Culture", isNew: true },
-  { slug: "bazaar", title: "Steppe Bazaar", kk: "Базар", blurb: "Shop for food and count your teńge.", href: "/play/bazaar", accent: "bg-terra", group: "Places & Culture", isNew: true },
-  { slug: "snow-leopard", title: "Snow Leopard Patrol", kk: "Қар барысы", blurb: "Scan QR clues hidden around the room.", href: "/play/snow-leopard", accent: "bg-wolf", group: "Get Up & Move" },
-  { slug: "jaryq-hunter", title: "Flashlight Words", kk: "Жарық", blurb: "Shine a light to reveal animal words.", href: "/play/jaryq-hunter", accent: "bg-[#1b1b1b]", group: "Get Up & Move" },
-  { slug: "tanba-studio", title: "Design Your Avatar", kk: "Сурет салу", blurb: "Draw or import art to become your avatar.", href: "/play/tanba-studio", accent: "bg-gold", group: "Make Your Own" },
-  { slug: "story-maker", title: "Story Maker", kk: "Әңгіме", blurb: "Build a comic with your art.", href: "/play/story-maker", accent: "bg-steppe", group: "Make Your Own" },
+  { slug: "bazaar", title: "Steppe Bazaar", kk: "Базар", blurb: "Shop for food and count your teńge.", href: "/play/bazaar", accent: "bg-terra", group: "Places & Culture", hidden: true },
+  { slug: "snow-leopard", title: "Snow Leopard Patrol", kk: "Қар барысы", blurb: "Scan QR clues hidden around the room.", href: "/play/snow-leopard", accent: "bg-wolf", group: "Get Up & Move", hidden: true },
+  { slug: "jaryq-hunter", title: "Spotlight Panic", kk: "Жарық", blurb: "Hunt words in the dark — dodge the ghosts!", href: "/play/jaryq-hunter", accent: "bg-[#1b1b1b]", group: "Get Up & Move", isNew: true },
+  // tanba-studio is not a game — it stays reachable from the profile gallery.
+  { slug: "tanba-studio", title: "Design Your Avatar", kk: "Сурет салу", blurb: "Draw or import art to become your avatar.", href: "/play/tanba-studio", accent: "bg-gold", group: "Make Your Own", hidden: true },
+  { slug: "story-maker", title: "Story Maker", kk: "Әңгіме", blurb: "Build a comic with your art.", href: "/play/story-maker", accent: "bg-steppe", group: "Make Your Own", hidden: true },
 ];
+
+// Games that actually show up on the hub, profile shelf, and facilitator launcher.
+export const VISIBLE_GAMES = GAMES.filter((game) => !game.hidden);
 
 // TODO: Re-enable Aitys Battle only after the couplets are replaced with real rhyming Kazakh lines.
 // Dala Quest is now represented by the Silk Road progression layer on the games hub.

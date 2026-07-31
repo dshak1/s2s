@@ -1,0 +1,369 @@
+import { ChevronUp } from "lucide-react";
+import { requireTeam, STAFF_ROLES, type TeamMember } from "@/lib/auth";
+import { getSupabaseServer } from "@/lib/supabase/server";
+import { linearEnabled } from "@/lib/linear";
+import { GAMES } from "@/content/games";
+import { AdminShell, Empty, Panel } from "@/components/admin/shell";
+import {
+  PRIORITIES,
+  PROBLEMS,
+  TICKET_STATUSES,
+  TICKET_TYPES,
+  type Ticket,
+  type TicketStatus,
+  type TicketType,
+} from "@/lib/tickets";
+import { addComment, addLink, toggleVote } from "./actions";
+import { DecisionForm, NewTicketForm, PushToLinearButton } from "./forms";
+
+export const metadata = { title: "Tickets · Steppe to Screen" };
+export const dynamic = "force-dynamic";
+
+type Comment = { id: string; ticket_id: string; author_id: string | null; body: string };
+type Attachment = {
+  id: string;
+  ticket_id: string;
+  kind: "image" | "link";
+  storage_path: string | null;
+  url: string | null;
+  title: string | null;
+};
+
+const GAME_TITLES = new Map(GAMES.map((g) => [g.slug, g.title]));
+
+const TYPE_STYLE: Record<TicketType, string> = {
+  bug: "bg-[#fef2f2] text-[#b91c1c] border-[#fecaca]",
+  request: "bg-[#eff6ff] text-[#1d4ed8] border-[#bfdbfe]",
+  question: "bg-[#fefce8] text-[#a16207] border-[#fde68a]",
+};
+
+const STATUS_STYLE: Record<TicketStatus, string> = {
+  inbox: "bg-[#f1f5f9] text-[#475569]",
+  planned: "bg-[#eff6ff] text-[#1d4ed8]",
+  building: "bg-[#fefce8] text-[#a16207]",
+  done: "bg-[#f0fdf4] text-[#15803d]",
+  declined: "bg-[#fef2f2] text-[#b91c1c]",
+  duplicate: "bg-[#f1f5f9] text-[#94a3b8]",
+};
+
+const input =
+  "w-full rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[13px] outline-none transition focus:border-[#94a3b8]";
+const chip = "rounded border px-1.5 py-0.5 text-[11px] font-medium";
+
+export default async function TicketsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string; status?: string }>;
+}) {
+  const member = await requireTeam(undefined, "/tickets");
+  const { type: typeFilter = "all", status: statusFilter = "open" } = await searchParams;
+  const sb = await getSupabaseServer();
+  const isStaff = STAFF_ROLES.includes(member.role);
+
+  if (!sb) {
+    return (
+      <AdminShell member={member} current="/tickets" title="Tickets">
+        <Empty>Offline demo mode — the ticket board needs Supabase.</Empty>
+      </AdminShell>
+    );
+  }
+
+  const [ticketsRes, votesRes, commentsRes, attachmentsRes, teamRes] = await Promise.all([
+    sb
+      .from("tickets")
+      .select("*")
+      .order("votes", { ascending: false })
+      .order("created_at", { ascending: false }),
+    sb.from("ticket_votes").select("ticket_id").eq("voter_id", member.id),
+    sb.from("ticket_comments").select("*").order("created_at", { ascending: true }),
+    sb.from("ticket_attachments").select("*"),
+    sb.from("team_members").select("id, display_name, role").neq("role", "pending"),
+  ]);
+
+  const tickets = (ticketsRes.data ?? []) as Ticket[];
+  const myVotes = new Set(
+    ((votesRes.data ?? []) as Array<{ ticket_id: string }>).map((v) => v.ticket_id),
+  );
+  const comments = (commentsRes.data ?? []) as Comment[];
+  const attachments = (attachmentsRes.data ?? []) as Attachment[];
+  const team = (teamRes.data ?? []) as Array<Pick<TeamMember, "id" | "display_name">>;
+  const names = new Map(team.map((t) => [t.id, t.display_name]));
+
+  const visible = tickets.filter((t) => {
+    const typeOk = typeFilter === "all" || t.type === typeFilter;
+    const statusOk =
+      statusFilter === "all"
+        ? true
+        : statusFilter === "open"
+          ? TICKET_STATUSES[t.status].open
+          : t.status === statusFilter;
+    return typeOk && statusOk;
+  });
+
+  const inbox = tickets.filter((t) => t.status === "inbox").length;
+  const answered = tickets.length - inbox;
+  const answeredPct = tickets.length ? Math.round((answered / tickets.length) * 100) : 0;
+
+  const counts = {
+    bug: tickets.filter((t) => t.type === "bug" && TICKET_STATUSES[t.status].open).length,
+    request: tickets.filter((t) => t.type === "request" && TICKET_STATUSES[t.status].open).length,
+    question: tickets.filter((t) => t.type === "question" && TICKET_STATUSES[t.status].open).length,
+  };
+
+  const qs = (next: Record<string, string>) => {
+    const p = new URLSearchParams({ type: typeFilter, status: statusFilter, ...next });
+    return `/tickets?${p.toString()}`;
+  };
+
+  return (
+    <AdminShell
+      member={member}
+      current="/tickets"
+      title="Tickets"
+      subtitle={`${inbox} in the inbox · ${answeredPct}% of all tickets have an answer`}
+      actions={
+        <NewTicketForm games={GAMES.map((g) => ({ slug: g.slug, title: g.title }))} />
+      }
+    >
+      {/* filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-1">
+          <span className="mr-1 text-[12px] text-[#94a3b8]">Type</span>
+          {(["all", "bug", "request", "question"] as const).map((t) => (
+            <a
+              key={t}
+              href={qs({ type: t })}
+              className={`rounded-md px-2 py-1 text-[12px] transition ${
+                typeFilter === t
+                  ? "bg-[#0f172a] font-medium text-white"
+                  : "text-[#475569] hover:bg-[#eef1f5]"
+              }`}
+            >
+              {t === "all" ? "All" : TICKET_TYPES[t].label}
+              {t !== "all" && counts[t] > 0 && (
+                <span className="ml-1 opacity-60">{counts[t]}</span>
+              )}
+            </a>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <span className="mr-1 text-[12px] text-[#94a3b8]">Status</span>
+          {(["open", "inbox", "planned", "building", "done", "declined", "all"] as const).map(
+            (s) => (
+              <a
+                key={s}
+                href={qs({ status: s })}
+                className={`rounded-md px-2 py-1 text-[12px] capitalize transition ${
+                  statusFilter === s
+                    ? "bg-[#0f172a] font-medium text-white"
+                    : "text-[#475569] hover:bg-[#eef1f5]"
+                }`}
+              >
+                {s}
+              </a>
+            ),
+          )}
+        </div>
+      </div>
+
+      {visible.length === 0 ? (
+        <Empty>Nothing here. File the first one.</Empty>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((t) => {
+            const voted = myVotes.has(t.id);
+            const mine = comments.filter((c) => c.ticket_id === t.id);
+            const files = attachments.filter((a) => a.ticket_id === t.id);
+
+            return (
+              <article
+                key={t.id}
+                className="rounded-lg border border-[#e2e5ea] bg-white p-3.5"
+              >
+                <div className="flex gap-3">
+                  <form action={toggleVote}>
+                    <input type="hidden" name="ticket_id" value={t.id} />
+                    <input type="hidden" name="voted" value={voted ? "1" : "0"} />
+                    <button
+                      type="submit"
+                      title={voted ? "Remove your vote" : "Vote"}
+                      className={`flex w-10 flex-col items-center rounded-md border px-1 py-1.5 transition ${
+                        voted
+                          ? "border-[#0f172a] bg-[#0f172a] text-white"
+                          : "border-[#dbe0e6] text-[#64748b] hover:bg-[#f1f3f6]"
+                      }`}
+                    >
+                      <ChevronUp size={14} />
+                      <span className="text-[12px] font-semibold tabular-nums">{t.votes}</span>
+                    </button>
+                  </form>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-[12px] text-[#94a3b8]">{t.ref}</span>
+                      <span className={`${chip} ${TYPE_STYLE[t.type]}`}>
+                        {TICKET_TYPES[t.type].label}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${STATUS_STYLE[t.status]}`}
+                      >
+                        {TICKET_STATUSES[t.status].label}
+                      </span>
+                      <span className="rounded bg-[#f1f5f9] px-1.5 py-0.5 text-[11px] font-medium text-[#475569]">
+                        {PRIORITIES[t.priority].label}
+                      </span>
+                      {t.game_slug && (
+                        <span className="text-[11px] text-[#94a3b8]">
+                          {GAME_TITLES.get(t.game_slug) ?? t.game_slug}
+                        </span>
+                      )}
+                    </div>
+
+                    <h2 className="mt-1 text-[14px] font-semibold leading-snug">{t.title}</h2>
+                    {t.body && (
+                      <p className="mt-1 text-[13px] leading-relaxed text-[#475569]">{t.body}</p>
+                    )}
+
+                    {t.type === "question" && (
+                      <p className="mt-1.5 text-[12px] text-[#64748b]">
+                        <span className="font-mono text-[#94a3b8]">{t.item_id}</span>
+                        {t.problem && ` — ${PROBLEMS[t.problem]}`}
+                      </p>
+                    )}
+
+                    <p className="mt-1.5 text-[11px] text-[#94a3b8]">
+                      {t.author_id ? (names.get(t.author_id) ?? "Someone") : "Someone"} ·{" "}
+                      {new Date(t.created_at).toLocaleDateString()}
+                      {t.assignee_id && ` · assigned to ${names.get(t.assignee_id) ?? "?"}`}
+                    </p>
+
+                    {t.decision_note && (
+                      <div className="mt-2.5 rounded-md border-l-2 border-[#0f172a] bg-[#f7f8fa] px-3 py-2">
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-[#94a3b8]">
+                          Answer · {t.decided_by ? (names.get(t.decided_by) ?? "team") : "team"}
+                          {t.decided_at && ` · ${new Date(t.decided_at).toLocaleDateString()}`}
+                        </p>
+                        <p className="mt-0.5 text-[13px] leading-relaxed">{t.decision_note}</p>
+                      </div>
+                    )}
+
+                    {(t.preview_url || t.linear_issue_url || files.length > 0) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {t.preview_url && (
+                          <a
+                            href={t.preview_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-md border border-[#0f172a] px-2 py-1 text-[12px] font-medium hover:bg-[#f1f3f6]"
+                          >
+                            Try the draft ↗
+                          </a>
+                        )}
+                        {t.linear_issue_url && (
+                          <a
+                            href={t.linear_issue_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[12px] text-[#64748b] hover:text-[#0f172a]"
+                          >
+                            Linear ↗
+                          </a>
+                        )}
+                        {files.map((f) => (
+                          <a
+                            key={f.id}
+                            href={f.url ?? "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[12px] text-[#64748b] underline decoration-[#cbd5e1] hover:text-[#0f172a]"
+                          >
+                            {f.title ?? f.url}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {mine.length > 0 && (
+                      <ul className="mt-2.5 space-y-1 border-t border-[#eef1f5] pt-2.5">
+                        {mine.map((c) => (
+                          <li key={c.id} className="text-[13px]">
+                            <span className="font-medium">
+                              {c.author_id ? (names.get(c.author_id) ?? "Team") : "Team"}
+                            </span>{" "}
+                            <span className="text-[#475569]">{c.body}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <form action={addComment} className="flex min-w-[15rem] flex-1 gap-1.5">
+                        <input type="hidden" name="ticket_id" value={t.id} />
+                        <input
+                          name="body"
+                          required
+                          placeholder="Comment…"
+                          className={input}
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#475569] hover:bg-[#f1f3f6]"
+                        >
+                          Post
+                        </button>
+                      </form>
+                      <form action={addLink} className="flex min-w-[15rem] flex-1 gap-1.5">
+                        <input type="hidden" name="ticket_id" value={t.id} />
+                        <input
+                          name="url"
+                          required
+                          placeholder="Link to something similar…"
+                          className={input}
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#475569] hover:bg-[#f1f3f6]"
+                        >
+                          Add
+                        </button>
+                      </form>
+                    </div>
+
+                    {isStaff && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-[#eef1f5] pt-2.5">
+                        <DecisionForm
+                          ticketId={t.id}
+                          currentStatus={t.status}
+                          currentNote={t.decision_note}
+                          currentPriority={t.priority}
+                          currentPreview={t.preview_url}
+                          currentAssignee={t.assignee_id}
+                          team={team}
+                        />
+                        {linearEnabled() && !t.linear_issue_id && t.status !== "inbox" && (
+                          <PushToLinearButton ticketId={t.id} />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      <Panel className="mt-6">
+        <p className="text-[12px] leading-relaxed text-[#64748b]">
+          A ticket cannot leave the inbox without a written reason — that&apos;s a database
+          constraint, not a team norm. Flagged questions carry the exact content id, so
+          they line up with the labelling queue and the item analytics.{" "}
+          {linearEnabled()
+            ? "Linear sync is on."
+            : "Set LINEAR_API_KEY to push decided tickets into Linear."}
+        </p>
+      </Panel>
+    </AdminShell>
+  );
+}

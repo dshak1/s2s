@@ -9,6 +9,8 @@ import { REGIONS } from "@/content/regions";
 import { playCorrect, playWrong, playWin } from "@/lib/audio";
 import { shuffle } from "@/lib/utils";
 import { store } from "@/lib/store";
+import { logAnswer } from "@/lib/telemetry";
+import { placeItemId } from "@/lib/items";
 
 type Place = {
   id: string;
@@ -82,6 +84,8 @@ export default function WhereKz() {
   const [closenessTotal, setClosenessTotal] = useState(0);
   const [lastClose, setLastClose] = useState(0);
   const svgRef = useRef<SVGSVGElement>(null);
+  // Telemetry: when the current place photo was first shown.
+  const shownAt = useRef(Date.now());
 
   const place = order[index];
   const complete = phase === "done";
@@ -99,6 +103,17 @@ export default function WhereKz() {
     if (!pin || phase !== "guess") return;
     const distance = Math.hypot(pin.x - place.x, pin.y - place.y);
     const close = Math.max(0, Math.round(100 - distance / 4.5));
+    logAnswer({
+      gameSlug: "where-kz",
+      itemId: placeItemId(place),
+      promptKind: "map",
+      // Where the pin landed, so a systematically mis-taught place shows up as a
+      // cluster rather than just a low score.
+      response: `${Math.round(pin.x)},${Math.round(pin.y)}`,
+      isCorrect: distance < 100,
+      latencyMs: Date.now() - shownAt.current,
+      attemptIndex: index + 1,
+    });
     setLastClose(close);
     setClosenessTotal((total) => total + close);
     if (distance < 100) {
@@ -126,6 +141,7 @@ export default function WhereKz() {
     setIndex((value) => value + 1);
     setPin(null);
     setPhase("guess");
+    shownAt.current = Date.now();
   }
 
   function replay() {

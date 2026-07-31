@@ -8,8 +8,10 @@ import { Card } from "@/components/ui/card";
 import { YurtSVG, YURT_TOTAL } from "@/components/yurt";
 import { VOCAB, CATEGORIES, CATEGORY_LABELS, vocabByCategory, type VocabCategory } from "@/content/vocab";
 import { BADGES } from "@/content/badges";
-import { GAMES } from "@/content/games";
-import { useProfile, masteredLetterCount, isVocabMastered } from "@/lib/store";
+import { VISIBLE_GAMES } from "@/content/games";
+import { KID_COVERS } from "@/content/kid-covers";
+import { store, useProfile, masteredLetterCount, isVocabMastered } from "@/lib/store";
+import { toastBus } from "@/lib/toast";
 import { Snowflake } from "lucide-react";
 
 export default function ProfilePage() {
@@ -38,7 +40,11 @@ export default function ProfilePage() {
               </span>
             </div>
           </div>
-          <Link href="/play" className="rounded-full bg-gold px-5 py-2.5 font-black text-steppe-700">Play games</Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/play" className="rounded-full bg-gold px-5 py-2.5 font-black text-steppe-700">Play games</Link>
+            <Link href="/homework" className="rounded-full bg-white/20 px-5 py-2.5 font-black text-warm">📚 Homework</Link>
+            <Link href={`/profile/${p.id}/certificate`} className="rounded-full bg-white/20 px-5 py-2.5 font-black text-warm">🏅 Certificate</Link>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -94,7 +100,7 @@ export default function ProfilePage() {
         <div>
           <h2 className="mb-3 text-lg font-black text-steppe">Jump back in</h2>
           <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
-            {GAMES.map((g) => (
+            {VISIBLE_GAMES.map((g) => (
               <Link key={g.slug} href={g.href} className={`min-w-[160px] rounded-2xl ${g.accent} p-4 text-warm`}>
                 <div className="text-xs font-bold text-gold">{g.kk}</div>
                 <div className="font-black">{g.title}</div>
@@ -102,6 +108,53 @@ export default function ProfilePage() {
             ))}
           </div>
         </div>
+
+        {/* home background — covers designed by workshop players */}
+        <Card>
+          <h2 className="mb-1 text-lg font-black text-steppe">Home background</h2>
+          <p className="mb-3 text-sm text-wolf">
+            Designed by our players — pick yours and it becomes your home page.{" "}
+            <Link href="/covers" className="font-bold text-steppe underline">See them big →</Link>
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <button
+              onClick={() => {
+                store.setHomeCover(null);
+                toastBus.show({ title: "Back to the mountains", body: "Classic home background restored.", icon: "🏔️" });
+              }}
+              className={`flex aspect-video items-center justify-center rounded-2xl border-4 bg-felt text-sm font-black text-steppe-700 transition active:scale-95 ${
+                p.homeCoverId === null ? "border-gold" : "border-transparent opacity-70 hover:opacity-100"
+              }`}
+            >
+              🏔️ Classic
+            </button>
+            {KID_COVERS.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => {
+                  store.setHomeCover(c.id);
+                  toastBus.show({
+                    title: "Home background set!",
+                    body: c.artist ? `Cover by ${c.artist} is now your home page.` : "This cover is now your home page.",
+                    icon: "🎨",
+                  });
+                }}
+                aria-label={c.artist ? `Use cover by ${c.artist}` : "Use workshop cover"}
+                className={`relative aspect-video overflow-hidden rounded-2xl border-4 transition active:scale-95 ${
+                  p.homeCoverId === c.id ? "border-gold" : "border-transparent opacity-70 hover:opacity-100"
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.image} alt="" className="h-full w-full object-cover" />
+                {c.artist && (
+                  <span className="absolute bottom-1 left-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-black text-white">
+                    {c.artist}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </Card>
 
         {/* gallery */}
         <Card>
@@ -117,7 +170,9 @@ export default function ProfilePage() {
                 <motion.div key={a.id} whileHover={{ scale: 1.05 }} className="overflow-hidden rounded-2xl border-2 border-steppe/20 bg-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={a.dataUrl} alt={a.kind} className="aspect-square w-full object-cover" />
-                  <div className="bg-felt py-0.5 text-center text-[10px] font-bold text-steppe-700">{a.kind}</div>
+                  <div className="bg-felt py-0.5 text-center text-[10px] font-bold text-steppe-700">
+                    {a.kind === "homework" ? `📚 ${a.meta?.title || "homework"}` : a.kind}
+                  </div>
                 </motion.div>
               ))}
             </div>
