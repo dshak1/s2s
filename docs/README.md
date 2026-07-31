@@ -12,6 +12,7 @@ The app has two populations and they are treated oppositely:
 
 | Doc | What it covers |
 |---|---|
+| [backlog.md](backlog.md) | Everything shipped, everything open. Mirrors /tickets |
 | [setup.md](setup.md) | Getting it running, env vars, the manual Supabase steps |
 | [architecture.md](architecture.md) | How the pieces fit, and why offline-first |
 | [data-model.md](data-model.md) | Every table, what it is for, who can read it |
