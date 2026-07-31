@@ -1,0 +1,317 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import {
+  DECIDED_STATUSES,
+  PRIORITIES,
+  PROBLEMS,
+  TICKET_STATUSES,
+  TICKET_TYPES,
+  type TicketProblem,
+  type TicketStatus,
+  type TicketType,
+} from "@/lib/tickets";
+import { createTicket, decideTicket, pushToLinear, type ActionResult } from "./actions";
+
+const EMPTY: ActionResult = { ok: false };
+
+const input =
+  "w-full rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[13px] outline-none transition focus:border-[#94a3b8] focus:ring-2 focus:ring-[#e2e8f0]";
+const label = "mb-1 block text-[12px] font-medium text-[#475569]";
+const btn =
+  "rounded-md px-3 py-1.5 text-[13px] font-medium transition disabled:opacity-50";
+const btnPrimary = `${btn} bg-[#0f172a] text-white hover:bg-[#1e293b]`;
+const btnGhost = `${btn} border border-[#dbe0e6] bg-white text-[#475569] hover:bg-[#f1f3f6]`;
+
+export function NewTicketForm({
+  games,
+  presetItemId,
+}: {
+  games: Array<{ slug: string; title: string }>;
+  presetItemId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState<TicketType>(presetItemId ? "question" : "request");
+  const [state, action, pending] = useActionState(createTicket, EMPTY);
+
+  if (!open) {
+    return (
+      <button className={btnPrimary} onClick={() => setOpen(true)}>
+        New ticket
+      </button>
+    );
+  }
+
+  if (state.ok) {
+    return (
+      <div className="w-full rounded-lg border border-[#e2e5ea] bg-white p-4">
+        <p className="text-[13px] font-semibold">
+          Filed as <span className="font-mono">{state.ref}</span>
+        </p>
+        <p className="mt-1 text-[12px] text-[#64748b]">
+          It&apos;s in the inbox with your vote on it. An admin has to answer it.
+        </p>
+        <div className="mt-3 flex gap-2">
+          <button className={btnPrimary} onClick={() => setOpen(true)}>
+            File another
+          </button>
+          <button className={btnGhost} onClick={() => setOpen(false)}>
+            Done
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form action={action} className="w-full rounded-lg border border-[#e2e5ea] bg-white p-4">
+      <div className="mb-3 grid gap-2 sm:grid-cols-3">
+        {(Object.keys(TICKET_TYPES) as TicketType[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setType(t)}
+            className={`rounded-md border px-3 py-2 text-left transition ${
+              type === t
+                ? "border-[#0f172a] bg-[#0f172a] text-white"
+                : "border-[#dbe0e6] bg-white hover:bg-[#f1f3f6]"
+            }`}
+          >
+            <span className="block text-[13px] font-semibold">{TICKET_TYPES[t].label}</span>
+            <span
+              className={`block text-[11px] ${type === t ? "text-white/70" : "text-[#94a3b8]"}`}
+            >
+              {TICKET_TYPES[t].blurb}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <input type="hidden" name="type" value={type} />
+      {presetItemId && <input type="hidden" name="item_id" value={presetItemId} />}
+
+      <div className="space-y-3">
+        <div>
+          <label className={label} htmlFor="t-title">
+            Title
+          </label>
+          <input
+            id="t-title"
+            name="title"
+            required
+            placeholder={
+              type === "bug"
+                ? "What broke, and where?"
+                : type === "question"
+                  ? "Which question, and what's wrong with it?"
+                  : "What should change?"
+            }
+            className={input}
+          />
+        </div>
+
+        <div>
+          <label className={label} htmlFor="t-body">
+            Detail
+          </label>
+          <textarea
+            id="t-body"
+            name="body"
+            rows={3}
+            placeholder={
+              type === "bug"
+                ? "Steps to hit it, what you expected, what happened."
+                : "How would it work? What made you think of it?"
+            }
+            className={`${input} resize-none`}
+          />
+        </div>
+
+        {type === "question" && !presetItemId && (
+          <div>
+            <label className={label} htmlFor="t-item">
+              Question id
+            </label>
+            <input
+              id="t-item"
+              name="item_id"
+              required
+              placeholder="vocab:ake:v1"
+              className={`${input} font-mono`}
+            />
+            <p className="mt-1 text-[11px] text-[#94a3b8]">
+              Easier: flag it from the labelling queue and this fills itself in.
+            </p>
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {type === "question" && (
+            <div className="sm:col-span-2">
+              <label className={label} htmlFor="t-problem">
+                What&apos;s wrong
+              </label>
+              <select id="t-problem" name="problem" defaultValue="poor_question" className={input}>
+                {(Object.keys(PROBLEMS) as TicketProblem[]).map((p) => (
+                  <option key={p} value={p}>
+                    {PROBLEMS[p]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {type !== "question" && (
+            <div className="sm:col-span-2">
+              <label className={label} htmlFor="t-game">
+                Game (optional)
+              </label>
+              <select id="t-game" name="game_slug" defaultValue="" className={input}>
+                <option value="">Not game-specific</option>
+                {games.map((g) => (
+                  <option key={g.slug} value={g.slug}>
+                    {g.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className={label} htmlFor="t-priority">
+              Priority
+            </label>
+            <select id="t-priority" name="priority" defaultValue="p2" className={input}>
+              {(Object.keys(PRIORITIES) as Array<keyof typeof PRIORITIES>).map((p) => (
+                <option key={p} value={p}>
+                  {PRIORITIES[p].label} — {PRIORITIES[p].blurb}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {state.error && <p className="text-[12px] font-medium text-[#dc2626]">{state.error}</p>}
+
+        <div className="flex gap-2">
+          <button type="submit" disabled={pending} className={btnPrimary}>
+            {pending ? "Filing…" : "File ticket"}
+          </button>
+          <button type="button" onClick={() => setOpen(false)} className={btnGhost}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+export function DecisionForm({
+  ticketId,
+  currentStatus,
+  currentNote,
+  currentPriority,
+  currentPreview,
+  currentAssignee,
+  team,
+}: {
+  ticketId: string;
+  currentStatus: TicketStatus;
+  currentNote: string | null;
+  currentPriority: string;
+  currentPreview: string | null;
+  currentAssignee: string | null;
+  team: Array<{ id: string; display_name: string }>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState(decideTicket, EMPTY);
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className={btnPrimary}>
+        {currentStatus === "inbox" ? "Respond" : "Update"}
+      </button>
+    );
+  }
+
+  return (
+    <form action={action} className="mt-3 w-full rounded-md border border-[#e2e5ea] bg-[#f7f8fa] p-3">
+      <input type="hidden" name="ticket_id" value={ticketId} />
+      <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-[#94a3b8]">
+        Whoever filed this reads your answer
+      </p>
+
+      <div className="mb-2 grid gap-2 sm:grid-cols-3">
+        <select
+          name="status"
+          defaultValue={currentStatus === "inbox" ? "planned" : currentStatus}
+          className={input}
+        >
+          {DECIDED_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {TICKET_STATUSES[s].label}
+            </option>
+          ))}
+        </select>
+        <select name="priority" defaultValue={currentPriority} className={input}>
+          {(Object.keys(PRIORITIES) as Array<keyof typeof PRIORITIES>).map((p) => (
+            <option key={p} value={p}>
+              {PRIORITIES[p].label}
+            </option>
+          ))}
+        </select>
+        <select name="assignee_id" defaultValue={currentAssignee ?? ""} className={input}>
+          <option value="">Unassigned</option>
+          {team.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.display_name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <textarea
+        name="decision_note"
+        rows={3}
+        required
+        defaultValue={currentNote ?? ""}
+        placeholder="Why this call? If it's a no, what would change your mind?"
+        className={`${input} mb-2 resize-none`}
+      />
+      <input
+        name="preview_url"
+        defaultValue={currentPreview ?? ""}
+        placeholder="Draft link to try it (optional)"
+        className={`${input} mb-2`}
+      />
+
+      {state.error && (
+        <p className="mb-2 text-[12px] font-medium text-[#dc2626]">{state.error}</p>
+      )}
+
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className={btnPrimary}>
+          {pending ? "Saving…" : "Save"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className={btnGhost}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export function PushToLinearButton({ ticketId }: { ticketId: string }) {
+  const [state, action, pending] = useActionState(pushToLinear, EMPTY);
+  return (
+    <form action={action} className="inline">
+      <input type="hidden" name="ticket_id" value={ticketId} />
+      <button type="submit" disabled={pending} className={btnGhost}>
+        {pending ? "Filing…" : "Linear"}
+      </button>
+      {state.error && (
+        <span className="ml-2 text-[12px] font-medium text-[#dc2626]">{state.error}</span>
+      )}
+    </form>
+  );
+}

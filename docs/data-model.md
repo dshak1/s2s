@@ -50,20 +50,33 @@ the exact wording they were about.
 
 | Table | Contents |
 |---|---|
-| `team_members` | `auth.users` id, display name, role. First sign-in becomes admin |
+| `team_members` | `auth.users` id, display name, `role` (pending/member/admin), `expertise` (descriptive only). First sign-in becomes admin |
 
-### Triage
+### Tickets
 
 | Table | Contents |
 |---|---|
-| `wishlist_items` | the ideas themselves, plus `decision_note`, `decided_by`, `preview_url`, `linear_issue_url` |
-| `idea_votes` | `(idea_id, voter_id)` — one vote per person, trigger keeps the counter in sync |
-| `idea_comments` | threaded discussion |
-| `idea_attachments` | uploaded images and inspiration links |
+| `tickets` | `ref` (S2S-14), `type`, `title`, `body`, `status`, `priority`, `assignee_id`, plus `decision_note`, `preview_url`, `linear_issue_url` |
+| `ticket_votes` | `(ticket_id, voter_id)` — one vote per person, trigger keeps the counter in sync |
+| `ticket_comments` | discussion |
+| `ticket_attachments` | uploaded images and inspiration links |
 
-A CHECK constraint enforces that any status other than `idea` carries a
+Three types, deliberately. A game bug is a bug with a `game_slug`, not its own
+species:
+
+- `bug` — something in the app is broken
+- `request` — a change or a new feature (the same thing)
+- `question` — a specific content item is wrong. Carries `item_id` (a
+  `content_items` id) and `problem` (`wrong_answer`, `bad_audio`,
+  `poor_question`, `unclear`, `culturally_wrong`, `too_hard`, `too_easy`), so a
+  flag lines up with the labelling queue and item analytics.
+
+A CHECK constraint enforces that any status other than `inbox` carries a
 `decision_note` of at least 10 characters. The response loop is a database
 invariant, not a convention.
+
+`wishlist_items` still exists, archived — `0015` copied it into `tickets` and no
+app code reads it.
 
 ### Labelling
 

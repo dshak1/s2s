@@ -1,17 +1,26 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import {
+  EXPERTISE_LABELS,
   isDemoMember,
   requireTeam,
+  ROLE_HINTS,
   ROLE_LABELS,
   STAFF_ROLES,
+  type Expertise,
   type TeamMember,
   type TeamRole,
 } from "@/lib/auth";
-import { setRole } from "./actions";
+import { AdminShell, Empty, Panel } from "@/components/admin/shell";
+import { approve, setRole } from "./actions";
 
 export const metadata = { title: "Team · Steppe to Screen" };
+export const dynamic = "force-dynamic";
 
 const ROLES = Object.keys(ROLE_LABELS) as TeamRole[];
+const EXPERTISES = Object.keys(EXPERTISE_LABELS) as Expertise[];
+
+const select =
+  "rounded-md border border-[#dbe0e6] bg-white px-2 py-1 text-[12px] outline-none focus:border-[#94a3b8]";
 
 export default async function AdminTeamPage() {
   const me = await requireTeam(undefined, "/admin/team");
@@ -21,109 +30,153 @@ export default async function AdminTeamPage() {
   const { data } = sb
     ? await sb
         .from("team_members")
-        .select("id, email, display_name, role, created_at")
+        .select("id, email, display_name, role, expertise, created_at")
         .order("created_at", { ascending: true })
     : { data: null };
-  const members = (data as TeamMember[] | null) ?? [];
 
+  const members = (data as TeamMember[] | null) ?? [];
   const waiting = members.filter((m) => m.role === "pending");
+  const active = members.filter((m) => m.role !== "pending");
 
   return (
-    <div className="min-h-dvh bg-warm font-admin">
-      <div className="border-b border-black/8 bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <div>
-            <h1 className="text-xl font-black text-steppe">Team</h1>
-            <p className="text-xs text-wolf">
-              {members.length} member{members.length === 1 ? "" : "s"} · you are{" "}
-              {ROLE_LABELS[me.role]}
-              {waiting.length > 0 && ` · ${waiting.length} waiting for a role`}
-            </p>
-          </div>
-          <form action="/auth/signout" method="post">
-            <button
-              type="submit"
-              className="rounded-full border-2 border-steppe bg-white px-4 py-2 text-sm font-extrabold text-steppe transition hover:bg-steppe/5"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      </div>
+    <AdminShell
+      member={me}
+      current="/admin/team"
+      title="Team"
+      subtitle={
+        waiting.length > 0
+          ? `${waiting.length} waiting for approval · ${active.length} active`
+          : `${active.length} active`
+      }
+    >
+      {isDemoMember(me) && (
+        <Empty>Offline demo mode — no real roster here.</Empty>
+      )}
 
-      <div className="mx-auto max-w-4xl px-4 py-6">
-        {isDemoMember(me) && (
-          <p className="mb-4 rounded-xl bg-gold/20 p-4 text-sm font-bold text-steppe-700">
-            Offline demo mode — Supabase env vars are not set, so there is no real
-            roster here.
-          </p>
+      {waiting.length > 0 && (
+        <Panel
+          title="Waiting for approval"
+          hint="A sign-in link only proves someone owns an email address. Nothing is visible to them until you approve."
+          className="mb-5"
+        >
+          <ul className="space-y-2">
+            {waiting.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#fde68a] bg-[#fefce8] px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium">{m.display_name}</p>
+                  <p className="text-[12px] text-[#94a3b8]">
+                    {m.email} · asked {new Date(m.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                {canManage && (
+                  <div className="flex items-center gap-2">
+                    <form action={approve}>
+                      <input type="hidden" name="id" value={m.id} />
+                      <button
+                        type="submit"
+                        className="rounded-md bg-[#0f172a] px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-[#1e293b]"
+                      >
+                        Approve as member
+                      </button>
+                    </form>
+                    <form action={setRole} className="flex items-center gap-1.5">
+                      <input type="hidden" name="id" value={m.id} />
+                      <input type="hidden" name="role" value="admin" />
+                      <button
+                        type="submit"
+                        className="rounded-md border border-[#dbe0e6] bg-white px-3 py-1.5 text-[12px] font-medium text-[#475569] transition hover:bg-[#f1f3f6]"
+                      >
+                        Make admin
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
+      <Panel title="Members">
+        {active.length === 0 ? (
+          <Empty>Nobody active yet.</Empty>
+        ) : (
+          <ul className="divide-y divide-[#eef1f5]">
+            {active.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium">
+                    {m.display_name}
+                    {m.id === me.id && (
+                      <span className="ml-1.5 text-[11px] text-[#94a3b8]">(you)</span>
+                    )}
+                  </p>
+                  <p className="text-[12px] text-[#94a3b8]">{m.email}</p>
+                </div>
+
+                {canManage ? (
+                  <form action={setRole} className="flex flex-wrap items-center gap-1.5">
+                    <input type="hidden" name="id" value={m.id} />
+                    <select name="role" defaultValue={m.role} className={select}>
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      name="expertise"
+                      defaultValue={m.expertise ?? "other"}
+                      className={select}
+                    >
+                      {EXPERTISES.map((e) => (
+                        <option key={e} value={e}>
+                          {EXPERTISE_LABELS[e]}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1 text-[12px] font-medium text-[#475569] transition hover:bg-[#f1f3f6]"
+                    >
+                      Save
+                    </button>
+                  </form>
+                ) : (
+                  <span className="text-[12px] text-[#64748b]">
+                    {ROLE_LABELS[m.role]}
+                    {m.expertise && ` · ${EXPERTISE_LABELS[m.expertise]}`}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
+      </Panel>
 
-        <div className="space-y-3">
-          {members.map((m) => (
-            <div
-              key={m.id}
-              className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow ${
-                m.role === "pending" ? "ring-2 ring-gold" : "ring-1 ring-black/5"
-              }`}
-            >
-              <div className="min-w-0">
-                <p className="font-black text-steppe">
-                  {m.display_name}
-                  {m.id === me.id && (
-                    <span className="ml-2 text-xs font-bold text-wolf">(you)</span>
-                  )}
-                  {m.role === "pending" && (
-                    <span className="ml-2 rounded-full bg-gold/25 px-2 py-0.5 text-[10px] font-black text-steppe-700">
-                      needs a role
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-wolf/70">{m.email}</p>
-              </div>
-
-              {canManage ? (
-                <form action={setRole} className="flex items-center gap-2">
-                  <input type="hidden" name="id" value={m.id} />
-                  <select
-                    name="role"
-                    defaultValue={m.role}
-                    className="rounded-xl border-2 border-felt bg-warm px-3 py-2 text-sm font-bold text-steppe outline-none focus:border-steppe"
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {ROLE_LABELS[r]}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="submit"
-                    className="rounded-full bg-steppe px-4 py-2 text-sm font-extrabold text-white transition hover:bg-steppe-700"
-                  >
-                    Save
-                  </button>
-                </form>
-              ) : (
-                <span className="rounded-full bg-felt px-3 py-1 text-xs font-black text-wolf">
-                  {ROLE_LABELS[m.role]}
-                </span>
-              )}
+      <Panel title="What the two fields mean" className="mt-5">
+        <dl className="space-y-2.5 text-[12px]">
+          {ROLES.map((r) => (
+            <div key={r} className="flex gap-3">
+              <dt className="w-40 shrink-0 font-medium">{ROLE_LABELS[r]}</dt>
+              <dd className="text-[#64748b]">{ROLE_HINTS[r]}</dd>
             </div>
           ))}
-
-          {members.length === 0 && (
-            <p className="py-16 text-center font-bold text-wolf">
-              No team members yet.
-            </p>
-          )}
-        </div>
-
-        <p className="mt-6 text-xs font-semibold text-wolf/70">
-          Roles: <strong>Admin/Developer</strong> can decide on ideas and change roles.
-          Everyone on the team can view the dashboard, submit ideas, comment, and label
-          content.
-        </p>
-      </div>
-    </div>
+          <div className="flex gap-3 border-t border-[#eef1f5] pt-2.5">
+            <dt className="w-40 shrink-0 font-medium">Expertise</dt>
+            <dd className="text-[#64748b]">
+              Grants nothing. It records who a judgement came from, which is the whole
+              basis of asking whether a model can match a human expert panel.
+            </dd>
+          </div>
+        </dl>
+      </Panel>
+    </AdminShell>
   );
 }

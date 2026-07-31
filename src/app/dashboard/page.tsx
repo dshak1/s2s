@@ -7,7 +7,6 @@ import {
   Card,
   Columns,
   EmptyNote,
-  Meter,
   StatTile,
   StatusChip,
 } from "@/components/dashboard/viz";
@@ -44,14 +43,6 @@ type WeekRow = {
   active_learners: number;
   events: number;
   correct: number;
-};
-
-type CoverageRow = {
-  kind: string;
-  items: number;
-  with_audio: number;
-  with_image: number;
-  live: number;
 };
 
 const GAME_TITLES = new Map(GAMES.map((g) => [g.slug, g.title]));
@@ -93,22 +84,20 @@ export default async function DashboardPage() {
     );
   }
 
-  const [itemsRes, gamesRes, weeklyRes, coverageRes, feedbackRes, ideasRes] =
+  const [itemsRes, gamesRes, weeklyRes, feedbackRes, ticketsRes] =
     await Promise.all([
       sb.from("v_item_stats").select("*"),
       sb.from("v_game_stats").select("*").order("events", { ascending: false }),
       sb.from("v_learner_weekly").select("*").limit(12),
-      sb.from("v_coverage").select("*"),
       sb.from("feedback_items").select("kind"),
-      sb.from("wishlist_items").select("status, votes"),
+      sb.from("tickets").select("type, status"),
     ]);
 
   const items = (itemsRes.data ?? []) as ItemStat[];
   const gameStats = (gamesRes.data ?? []) as GameStat[];
   const weeks = ((weeklyRes.data ?? []) as WeekRow[]).slice().reverse();
-  const coverage = (coverageRes.data ?? []) as CoverageRow[];
   const feedback = (feedbackRes.data ?? []) as Array<{ kind: string }>;
-  const ideas = (ideasRes.data ?? []) as Array<{ status: string; votes: number }>;
+  const tickets = (ticketsRes.data ?? []) as Array<{ type: string; status: string }>;
 
   const answered = items.filter((i) => i.attempts > 0);
   const totalAttempts = answered.reduce((n, i) => n + i.attempts, 0);
@@ -127,8 +116,6 @@ export default async function DashboardPage() {
     .filter((i) => (i.p_value ?? 1) < 0.2 || (i.p_value ?? 0) > 0.95)
     .sort((a, b) => (a.p_value ?? 0) - (b.p_value ?? 0))
     .slice(0, 10);
-
-  const untouched = items.length - answered.length;
 
   return (
     <div className="min-h-dvh bg-warm font-admin">
@@ -271,43 +258,19 @@ export default async function DashboardPage() {
           )}
         </Card>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card
-            title="Content coverage"
-            subtitle="What is missing before a game can pass the quality bar."
-          >
-            <div className="space-y-3">
-              {coverage.map((c) => (
-                <Meter
-                  key={c.kind}
-                  label={`${c.kind} — audio`}
-                  value={c.with_audio}
-                  total={c.items}
-                  hint={
-                    c.with_image > 0
-                      ? `${c.with_image}/${c.items} have an image · ${c.live} live`
-                      : `${c.live} live`
-                  }
-                />
-              ))}
-              {untouched > 0 && (
-                <p className="pt-1 text-xs font-semibold text-wolf">
-                  {untouched} question{untouched === 1 ? " has" : "s have"} never been
-                  answered by anyone.
-                </p>
-              )}
-            </div>
-          </Card>
-
+        <div className="grid gap-6">
           <Card
             title="Team pulse"
-            subtitle="Ideas and in-app feedback. Response rate lands here once the triage board ships."
+            subtitle="Tickets waiting on an answer, and in-app feedback from kids."
           >
             <div className="grid grid-cols-2 gap-4">
               <StatTile
-                label="Ideas submitted"
-                value={String(ideas.length)}
-                hint={`${ideas.filter((i) => i.status !== "idea").length} triaged`}
+                label="Tickets in the inbox"
+                value={String(tickets.filter((t) => t.status === "inbox").length)}
+                tone={
+                  tickets.filter((t) => t.status === "inbox").length > 0 ? "warning" : "good"
+                }
+                hint={`${tickets.length} filed in total`}
               />
               <StatTile
                 label="Feedback notes"

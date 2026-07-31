@@ -56,11 +56,20 @@ an inbox. Approval is what proves they're on the team.
 
 ## Roles
 
+Two separate fields, because access and attribution are different questions.
+
+**Role** — what you can do. Three states, nothing else:
+
 | Role | Can |
 |---|---|
 | `pending` | Nothing. Sees a "waiting for approval" screen |
-| `admin`, `dev` | Everything, including deciding on ideas and changing roles |
-| `educator`, `native_speaker`, `learner`, `observer` | View the dashboard, submit and vote on ideas, comment, label content |
+| `member` | Dashboard, tickets, labelling |
+| `admin` | Everything, plus approving people and deciding tickets |
+
+**Expertise** — `native_speaker` / `educator` / `learner` / `other`. Grants
+nothing. It exists so a label can be attributed to the kind of person who made
+it, which is the entire basis of asking whether a model matches a human expert
+panel (`docs/research.md`, RQ3).
 
 ## Migrations
 

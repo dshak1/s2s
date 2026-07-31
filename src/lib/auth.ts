@@ -5,33 +5,42 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 // localStorage store. These helpers guard the staff surfaces: /dashboard,
 // /ideas decisions, /label, /admin/*, /facilitator.
 
-export type TeamRole =
-  | "pending"
-  | "admin"
-  | "dev"
-  | "educator"
-  | "native_speaker"
-  | "learner"
-  | "observer";
+// Three permission states, and nothing else. Anything descriptive about a
+// person lives in `expertise`, which grants no access — see 0014_roles.sql.
+export type TeamRole = "pending" | "member" | "admin";
+
+export type Expertise = "native_speaker" | "educator" | "learner" | "other";
 
 export type TeamMember = {
   id: string;
   email: string;
   display_name: string;
   role: TeamRole;
+  expertise: Expertise | null;
   created_at: string;
 };
 
-export const STAFF_ROLES: TeamRole[] = ["admin", "dev"];
+export const STAFF_ROLES: TeamRole[] = ["admin"];
 
 export const ROLE_LABELS: Record<TeamRole, string> = {
   pending: "Waiting for approval",
+  member: "Member",
   admin: "Admin",
-  dev: "Developer",
-  educator: "Educator",
+};
+
+export const ROLE_HINTS: Record<TeamRole, string> = {
+  pending: "No access until an admin approves them",
+  member: "Dashboard, tickets, labelling",
+  admin: "Everything, plus approving people and deciding tickets",
+};
+
+// Descriptive only. It exists because "this rating came from a native speaker"
+// is the basis of the research, not because it unlocks anything.
+export const EXPERTISE_LABELS: Record<Expertise, string> = {
   native_speaker: "Native speaker",
+  educator: "Educator",
   learner: "Learner",
-  observer: "Observer",
+  other: "Other",
 };
 
 // When Supabase env vars are absent the whole app runs as an offline demo, so
@@ -42,6 +51,7 @@ const LOCAL_DEMO_MEMBER: TeamMember = {
   email: "demo@localhost",
   display_name: "Local demo",
   role: "admin",
+  expertise: "other",
   created_at: new Date(0).toISOString(),
 };
 
@@ -60,7 +70,7 @@ export async function getTeamMember(): Promise<TeamMember | null> {
 
   const { data } = await sb
     .from("team_members")
-    .select("id, email, display_name, role, created_at")
+    .select("id, email, display_name, role, expertise, created_at")
     .eq("id", user.id)
     .maybeSingle();
 
