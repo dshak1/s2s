@@ -33,8 +33,8 @@ const PLACES: Place[] = [
     id: "burabay",
     name: "Burabay",
     kk: "Бурабай",
-    x: 555,
-    y: 205,
+    x: 579,
+    y: 97,
     hue: "#3f7d4f",
     sky: ["#bfe0f2", "#eaf6e0"],
     fact: "Burabay is known for pine forests, blue lakes, and the Okzhetpes rock.",
@@ -43,16 +43,13 @@ const PLACES: Place[] = [
     id: "aktau",
     name: "Aktau",
     kk: "Ақтау",
-    x: 115,
-    y: 430,
+    x: 123,
+    y: 474,
     hue: "#d6c39b",
     sky: ["#dbeef6", "#f7efd8"],
     fact: "Aktau sits by the Caspian Sea. Its name means white mountain.",
   },
 ];
-
-const KZ_OUTLINE =
-  "M60 300 Q120 200 250 215 Q360 150 470 185 Q600 130 720 175 Q880 150 940 250 Q975 330 880 380 Q800 470 640 440 Q500 510 360 460 Q210 500 120 420 Q40 360 60 300 Z";
 
 const TOTAL = 5;
 
@@ -199,11 +196,14 @@ export default function WhereKz() {
             <svg
               ref={svgRef}
               viewBox="0 0 1000 600"
-              className="h-[420px] w-full touch-none rounded-xl bg-[#eef4fa]"
+              className="h-[420px] w-full touch-none rounded-xl bg-[#f2f0e6]"
               onPointerDown={dropPin}
               aria-label="Map of Kazakhstan"
             >
-              <path d={KZ_OUTLINE} fill="#e8ddc1" stroke="#1e4d8c" strokeWidth="5" strokeLinejoin="round" />
+              {/* Real map, drawn to a known projection: left edge 46E, right 88E,
+                  top 55.5N, bottom 40.5N. Every pin coordinate in regions.ts is
+                  computed from that box, so a place sits where it actually is. */}
+              <image href="/img/where-in-kz.png" x="0" y="0" width="1000" height="600" preserveAspectRatio="none" />
               {PLACES.map((item) => (
                 <circle key={item.id} cx={item.x} cy={item.y} r="6" fill="rgba(30,77,140,.18)" />
               ))}
