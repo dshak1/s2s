@@ -99,7 +99,6 @@ function FullHub() {
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8">
         <section className="relative overflow-hidden rounded-lg border border-white/80 bg-white/[.82] p-4 text-steppe shadow-[0_20px_60px_rgba(69,128,59,.16)] backdrop-blur-md sm:p-6">
-          <div className="pointer-events-none absolute right-6 top-5 h-16 w-16 rounded-full border-[10px] border-[#ffcf4a]/55" />
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] px-5 py-2 font-black text-steppe-700 shadow-md shadow-orange-200/60">
