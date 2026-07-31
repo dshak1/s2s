@@ -53,7 +53,28 @@ const PLACES: Place[] = [
 
 const TOTAL = 5;
 
+// Photos supplied by the team. Anything without one keeps the schematic
+// fallback rather than showing a broken image.
+const PHOTOS: Record<string, string> = {
+  almaty: "/img/places-photos/almaty.webp",
+  astana: "/img/places-photos/astana.webp",
+  charyn: "/img/places-photos/charyn.jpg",
+  mangystau: "/img/places-photos/mangystau.jpg",
+};
+
 function PlacePhoto({ place }: { place: Place }) {
+  const photo = PHOTOS[place.id];
+  if (photo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photo}
+        alt="Somewhere in Kazakhstan"
+        className="h-full w-full object-cover"
+        draggable={false}
+      />
+    );
+  }
   return (
     <svg viewBox="0 0 600 440" className="h-full w-full" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <defs>
@@ -175,9 +196,11 @@ export default function WhereKz() {
             </div>
             <div className="relative min-h-[360px] flex-1 overflow-hidden rounded-2xl shadow-xl shadow-steppe/15">
               <PlacePhoto place={place} />
-              <div className="absolute left-3 top-3 rounded-lg bg-black/55 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-warm">
-                Photo placeholder · add real photos later
-              </div>
+              {!PHOTOS[place.id] && (
+                <div className="absolute left-3 top-3 rounded-lg bg-black/55 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-warm">
+                  No photo yet
+                </div>
+              )}
               {phase === "revealed" && (
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-steppe-700 to-transparent p-5 pt-20 text-warm">
                   <div className="text-3xl font-black">
