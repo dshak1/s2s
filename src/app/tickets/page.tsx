@@ -5,16 +5,22 @@ import { linearEnabled } from "@/lib/linear";
 import { GAMES } from "@/content/games";
 import { AdminShell, Empty, Panel } from "@/components/admin/shell";
 import {
-  PRIORITIES,
   PROBLEMS,
+  RESOLUTIONS,
   TICKET_STATUSES,
   TICKET_TYPES,
   type Ticket,
   type TicketStatus,
   type TicketType,
 } from "@/lib/tickets";
-import { addComment, addLink, toggleVote } from "./actions";
-import { DecisionForm, NewTicketForm, PushToLinearButton } from "./forms";
+import { addComment, addLink, closeReview, toggleCommentLike, toggleVote } from "./actions";
+import {
+  DecisionForm,
+  EditTicketForm,
+  NewTicketForm,
+  PushToLinearButton,
+  RequestReviewForm,
+} from "./forms";
 
 export const metadata = { title: "Tickets · Steppe to Screen" };
 export const dynamic = "force-dynamic";
@@ -40,11 +46,22 @@ const TYPE_STYLE: Record<TicketType, string> = {
 const STATUS_STYLE: Record<TicketStatus, string> = {
   inbox: "bg-[#f1f5f9] text-[#475569]",
   planned: "bg-[#eff6ff] text-[#1d4ed8]",
-  building: "bg-[#fefce8] text-[#a16207]",
-  done: "bg-[#f0fdf4] text-[#15803d]",
-  declined: "bg-[#fef2f2] text-[#b91c1c]",
-  duplicate: "bg-[#f1f5f9] text-[#94a3b8]",
+  in_progress: "bg-[#fefce8] text-[#a16207]",
+  needs_review: "bg-[#faf5ff] text-[#7e22ce]",
+  closed: "bg-[#f0fdf4] text-[#15803d]",
 };
+
+// A preview link only earns a button if it is actually a link. The old card
+// rendered one for any non-empty value and shipped people to a 404.
+function validUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 const input =
   "w-full rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[13px] outline-none transition focus:border-[#94a3b8]";
@@ -68,7 +85,8 @@ export default async function TicketsPage({
     );
   }
 
-  const [ticketsRes, votesRes, commentsRes, attachmentsRes, teamRes] = await Promise.all([
+  const [ticketsRes, votesRes, commentsRes, attachmentsRes, teamRes, likesRes, reviewsRes] =
+    await Promise.all([
     sb
       .from("tickets")
       .select("*")
@@ -77,7 +95,11 @@ export default async function TicketsPage({
     sb.from("ticket_votes").select("ticket_id").eq("voter_id", member.id),
     sb.from("ticket_comments").select("*").order("created_at", { ascending: true }),
     sb.from("ticket_attachments").select("*"),
-    sb.from("team_members").select("id, display_name, role").neq("role", "pending"),
+    sb.from("team_members")
+      .select("id, display_name, role")
+      .in("role", ["member", "admin"]),
+    sb.from("comment_likes").select("comment_id, member_id"),
+    sb.from("ticket_reviews").select("*").is("closed_at", null),
   ]);
 
   const tickets = (ticketsRes.data ?? []) as Ticket[];
@@ -89,6 +111,22 @@ export default async function TicketsPage({
   const team = (teamRes.data ?? []) as Array<Pick<TeamMember, "id" | "display_name">>;
   const names = new Map(team.map((t) => [t.id, t.display_name]));
 
+  const likeRows = (likesRes.data ?? []) as Array<{ comment_id: string; member_id: string }>;
+  const likesByComment = new Map<string, number>();
+  const myLikes = new Set<string>();
+  for (const l of likeRows) {
+    likesByComment.set(l.comment_id, (likesByComment.get(l.comment_id) ?? 0) + 1);
+    if (l.member_id === member.id) myLikes.add(l.comment_id);
+  }
+
+  const openReviews = (reviewsRes.data ?? []) as Array<{
+    id: string;
+    ticket_id: string;
+    requested_by: string | null;
+    reviewer_id: string | null;
+    note: string | null;
+  }>;
+
   const visible = tickets.filter((t) => {
     const typeOk = typeFilter === "all" || t.type === typeFilter;
     const statusOk =
@@ -99,10 +137,6 @@ export default async function TicketsPage({
           : t.status === statusFilter;
     return typeOk && statusOk;
   });
-
-  const inbox = tickets.filter((t) => t.status === "inbox").length;
-  const answered = tickets.length - inbox;
-  const answeredPct = tickets.length ? Math.round((answered / tickets.length) * 100) : 0;
 
   const counts = {
     bug: tickets.filter((t) => t.type === "bug" && TICKET_STATUSES[t.status].open).length,
@@ -120,7 +154,7 @@ export default async function TicketsPage({
       member={member}
       current="/tickets"
       title="Tickets"
-      subtitle={`${inbox} in the inbox · ${answeredPct}% of all tickets have an answer`}
+      subtitle="Bugs, requests and flagged questions. Everything gets an answer."
       actions={
         <NewTicketForm games={GAMES.map((g) => ({ slug: g.slug, title: g.title }))} />
       }
@@ -149,18 +183,18 @@ export default async function TicketsPage({
 
         <div className="flex items-center gap-1">
           <span className="mr-1 text-[12px] text-[#94a3b8]">Status</span>
-          {(["open", "inbox", "planned", "building", "done", "declined", "all"] as const).map(
+          {(["open", "inbox", "planned", "in_progress", "needs_review", "closed", "all"] as const).map(
             (s) => (
               <a
                 key={s}
                 href={qs({ status: s })}
-                className={`rounded-md px-2 py-1 text-[12px] capitalize transition ${
+                className={`whitespace-nowrap rounded-md px-2 py-1 text-[12px] transition ${
                   statusFilter === s
                     ? "bg-[#0f172a] font-medium text-white"
                     : "text-[#475569] hover:bg-[#eef1f5]"
                 }`}
               >
-                {s}
+                {s === "all" || s === "open" ? s : TICKET_STATUSES[s].label}
               </a>
             ),
           )}
@@ -210,9 +244,16 @@ export default async function TicketsPage({
                       >
                         {TICKET_STATUSES[t.status].label}
                       </span>
-                      <span className="rounded bg-[#f1f5f9] px-1.5 py-0.5 text-[11px] font-medium text-[#475569]">
-                        {PRIORITIES[t.priority].label}
-                      </span>
+                      {t.urgent && (
+                        <span className="rounded bg-[#fef2f2] px-1.5 py-0.5 text-[11px] font-semibold text-[#b91c1c]">
+                          Urgent
+                        </span>
+                      )}
+                      {t.status === "closed" && t.resolution && (
+                        <span className="text-[11px] text-[#94a3b8]">
+                          {RESOLUTIONS[t.resolution]}
+                        </span>
+                      )}
                       {t.game_slug && (
                         <span className="text-[11px] text-[#94a3b8]">
                           {GAME_TITLES.get(t.game_slug) ?? t.game_slug}
@@ -248,17 +289,19 @@ export default async function TicketsPage({
                       </div>
                     )}
 
-                    {(t.preview_url || t.linear_issue_url || files.length > 0) && (
+                    {(t.status !== "inbox" || t.linear_issue_url || files.length > 0) && (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {t.preview_url && (
+                        {validUrl(t.preview_url) ? (
                           <a
-                            href={t.preview_url}
+                            href={validUrl(t.preview_url) as string}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="rounded-md border border-[#0f172a] px-2 py-1 text-[12px] font-medium hover:bg-[#f1f3f6]"
                           >
                             Try the draft ↗
                           </a>
+                        ) : (
+                          <span className="text-[12px] text-[#94a3b8]">No draft link yet</span>
                         )}
                         {t.linear_issue_url && (
                           <a
@@ -284,16 +327,76 @@ export default async function TicketsPage({
                       </div>
                     )}
 
+                    {openReviews
+                      .filter((r) => r.ticket_id === t.id)
+                      .map((r) => (
+                        <div
+                          key={r.id}
+                          className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-md border border-[#e9d5ff] bg-[#faf5ff] px-3 py-2"
+                        >
+                          <span className="text-[12px] text-[#6b21a8]">
+                            <strong>
+                              {r.requested_by ? (names.get(r.requested_by) ?? "Someone") : "Someone"}
+                            </strong>{" "}
+                            asked{" "}
+                            <strong>
+                              {r.reviewer_id ? (names.get(r.reviewer_id) ?? "someone") : "someone"}
+                            </strong>{" "}
+                            to review
+                            {r.note ? `: ${r.note}` : ""}
+                          </span>
+                          <form action={closeReview} className="flex items-center gap-1.5">
+                            <input type="hidden" name="review_id" value={r.id} />
+                            <select
+                              name="outcome"
+                              defaultValue="looks_good"
+                              className="rounded border border-[#e9d5ff] bg-white px-1.5 py-1 text-[11px] outline-none"
+                            >
+                              <option value="looks_good">Looks good</option>
+                              <option value="needs_work">Needs work</option>
+                              <option value="cancelled">Cancelled</option>
+                            </select>
+                            <button
+                              type="submit"
+                              className="rounded-md bg-[#7e22ce] px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-[#6b21a8]"
+                            >
+                              Close review
+                            </button>
+                          </form>
+                        </div>
+                      ))}
+
                     {mine.length > 0 && (
                       <ul className="mt-2.5 space-y-1 border-t border-[#eef1f5] pt-2.5">
-                        {mine.map((c) => (
-                          <li key={c.id} className="text-[13px]">
-                            <span className="font-medium">
-                              {c.author_id ? (names.get(c.author_id) ?? "Team") : "Team"}
-                            </span>{" "}
-                            <span className="text-[#475569]">{c.body}</span>
-                          </li>
-                        ))}
+                        {mine.map((c) => {
+                          const likes = likesByComment.get(c.id) ?? 0;
+                          const iLiked = myLikes.has(c.id);
+                          return (
+                            <li key={c.id} className="flex items-start gap-2 text-[13px]">
+                              <span className="min-w-0 flex-1">
+                                <span className="font-medium">
+                                  {c.author_id ? (names.get(c.author_id) ?? "Team") : "Team"}
+                                </span>{" "}
+                                <span className="text-[#475569]">{c.body}</span>
+                              </span>
+                              <form action={toggleCommentLike}>
+                                <input type="hidden" name="comment_id" value={c.id} />
+                                <input type="hidden" name="liked" value={iLiked ? "1" : "0"} />
+                                <button
+                                  type="submit"
+                                  title={iLiked ? "Remove your like" : "Like"}
+                                  className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] transition ${
+                                    iLiked
+                                      ? "bg-[#eef1f5] font-medium text-[#0f172a]"
+                                      : "text-[#94a3b8] hover:bg-[#f1f3f6]"
+                                  }`}
+                                >
+                                  ♥ {likes > 0 ? likes : ""}
+                                </button>
+                              </form>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
 
@@ -330,22 +433,30 @@ export default async function TicketsPage({
                       </form>
                     </div>
 
-                    {isStaff && (
-                      <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-[#eef1f5] pt-2.5">
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-[#eef1f5] pt-2.5">
+                      <EditTicketForm
+                        ticketId={t.id}
+                        title={t.title}
+                        body={t.body}
+                        type={t.type}
+                        urgent={t.urgent}
+                        assigneeId={t.assignee_id}
+                        team={team}
+                      />
+                      <RequestReviewForm ticketId={t.id} team={team} />
+                      {isStaff && (
                         <DecisionForm
                           ticketId={t.id}
                           currentStatus={t.status}
                           currentNote={t.decision_note}
-                          currentPriority={t.priority}
+                          currentResolution={t.resolution}
                           currentPreview={t.preview_url}
-                          currentAssignee={t.assignee_id}
-                          team={team}
                         />
-                        {linearEnabled() && !t.linear_issue_id && t.status !== "inbox" && (
-                          <PushToLinearButton ticketId={t.id} />
-                        )}
-                      </div>
-                    )}
+                      )}
+                      {isStaff && linearEnabled() && !t.linear_issue_id && t.status !== "inbox" && (
+                        <PushToLinearButton ticketId={t.id} />
+                      )}
+                    </div>
                   </div>
                 </div>
               </article>

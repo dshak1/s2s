@@ -5,11 +5,14 @@ export type TicketType = "bug" | "request" | "question";
 export type TicketStatus =
   | "inbox"
   | "planned"
-  | "building"
-  | "done"
+  | "in_progress"
+  | "needs_review"
+  | "closed";
+export type TicketResolution =
+  | "implemented"
   | "declined"
-  | "duplicate";
-export type TicketPriority = "p0" | "p1" | "p2" | "p3";
+  | "duplicate"
+  | "cant_reproduce";
 export type TicketProblem =
   | "wrong_answer"
   | "bad_audio"
@@ -32,26 +35,25 @@ export const TICKET_STATUSES: Record<
 > = {
   inbox: { label: "Inbox", open: true },
   planned: { label: "Planned", open: true },
-  building: { label: "Building", open: true },
-  done: { label: "Done", open: false },
-  declined: { label: "Declined", open: false },
-  duplicate: { label: "Duplicate", open: false },
+  in_progress: { label: "In progress", open: true },
+  needs_review: { label: "Needs review", open: true },
+  closed: { label: "Closed", open: false },
 };
 
 // Statuses a ticket can be moved to, all of which require a written reason.
 export const DECIDED_STATUSES: TicketStatus[] = [
   "planned",
-  "building",
-  "done",
-  "declined",
-  "duplicate",
+  "in_progress",
+  "needs_review",
+  "closed",
 ];
 
-export const PRIORITIES: Record<TicketPriority, { label: string; blurb: string }> = {
-  p0: { label: "P0", blurb: "Workshop is blocked right now" },
-  p1: { label: "P1", blurb: "Before the next workshop" },
-  p2: { label: "P2", blurb: "Soon" },
-  p3: { label: "P3", blurb: "Someday" },
+// A closed ticket always says how it was closed.
+export const RESOLUTIONS: Record<TicketResolution, string> = {
+  implemented: "Implemented",
+  declined: "Not doing it",
+  duplicate: "Duplicate",
+  cant_reproduce: "Could not reproduce",
 };
 
 // What can be wrong with a question. Written the way a native speaker would
@@ -74,7 +76,8 @@ export type Ticket = {
   title: string;
   body: string | null;
   status: TicketStatus;
-  priority: TicketPriority;
+  resolution: TicketResolution | null;
+  urgent: boolean;
   author_id: string | null;
   assignee_id: string | null;
   game_slug: string | null;
