@@ -5,7 +5,14 @@
 // present it can be synced server-side later (see /supabase/migrations + the
 // Supabase helpers) — the schema mirrors this shape 1:1.
 import { useSyncExternalStore } from "react";
-import { syncJoin, syncGameRun, syncArtifact, syncHomework } from "@/lib/supabase/sync";
+import {
+  syncJoin,
+  syncGameRun,
+  syncArtifact,
+  syncHomework,
+  fetchProfileArt,
+  claimProfile,
+} from "@/lib/supabase/sync";
 import type { BadgeId } from "@/content/badges";
 import { BADGES } from "@/content/badges";
 import { toastBus } from "@/lib/toast";
@@ -306,6 +313,50 @@ export const store = {
   reset() {
     state = freshProfile();
     persist();
+  },
+
+  /**
+   * Pull anything this profile made that is not on this device.
+   *
+   * Local stays the source of truth so the app still works offline; the server
+   * only fills gaps. Merged by artifact id, newest first. Until this existed,
+   * every drawing and homework photo lived on exactly one browser and a cleared
+   * cache looked identical to "my work was deleted".
+   */
+  async hydrateFromServer() {
+    const p = load();
+    if (p.id === "server-profile") return;
+
+    const remote = await fetchProfileArt(p.id);
+    if (remote.length === 0) return;
+
+    update((profile) => {
+      const seen = new Set(profile.artifacts.map((a) => a.id));
+      const missing = remote.filter((a) => !seen.has(a.id));
+      if (missing.length === 0) return;
+      profile.artifacts = [...profile.artifacts, ...missing].sort(
+        (a, b) => b.createdAt - a.createdAt,
+      );
+    });
+  },
+
+  /**
+   * Adopt a profile on a new device from its recovery code. Replaces the local
+   * id, then hydrates, so the kid sees their gallery instead of a blank one.
+   */
+  async adoptByCode(code: string): Promise<{ ok: boolean; name?: string }> {
+    const found = await claimProfile(code);
+    if (!found) return { ok: false };
+
+    update((p) => {
+      p.id = found.id;
+      p.displayName = found.display_name || p.displayName;
+      p.xp = Math.max(p.xp, found.xp ?? 0);
+      p.artifacts = [];
+    });
+
+    await store.hydrateFromServer();
+    return { ok: true, name: found.display_name };
   },
 
   // --- debug-only helpers (safe to call in prod; just XP/unlock manipulation) ---

@@ -1,7 +1,98 @@
 "use client";
 
 import { getSupabaseBrowser } from "./client";
+import { captureError } from "@/lib/monitoring";
 import type { Profile, GameRun, Artifact } from "@/lib/store";
+
+// Public URL for anything in the kid-art bucket. Hydrated artifacts render from
+// this rather than a stored data URL, so pulling a gallery back does not blow
+// up the localStorage quota.
+export function kidArtUrl(storagePath: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/kid-art/${storagePath}`;
+}
+
+/**
+ * Everything this profile has made, from the server.
+ *
+ * Reads go through SECURITY DEFINER functions rather than RLS, because an
+ * anonymous kid has no identity a policy could match on. Knowing the profile id
+ * is the credential; see 0018_kid_recovery.sql.
+ */
+export async function fetchProfileArt(profileId: string): Promise<Artifact[]> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return [];
+
+  const [art, homework] = await Promise.all([
+    sb.rpc("profile_artifacts", { p_profile_id: profileId }),
+    sb.rpc("profile_homework", { p_profile_id: profileId }),
+  ]);
+
+  if (art.error) captureError(art.error, { where: "fetchProfileArt/artifacts" });
+  if (homework.error) captureError(homework.error, { where: "fetchProfileArt/homework" });
+
+  type ArtRow = { id: string; kind: string; storage_path: string; created_at: string };
+  type HwRow = {
+    id: string;
+    title: string | null;
+    note: string | null;
+    homework_date: string | null;
+    storage_path: string;
+    created_at: string;
+  };
+
+  const artifacts: Artifact[] = ((art.data ?? []) as ArtRow[]).map((r) => ({
+    id: r.id,
+    kind: r.kind as Artifact["kind"],
+    dataUrl: kidArtUrl(r.storage_path),
+    createdAt: new Date(r.created_at).getTime(),
+  }));
+
+  const homeworkItems: Artifact[] = ((homework.data ?? []) as HwRow[]).map((r) => ({
+    id: r.id,
+    kind: "homework",
+    dataUrl: kidArtUrl(r.storage_path),
+    createdAt: new Date(r.created_at).getTime(),
+    meta: {
+      title: r.title ?? undefined,
+      note: r.note ?? undefined,
+      date: r.homework_date ?? undefined,
+    },
+  }));
+
+  return [...artifacts, ...homeworkItems];
+}
+
+/** The code a kid types on a second device to get their work back. */
+export async function fetchRecoveryCode(
+  profileId: string,
+  displayName: string,
+): Promise<string | null> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return null;
+  const { data, error } = await sb.rpc("profile_recovery_code", {
+    p_profile_id: profileId,
+    p_display_name: displayName,
+  });
+  if (error) {
+    captureError(error, { where: "fetchRecoveryCode" });
+    return null;
+  }
+  return (data as string | null) ?? null;
+}
+
+export async function claimProfile(
+  code: string,
+): Promise<{ id: string; display_name: string; xp: number } | null> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return null;
+  const { data, error } = await sb.rpc("claim_profile", { p_code: code });
+  if (error) {
+    captureError(error, { where: "claimProfile" });
+    return null;
+  }
+  const rows = (data ?? []) as Array<{ id: string; display_name: string; xp: number }>;
+  return rows[0] ?? null;
+}
 
 // Fire-and-forget helpers — call with .catch(()=>{}) to suppress unhandled rejections.
 // All functions return early when Supabase env vars are absent (offline demo mode).
@@ -90,12 +181,18 @@ export async function syncArtifact(
   const { error } = await sb.storage
     .from("kid-art")
     .upload(path, blob, { contentType, upsert: true });
-  if (error) return;
+  if (error) {
+    // This exact silent return is why every upload since day one vanished: the
+    // bucket had no insert policy and nobody found out for two months.
+    captureError(error, { where: "syncArtifact/upload", profileId, path });
+    return;
+  }
 
-  await sb.from("kid_artifacts").upsert(
+  const { error: rowError } = await sb.from("kid_artifacts").upsert(
     { id: artifact.id, profile_id: profileId, kind: artifact.kind, storage_path: path },
     { onConflict: "id" },
   );
+  if (rowError) captureError(rowError, { where: "syncArtifact/row", profileId });
 
   if (avatarArtifactId === artifact.id) {
     await sb.from("profiles").update({ avatar_artifact_id: artifact.id }).eq("id", profileId);
@@ -119,9 +216,12 @@ export async function syncHomework(
   const { error } = await sb.storage
     .from("kid-art")
     .upload(path, blob, { contentType, upsert: true });
-  if (error) return;
+  if (error) {
+    captureError(error, { where: "syncHomework/upload", profileId, path });
+    return;
+  }
 
-  await sb.from("homework_items").upsert(
+  const { error: rowError } = await sb.from("homework_items").upsert(
     {
       id: artifact.id,
       profile_id: profileId,
@@ -133,6 +233,7 @@ export async function syncHomework(
     },
     { onConflict: "id" },
   );
+  if (rowError) captureError(rowError, { where: "syncHomework/row", profileId });
 }
 
 export async function syncSessionCreate(code: string) {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { RecoveryCode } from "@/components/recovery-code";
 import { TopNav } from "@/components/top-nav";
 import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui/card";
@@ -179,8 +180,13 @@ export default function ProfilePage() {
           )}
         </Card>
 
+        <Card>
+          <h2 className="mb-3 text-lg font-black text-steppe">Move to another device</h2>
+          <RecoveryCode />
+        </Card>
+
         <p className="pb-6 text-center text-xs text-wolf">
-          Want this to follow you to a new device?{" "}
+          Parents can follow along too.{" "}
           <Link href={`/profile/${p.id}/parent`} className="font-bold text-steppe underline">Add a parent email →</Link>
         </p>
       </main>
