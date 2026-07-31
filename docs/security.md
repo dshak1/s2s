@@ -47,8 +47,10 @@ protection — it is obscurity. Same fix as above.
 
 **`kid-art` is a public bucket.** Anyone with a path can fetch a child's drawing
 or homework photo. Paths contain a random profile id and a random artifact id, so
-they are not enumerable, but the bucket should become private with signed URLs
-before anything is shared outside the workshop.
+they are not enumerable — `0012_harden.sql` dropped the broad SELECT policy that
+previously let any client *list* the whole bucket, and public object URLs still
+resolve because that path bypasses RLS. The bucket should still become private
+with signed URLs before anything is shared outside the workshop.
 
 **Voice notes are private but unencrypted at rest** beyond Supabase's own
 storage encryption. They contain team members' opinions, not learner data.
