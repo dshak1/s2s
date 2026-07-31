@@ -100,7 +100,10 @@ export default async function DashboardPage() {
 
   // Item analysis: too hard (<20% correct) or too easy (>95%) are both signals
   // worth a human look. Anything under 5 attempts is still noise.
-  const MIN_ATTEMPTS = 5;
+  // 5 was far too low. With two testers a 100% correct rate means "two people
+  // got it right", not "this question teaches nothing". Item analysis needs a
+  // real sample before it says anything, so the panel stays quiet until then.
+  const MIN_ATTEMPTS = 30;
   const graded = answered.filter((i) => i.attempts >= MIN_ATTEMPTS && i.p_value !== null);
   const needsLook = graded
     .filter((i) => (i.p_value ?? 1) < 0.2 || (i.p_value ?? 0) > 0.95)
@@ -140,7 +143,7 @@ export default async function DashboardPage() {
             label="Questions to look at"
             value={String(needsLook.length)}
             tone={needsLook.length > 0 ? "warning" : "good"}
-            hint={`≥${MIN_ATTEMPTS} attempts and off the difficulty band`}
+            hint={`${MIN_ATTEMPTS}+ attempts and outside the usual range`}
           />
         </div>
 
@@ -190,12 +193,12 @@ export default async function DashboardPage() {
 
         <Panel
           title="Questions to look at"
-          hint={`Classical item analysis. Below 20% correct usually means broken or mistaught; above 95% means it teaches nothing. Both ends are what the labelling queue should see first. Only questions with ${MIN_ATTEMPTS}+ attempts.`}
+          hint={`Questions almost everyone gets wrong, or almost everyone gets right, once at least ${MIN_ATTEMPTS} learners have tried them. Worth a human look, not a verdict.`}
         >
           {needsLook.length === 0 ? (
             <Empty>
               {graded.length === 0
-                ? `No question has ${MIN_ATTEMPTS} attempts yet, this fills in as kids play.`
+                ? `Nothing has ${MIN_ATTEMPTS} attempts yet. This stays empty until enough kids have played for the numbers to mean anything.`
                 : `All ${graded.length} questions with enough data sit inside the healthy band.`}
             </Empty>
           ) : (
@@ -231,7 +234,7 @@ export default async function DashboardPage() {
                         <td className="py-2">
                           <StatusChip
                             tone={tooHard ? "critical" : "warning"}
-                            label={tooHard ? "Too hard" : "Too easy"}
+                            label={tooHard ? "Rarely right" : "Always right"}
                           />
                         </td>
                       </tr>

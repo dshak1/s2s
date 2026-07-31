@@ -151,38 +151,54 @@ export function NewTicketForm({
           />
         </div>
 
-        {type === "question" && !presetItemId && (
-          <div>
-            <label className={label} htmlFor="t-item">
-              Question id
-            </label>
-            <input
-              id="t-item"
-              name="item_id"
-              required
-              placeholder="vocab:ake:v1"
-              className={`${input} font-mono`}
-            />
-            <p className="mt-1 text-[11px] text-[#94a3b8]">
-              Easier: flag it from the labelling queue and this fills itself in.
-            </p>
+        {type === "question" && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className={label} htmlFor="t-problem">
+                What is wrong
+              </label>
+              <select id="t-problem" name="problem" defaultValue="poor_question" className={input}>
+                {(Object.keys(PROBLEMS) as TicketProblem[]).map((p) => (
+                  <option key={p} value={p}>
+                    {PROBLEMS[p]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="t-qgame">
+                Which game
+              </label>
+              <select id="t-qgame" name="game_slug" defaultValue="" className={input}>
+                <option value="">Not sure</option>
+                {games.map((g) => (
+                  <option key={g.slug} value={g.slug}>
+                    {g.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {!presetItemId && (
+              <div className="sm:col-span-2">
+                <label className={label} htmlFor="t-item">
+                  Question id (optional)
+                </label>
+                <input
+                  id="t-item"
+                  name="item_id"
+                  placeholder="vocab:ake:v1"
+                  className={`${input} font-mono`}
+                />
+                <p className="mt-1 text-[11px] text-[#94a3b8]">
+                  Leave it blank if you do not know it. Flagging from the labelling
+                  queue fills it in for you.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {type === "question" ? (
-          <div>
-            <label className={label} htmlFor="t-problem">
-              What is wrong
-            </label>
-            <select id="t-problem" name="problem" defaultValue="poor_question" className={input}>
-              {(Object.keys(PROBLEMS) as TicketProblem[]).map((p) => (
-                <option key={p} value={p}>
-                  {PROBLEMS[p]}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
+        {type !== "question" && (
           <div>
             <label className={label} htmlFor="t-game">
               Game (optional)

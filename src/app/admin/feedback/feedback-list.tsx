@@ -12,12 +12,14 @@ type FeedbackItem = {
   created_at: string;
 };
 
-const KIND_META: Record<FeedbackItem["kind"], { emoji: string; color: string }> = {
-  bug: { emoji: "🐛", color: "bg-red-50 text-red-600" },
-  idea: { emoji: "💡", color: "bg-[#fefce8] text-[#0f172a]" },
-  love: { emoji: "❤️", color: "bg-green-50 text-green-700" },
-  confusion: { emoji: "😕", color: "bg-orange-50 text-orange-600" },
-  general: { emoji: "💬", color: "bg-[#eef1f5] text-[#64748b]" },
+// No emoji on the inside. The kids' app can be playful; a tool someone reads
+// forty rows of should not be.
+const KIND_META: Record<FeedbackItem["kind"], { label: string; color: string }> = {
+  bug: { label: "Bug", color: "bg-[#fef2f2] text-[#b91c1c]" },
+  idea: { label: "Idea", color: "bg-[#fefce8] text-[#a16207]" },
+  love: { label: "Love", color: "bg-[#f0fdf4] text-[#15803d]" },
+  confusion: { label: "Confusing", color: "bg-[#fff7ed] text-[#c2410c]" },
+  general: { label: "General", color: "bg-[#eef1f5] text-[#64748b]" },
 };
 
 export function FeedbackList() {
@@ -65,7 +67,7 @@ export function FeedbackList() {
                 kindFilter === k ? "bg-[#0f172a] text-white" : "bg-white text-[#64748b] hover:bg-[#eef1f5]"
               }`}
             >
-              {k === "all" ? "All" : `${KIND_META[k].emoji} ${k}`}
+              {k === "all" ? "All" : KIND_META[k].label}
             </button>
           ))}
         </div>
@@ -80,13 +82,15 @@ export function FeedbackList() {
               const meta = KIND_META[item.kind];
               return (
                 <div key={item.id} className="flex gap-3 rounded-lg bg-white p-4 border border-[#e2e5ea]">
-                  <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-base ${meta.color}`}>
-                    {meta.emoji}
+                  <span
+                    className={`h-fit flex-shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${meta.color}`}
+                  >
+                    {meta.label}
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-[#0f172a]">{item.message}</p>
                     <div className="mt-1 flex flex-wrap gap-3 text-xs text-[#94a3b8]">
-                      {item.page_url && <span>📍 {item.page_url}</span>}
+                      {item.page_url && <span className="font-mono">{item.page_url}</span>}
                       <span>{new Date(item.created_at).toLocaleString()}</span>
                     </div>
                   </div>

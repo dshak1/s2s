@@ -391,7 +391,7 @@ export default async function TicketsPage({
                                       : "text-[#94a3b8] hover:bg-[#f1f3f6]"
                                   }`}
                                 >
-                                  ♥ {likes > 0 ? likes : ""}
+                                  Like{likes > 0 ? ` ${likes}` : ""}
                                 </button>
                               </form>
                             </li>

@@ -74,8 +74,11 @@ export async function createTicket(
 
   if (!isType(type)) return { ok: false, error: "Unknown ticket type." };
   if (title.length < 4) return { ok: false, error: "Give it a real title." };
-  if (type === "question" && !itemId) {
-    return { ok: false, error: "A flagged question needs the question it's about." };
+  if (type === "question" && !itemId && !gameSlug && !problem) {
+    return {
+      ok: false,
+      error: "Say which game it was in, or what is wrong with it.",
+    };
   }
   if (problem && !(problem in PROBLEMS)) return { ok: false, error: "Unknown problem." };
 
