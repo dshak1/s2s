@@ -109,12 +109,12 @@ one label per person per item, updatable.
 | `ensure_team_member(text)` | Called after sign-in; first user becomes admin |
 | `label_queue(int)` | The rater's queue. `SECURITY DEFINER` so gold items can reach a rater who cannot read `label_gold`; refuses non-team callers |
 | `refresh_analytics_label_tasks(int)` | Turns difficulty outliers into labelling tasks |
-| `sync_idea_votes()` | Trigger keeping `wishlist_items.votes` accurate |
+| `sync_ticket_votes()` | Trigger keeping `tickets.votes` accurate |
 
 ## Storage buckets
 
 | Bucket | Public | Contents |
 |---|---|---|
 | `kid-art` | yes | Drawings, avatars, homework photos |
-| `idea-attachments` | yes | Screenshots and mockups on ideas |
+| `idea-attachments` | yes | Screenshots and mockups on tickets |
 | `voice-notes` | **no** | Rater voice notes — people thinking out loud |
