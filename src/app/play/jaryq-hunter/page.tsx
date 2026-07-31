@@ -8,6 +8,8 @@ import { VOCAB, VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "
 import { shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, playWin, speakWord } from "@/lib/audio";
 import { store } from "@/lib/store";
+import { logAnswer } from "@/lib/telemetry";
+import { vocabItemId } from "@/lib/items";
 import { Heart, Timer, Trophy, Volume2 } from "lucide-react";
 
 // Spotlight Panic — original game design by Almas Bekbolat (workshop design
@@ -85,6 +87,8 @@ export default function SpotlightPanic() {
   const targetRef = useRef<VocabItem | null>(null);
   const seen = useRef<Set<string>>(new Set());
   const correctSet = useRef<Set<string>>(new Set());
+  // Telemetry: when the current target word was announced.
+  const targetShownAt = useRef(0);
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -308,11 +312,21 @@ export default function SpotlightPanic() {
     targetRef.current = pick;
     setTarget(pick);
     seen.current.add(pick.slug);
+    targetShownAt.current = Date.now();
     speakWord(pick.kk);
   }
 
   function tapWord(fw: FieldWord) {
     if (phaseRef.current !== "play" || fw.caught || !targetRef.current) return;
+    logAnswer({
+      gameSlug: "jaryq-hunter",
+      itemId: vocabItemId(targetRef.current),
+      // The target is spoken aloud, so this is an audio comprehension check.
+      promptKind: "audio",
+      response: fw.item.slug,
+      isCorrect: fw.item.slug === targetRef.current.slug,
+      latencyMs: targetShownAt.current ? Date.now() - targetShownAt.current : null,
+    });
     if (fw.item.slug === targetRef.current.slug) {
       playCorrect();
       correctSet.current.add(fw.item.slug);

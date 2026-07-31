@@ -10,6 +10,8 @@ import { VOCAB, vocabByCategory, imgFor, CATEGORIES, type VocabCategory, type Vo
 import { sample, shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord, playWin } from "@/lib/audio";
 import { store } from "@/lib/store";
+import { logAnswer } from "@/lib/telemetry";
+import { vocabItemId } from "@/lib/items";
 
 type Mode = "image-kk" | "en-kk";
 const MODE_LABEL: Record<Mode, string> = {
@@ -77,6 +79,15 @@ function SozdikMatchInner() {
       }
     }
     setAttempts((a) => a + 1);
+    logAnswer({
+      gameSlug: "sozdik-match",
+      itemId: vocabItemId(item),
+      promptKind: mode === "image-kk" ? "image" : "text",
+      response: hit,
+      isCorrect: hit === item.slug,
+      latencyMs: Date.now() - startedAt,
+      attemptIndex: attempts + 1,
+    });
     if (hit === item.slug) {
       const next = new Set(matched).add(item.slug);
       setMatched(next);

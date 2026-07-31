@@ -8,13 +8,11 @@ import { store, useProfile } from "@/lib/store";
 import { JOURNEY, normalizeCode } from "@/content/journey";
 import { Upload } from "lucide-react";
 
-// Single-password gate via env var (not a role system — see DECISIONS.md).
-const PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "steppe";
+// Access control lives in src/app/admin/layout.tsx (requireTeam) — the old
+// shared-password gate was replaced by real accounts in 0005_identity.sql.
 
 export default function AdminContent() {
   const profile = useProfile();
-  const [ok, setOk] = useState(false);
-  const [pw, setPw] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState("");
   const [codes, setCodes] = useState<Record<string, string>>({});
@@ -22,31 +20,6 @@ export default function AdminContent() {
   useEffect(() => {
     setCodes(profile.weeklyCodes);
   }, [profile.weeklyCodes]);
-
-  if (!ok) {
-    return (
-      <div className="min-h-dvh bg-warm font-admin">
-        <TopNav />
-        <main className="mx-auto max-w-sm px-4 py-10">
-          <Card>
-            <h1 className="text-lg font-black text-steppe">Facilitator content tools</h1>
-            <p className="mt-1 text-sm text-wolf">Enter the workshop password.</p>
-            <input
-              type="password"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              className="mt-3 w-full rounded-2xl border-2 border-steppe/30 bg-white px-4 py-3 font-bold outline-none focus:border-steppe"
-              placeholder="password"
-            />
-            <Button variant="gold" className="mt-3 w-full" onClick={() => setOk(pw === PASSWORD)}>
-              Unlock
-            </Button>
-            {pw && pw !== PASSWORD && <p className="mt-2 text-sm text-terra">Wrong password.</p>}
-          </Card>
-        </main>
-      </div>
-    );
-  }
 
   function uploadCanva(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);

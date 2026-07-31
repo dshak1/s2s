@@ -1,6 +1,7 @@
 // Synthesized SFX via WebAudio so the games are never silent, even without
 // uploaded audio assets. Major-chord arpeggio for correct, low pulse for wrong.
 import { VOCAB } from "@/content/vocab";
+import { LETTER_AUDIO_SRC } from "@/content/letter-audio";
 
 let ctx: AudioContext | null = null;
 let activeClip: HTMLAudioElement | null = null;
@@ -9,45 +10,6 @@ let activeClip: HTMLAudioElement | null = null;
 const VOCAB_AUDIO_SRC: Record<string, string> = Object.fromEntries(
   VOCAB.map((v) => [v.kk, `/audio/vocab/${v.slug}.mp3`]),
 );
-
-const LETTER_AUDIO_SRC: Record<string, string> = {
-  А: "/audio/letters/a.mp3",
-  Ә: "/audio/letters/ae.mp3",
-  Б: "/audio/letters/b.mp3",
-  В: "/audio/letters/v.mp3",
-  Г: "/audio/letters/g.mp3",
-  Ғ: "/audio/letters/gh.mp3",
-  Д: "/audio/letters/d.mp3",
-  Е: "/audio/letters/e.mp3",
-  Ж: "/audio/letters/zh.mp3",
-  З: "/audio/letters/z.mp3",
-  И: "/audio/letters/i-cyr.mp3",
-  І: "/audio/letters/i-kaz.mp3",
-  К: "/audio/letters/k.mp3",
-  Қ: "/audio/letters/q.mp3",
-  Л: "/audio/letters/l.mp3",
-  М: "/audio/letters/m.mp3",
-  Н: "/audio/letters/n.mp3",
-  Ң: "/audio/letters/ng.mp3",
-  О: "/audio/letters/o.mp3",
-  Ө: "/audio/letters/oe.mp3",
-  П: "/audio/letters/p.mp3",
-  Р: "/audio/letters/r.mp3",
-  С: "/audio/letters/s.mp3",
-  Т: "/audio/letters/t.mp3",
-  У: "/audio/letters/u-cyr.mp3",
-  Ұ: "/audio/letters/u-short.mp3",
-  Ү: "/audio/letters/u-front.mp3",
-  Ф: "/audio/letters/f.mp3",
-  Х: "/audio/letters/h-hard.mp3",
-  Һ: "/audio/letters/h-breathy.mp3",
-  Ч: "/audio/letters/ch.mp3",
-  Ш: "/audio/letters/sh.mp3",
-  Щ: "/audio/letters/shch.mp3",
-  Ы: "/audio/letters/y.mp3",
-  Ю: "/audio/letters/yu.mp3",
-  Я: "/audio/letters/ya.mp3",
-};
 
 function ac(): AudioContext | null {
   if (typeof window === "undefined") return null;

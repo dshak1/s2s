@@ -8,6 +8,8 @@ import { YurtSVG, YURT_TOTAL } from "@/components/yurt";
 import { ALPHABET, type Letter } from "@/content/alphabet";
 import { store, useProfile, masteredLetterCount } from "@/lib/store";
 import { playCorrect, playLetterPronunciation, playWrong } from "@/lib/audio";
+import { logAnswer } from "@/lib/telemetry";
+import { letterItemId } from "@/lib/items";
 import { shuffle, sample } from "@/lib/utils";
 import { Volume2 } from "lucide-react";
 
@@ -49,6 +51,13 @@ export default function YurtBuilder() {
     if (feedback !== "none") return;
     const correct = opt.cyr === target.cyr;
     store.answerLetter(target.cyr, correct);
+    logAnswer({
+      gameSlug: "yurt-builder",
+      itemId: letterItemId(target.cyr),
+      promptKind: "text",
+      response: opt.cyr,
+      isCorrect: correct,
+    });
     if (correct) {
       playCorrect();
       setFeedback("right");

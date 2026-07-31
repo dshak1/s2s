@@ -8,6 +8,8 @@ import { VOCAB, VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "
 import { shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord } from "@/lib/audio";
 import { store } from "@/lib/store";
+import { logAnswer } from "@/lib/telemetry";
+import { vocabItemId } from "@/lib/items";
 import { Heart, Trophy } from "lucide-react";
 
 const FIELD = 380; // px fall distance before "ground"
@@ -55,6 +57,8 @@ export default function FallingSozder() {
   const raf = useRef(0);
   const yRef = useRef(0);
   const lastTs = useRef(0);
+  // Telemetry: when the current word started falling.
+  const spawnedAt = useRef(0);
   const phaseRef = useRef<Phase>("pick");
   const currentRef = useRef<VocabItem | null>(null);
   const lastSlug = useRef<string | null>(null);
@@ -111,6 +115,7 @@ export default function FallingSozder() {
     yRef.current = 0;
     setY(0);
     setX(15 + Math.random() * 70);
+    spawnedAt.current = Date.now();
   }, [pickTarget]);
 
   const saveBest = useCallback(
@@ -158,6 +163,17 @@ export default function FallingSozder() {
       setY(yRef.current);
       if (yRef.current >= FIELD) {
         playWrong();
+        if (currentRef.current) {
+          logAnswer({
+            gameSlug: "falling-sozder",
+            itemId: vocabItemId(currentRef.current),
+            promptKind: "text",
+            response: null, // ran out of time rather than picking wrong
+            isCorrect: false,
+            latencyMs: spawnedAt.current ? Date.now() - spawnedAt.current : null,
+            attemptIndex: catchesRef.current + missesRef.current + 1,
+          });
+        }
         missesRef.current += 1;
         setMisses(missesRef.current);
         if (missesRef.current >= MAX_MISS) {
@@ -222,6 +238,15 @@ export default function FallingSozder() {
   function tapBasket(item: VocabItem) {
     if (phaseRef.current !== "play" || !currentRef.current) return;
     const target = currentRef.current;
+    logAnswer({
+      gameSlug: "falling-sozder",
+      itemId: vocabItemId(target),
+      promptKind: "text",
+      response: item.slug,
+      isCorrect: item.slug === target.slug,
+      latencyMs: spawnedAt.current ? Date.now() - spawnedAt.current : null,
+      attemptIndex: catchesRef.current + missesRef.current + 1,
+    });
     if (item.slug === target.slug) {
       playCorrect();
       speakWord(item.kk);

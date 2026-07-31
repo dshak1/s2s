@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Confetti } from "@/components/game/confetti";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { GREETINGS, type Greeting } from "@/content/greetings";
 import { playClip, playCorrect, playWrong, playWin } from "@/lib/audio";
 import { store } from "@/lib/store";
+import { logAnswer } from "@/lib/telemetry";
+import { greetingItemId } from "@/lib/items";
 
 type RoundMode = "hear-phrase" | "match-audio";
 type Round = {
@@ -43,6 +45,9 @@ export default function GreetingsQuiz() {
   const [score, setScore] = useState(0);
   const [phase, setPhase] = useState<"guess" | "right" | "wrong" | "done">("guess");
   const [burst, setBurst] = useState(false);
+  // Telemetry: when this round was first shown, and how often the clip replayed.
+  const shownAt = useRef(Date.now());
+  const audioPlays = useRef(0);
 
   const prompt = useMemo(() => {
     if (round.mode === "hear-phrase") return "Listen — which Kazakh greeting is this?";
@@ -69,6 +74,16 @@ export default function GreetingsQuiz() {
   function check() {
     if (!picked || phase !== "guess") return;
     const correct = picked === round.answer.kk;
+    logAnswer({
+      gameSlug: "greetings-quiz",
+      itemId: greetingItemId(round.answer),
+      promptKind: round.mode === "hear-phrase" ? "audio" : "text",
+      response: picked,
+      isCorrect: correct,
+      latencyMs: Date.now() - shownAt.current,
+      attemptIndex: roundIndex + 1,
+      audioPlays: audioPlays.current,
+    });
     if (correct) {
       const nextScore = score + 1;
       setScore(nextScore);
@@ -95,6 +110,8 @@ export default function GreetingsQuiz() {
     setRound(buildRound(round.answer.kk, nextIndex));
     setPicked(null);
     setPhase("guess");
+    shownAt.current = Date.now();
+    audioPlays.current = 0;
   }
 
   function replay() {
@@ -104,6 +121,8 @@ export default function GreetingsQuiz() {
     setLives(3);
     setScore(0);
     setPhase("guess");
+    shownAt.current = Date.now();
+    audioPlays.current = 0;
   }
 
   return (
@@ -143,7 +162,10 @@ export default function GreetingsQuiz() {
             <div className="flex flex-col items-center gap-3">
               <button
                 type="button"
-                onClick={() => speak(round.answer)}
+                onClick={() => {
+                  audioPlays.current += 1;
+                  speak(round.answer);
+                }}
                 aria-label={`Play greeting ${round.answer.kk}`}
                 className="grid h-32 w-32 place-items-center rounded-full bg-steppe text-gold shadow-xl shadow-steppe/20 transition active:scale-95"
               >

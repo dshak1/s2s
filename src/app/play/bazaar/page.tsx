@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { VOCAB, imgFor, type VocabItem } from "@/content/vocab";
 import { playCorrect, playWrong, playWin, speakWord } from "@/lib/audio";
 import { store } from "@/lib/store";
+import { logAnswer } from "@/lib/telemetry";
+import { vocabItemId } from "@/lib/items";
 
 type Good = {
   item: VocabItem;
@@ -87,7 +89,20 @@ export default function Bazaar() {
 
   function pay() {
     if (phase !== "shop") return;
-    if (exactBasket(basket, task.want)) {
+    const ok = exactBasket(basket, task.want);
+    // One event per vocab word the task asked for — the basket is a compound
+    // answer, but item quality is only meaningful per word.
+    for (const slug of Object.keys(task.want)) {
+      logAnswer({
+        gameSlug: "bazaar",
+        itemId: vocabItemId({ slug }),
+        promptKind: "text",
+        response: JSON.stringify(basket),
+        isCorrect: ok,
+        attemptIndex: taskIndex + 1,
+      });
+    }
+    if (ok) {
       setScore((value) => value + 1);
       setPhase("right");
       setMessage(`Дұрыс! Perfect basket: ${total} ₸.`);
