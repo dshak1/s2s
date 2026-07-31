@@ -1,15 +1,8 @@
 import { requireTeam, isDemoMember } from "@/lib/auth";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { GAMES } from "@/content/games";
-import { TeamNav } from "@/components/dashboard/team-nav";
-import {
-  BarRows,
-  Card,
-  Columns,
-  EmptyNote,
-  StatTile,
-  StatusChip,
-} from "@/components/dashboard/viz";
+import { AdminShell, Empty, Panel } from "@/components/admin/shell";
+import { BarRows, Columns, Stat, StatusChip } from "@/components/admin/viz";
 
 export const metadata = { title: "Dashboard · Steppe to Screen" };
 export const dynamic = "force-dynamic";
@@ -72,15 +65,12 @@ export default async function DashboardPage() {
 
   if (!sb) {
     return (
-      <div className="min-h-dvh bg-warm font-admin">
-        <TeamNav member={member} current="/dashboard" />
-        <main className="mx-auto max-w-6xl px-4 py-8">
-          <EmptyNote>
-            Offline demo mode. Supabase env vars are not set, so there is nothing to
-            report on yet.
-          </EmptyNote>
-        </main>
-      </div>
+      <AdminShell member={member} current="/dashboard" title="Dashboard">
+        <Empty>
+          Offline demo mode. Supabase env vars are not set, so there is nothing to
+          report on yet.
+        </Empty>
+      </AdminShell>
     );
   }
 
@@ -118,40 +108,35 @@ export default async function DashboardPage() {
     .slice(0, 10);
 
   return (
-    <div className="min-h-dvh bg-warm font-admin">
-      <TeamNav member={member} current="/dashboard" />
-
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-        <div>
-          <h1 className="text-2xl font-black text-steppe">What the app knows</h1>
-          <p className="mt-1 text-sm font-semibold text-wolf">
-            Every answer any learner gives is one row. These panels are that data,
-            nothing else.
-          </p>
-        </div>
-
+    <AdminShell
+      member={member}
+      current="/dashboard"
+      title="Dashboard"
+      subtitle="Every answer any learner gives is one row. These panels are that data, nothing else."
+    >
+      <div className="space-y-5">
         {isDemoMember(member) && (
-          <EmptyNote>Signed in as the local demo admin, no real account.</EmptyNote>
+          <Empty>Signed in as the local demo admin, no real account.</Empty>
         )}
 
         {/* KPI row */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatTile
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat
             label="Answers logged"
             value={totalAttempts.toLocaleString()}
             hint={`across ${answered.length} of ${items.length} questions`}
           />
-          <StatTile
+          <Stat
             label="Overall accuracy"
             value={pct(accuracy)}
             hint={accuracy === null ? "no answers yet" : `${totalCorrect} correct`}
           />
-          <StatTile
+          <Stat
             label="Learners seen"
             value={String(maxLearners)}
             hint="distinct devices in the busiest game"
           />
-          <StatTile
+          <Stat
             label="Questions to look at"
             value={String(needsLook.length)}
             tone={needsLook.length > 0 ? "warning" : "good"}
@@ -159,13 +144,13 @@ export default async function DashboardPage() {
           />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card
+        <div className="grid gap-5 lg:grid-cols-2">
+          <Panel
             title="Weekly activity"
-            subtitle="Answers logged per week. Return rate is the number that matters, a flat line means kids play once and stop."
+            hint="Answers logged per week. Return rate is the number that matters, a flat line means kids play once and stop."
           >
             {weeks.length === 0 ? (
-              <EmptyNote>No answers logged yet. Play a game and refresh.</EmptyNote>
+              <Empty>No answers logged yet. Play a game and refresh.</Empty>
             ) : (
               <Columns
                 points={weeks.map((w) => ({
@@ -178,14 +163,14 @@ export default async function DashboardPage() {
                 valueLabel="Answers per week, hover a column for learners and accuracy"
               />
             )}
-          </Card>
+          </Panel>
 
-          <Card
+          <Panel
             title="Games"
-            subtitle="How much each game is actually played, and how hard it turns out to be."
+            hint="How much each game is actually played, and how hard it turns out to be."
           >
             {gameStats.length === 0 ? (
-              <EmptyNote>No game has logged an answer yet.</EmptyNote>
+              <Empty>No game has logged an answer yet.</Empty>
             ) : (
               <BarRows
                 rows={gameStats.map((g) => ({
@@ -200,19 +185,19 @@ export default async function DashboardPage() {
                 }))}
               />
             )}
-          </Card>
+          </Panel>
         </div>
 
-        <Card
+        <Panel
           title="Questions to look at"
-          subtitle={`Classical item analysis. Below 20% correct usually means broken or mistaught; above 95% means it teaches nothing. Both ends are what the labelling queue should see first. Only questions with ${MIN_ATTEMPTS}+ attempts.`}
+          hint={`Classical item analysis. Below 20% correct usually means broken or mistaught; above 95% means it teaches nothing. Both ends are what the labelling queue should see first. Only questions with ${MIN_ATTEMPTS}+ attempts.`}
         >
           {needsLook.length === 0 ? (
-            <EmptyNote>
+            <Empty>
               {graded.length === 0
                 ? `No question has ${MIN_ATTEMPTS} attempts yet, this fills in as kids play.`
                 : `All ${graded.length} questions with enough data sit inside the healthy band.`}
-            </EmptyNote>
+            </Empty>
           ) : (
             <div className="-mx-5 overflow-x-auto px-5">
               <table className="w-full min-w-[36rem] text-left text-sm">
@@ -256,15 +241,15 @@ export default async function DashboardPage() {
               </table>
             </div>
           )}
-        </Card>
+        </Panel>
 
-        <div className="grid gap-6">
-          <Card
+        <div className="grid gap-5">
+          <Panel
             title="Team pulse"
-            subtitle="Tickets waiting on an answer, and in-app feedback from kids."
+            hint="Tickets waiting on an answer, and in-app feedback from kids."
           >
             <div className="grid grid-cols-2 gap-4">
-              <StatTile
+              <Stat
                 label="Tickets in the inbox"
                 value={String(tickets.filter((t) => t.status === "inbox").length)}
                 tone={
@@ -272,7 +257,7 @@ export default async function DashboardPage() {
                 }
                 hint={`${tickets.length} filed in total`}
               />
-              <StatTile
+              <Stat
                 label="Feedback notes"
                 value={String(feedback.length)}
                 hint={
@@ -284,9 +269,9 @@ export default async function DashboardPage() {
                 }
               />
             </div>
-          </Card>
+          </Panel>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminShell>
   );
 }

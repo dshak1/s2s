@@ -7,7 +7,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 
 // Three permission states, and nothing else. Anything descriptive about a
 // person lives in `expertise`, which grants no access — see 0014_roles.sql.
-export type TeamRole = "pending" | "member" | "admin";
+export type TeamRole = "pending" | "declined" | "member" | "admin";
 
 export type Expertise = "native_speaker" | "educator" | "learner" | "other";
 
@@ -24,12 +24,14 @@ export const STAFF_ROLES: TeamRole[] = ["admin"];
 
 export const ROLE_LABELS: Record<TeamRole, string> = {
   pending: "Waiting for approval",
+  declined: "Declined",
   member: "Member",
   admin: "Admin",
 };
 
 export const ROLE_HINTS: Record<TeamRole, string> = {
   pending: "No access until an admin approves them",
+  declined: "Turned down. No access, and they stay off the approval queue",
   member: "Dashboard, tickets, labelling",
   admin: "Everything, plus approving people and deciding tickets",
 };
@@ -96,7 +98,9 @@ export async function requireTeam(
   // A magic link proves you own an inbox, not that you belong here. New
   // accounts wait for an admin — and get told that, rather than being bounced
   // back to a sign-in page they just used successfully.
-  if (member.role === "pending") redirect("/login?pending=1");
+  if (member.role === "pending" || member.role === "declined") {
+    redirect(`/login?pending=${member.role}`);
+  }
   if (roles && !roles.includes(member.role)) {
     redirect(`/login?denied=${encodeURIComponent(member.role)}`);
   }

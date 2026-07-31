@@ -1,7 +1,7 @@
 import { requireTeam, type TeamMember } from "@/lib/auth";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { TeamNav } from "@/components/dashboard/team-nav";
-import { Card, EmptyNote, StatTile } from "@/components/dashboard/viz";
+import { AdminShell, Empty, Panel } from "@/components/admin/shell";
+import { Stat } from "@/components/admin/viz";
 import { refreshAnalyticsTasks } from "./actions";
 import { LabelQueue, type QueueItem } from "./queue";
 
@@ -22,12 +22,9 @@ export default async function LabelPage() {
 
   if (!sb) {
     return (
-      <div className="min-h-dvh bg-warm font-admin">
-        <TeamNav member={member} current="/label" />
-        <main className="mx-auto max-w-3xl px-4 py-8">
-          <EmptyNote>Offline demo mode, labelling needs Supabase.</EmptyNote>
-        </main>
-      </div>
+      <AdminShell member={member} current="/label" title="Label">
+        <Empty>Offline demo mode, labelling needs Supabase.</Empty>
+      </AdminShell>
     );
   }
 
@@ -48,13 +45,15 @@ export default async function LabelPage() {
   const mine = raters.find((r) => r.rater_id === member.id);
 
   return (
-    <div className="min-h-dvh bg-warm font-admin">
-      <TeamNav member={member} current="/label" />
-
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-        <div>
-          <h1 className="text-2xl font-black text-steppe">Judge the questions</h1>
-          <p className="mt-1 text-sm font-semibold text-wolf">
+    <AdminShell
+      member={member}
+      current="/label"
+      title="Judge the questions"
+      subtitle="Learner data says a question is hard. Only you can say why."
+    >
+      <div className="mx-auto max-w-3xl space-y-5">
+        <div className="hidden">
+          <p>
             Learner data tells us a question is hard. It can&apos;t tell us whether the
             audio is wrong, the options are unfair, or nobody actually says it that way
             in Kazakh. That part only you can answer, and every judgement you leave
@@ -62,18 +61,18 @@ export default async function LabelPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatTile
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Stat
             label="Your labels"
             value={String(mine?.labels ?? 0)}
             hint={mine?.avg_seconds ? `${mine.avg_seconds}s each on average` : "start anywhere"}
           />
-          <StatTile
+          <Stat
             label="You flagged"
             value={String(mine?.flagged_bad ?? 0)}
             hint="questions the team should fix"
           />
-          <StatTile
+          <Stat
             label="Waiting for you"
             value={String(items.length)}
             hint="highest-signal first"
@@ -82,12 +81,12 @@ export default async function LabelPage() {
 
         <LabelQueue items={items} />
 
-        <Card
+        <Panel
           title="Who's labelling"
-          subtitle="Every label is credited. This is the record of who built the dataset."
+          hint="Every label is credited. This is the record of who built the dataset."
         >
           {raters.length === 0 ? (
-            <EmptyNote>Nobody has labelled anything yet. Be first.</EmptyNote>
+            <Empty>Nobody has labelled anything yet. Be first.</Empty>
           ) : (
             <ul className="space-y-2">
               {raters.map((r) => (
@@ -119,8 +118,8 @@ export default async function LabelPage() {
               Pull in newly-flagged questions
             </button>
           </form>
-        </Card>
-      </main>
-    </div>
+        </Panel>
+      </div>
+    </AdminShell>
   );
 }

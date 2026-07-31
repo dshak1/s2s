@@ -2,7 +2,6 @@
 
 import { useActionState, useRef, useState } from "react";
 import { Check, ChevronRight, Loader2, Volume2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { VoiceNote, type VoiceNoteResult } from "@/components/voice-note";
 import { saveLabel, type LabelResult } from "./actions";
 
@@ -66,25 +65,25 @@ function ItemPreview({ item }: { item: QueueItem }) {
   const gloss = p.en ?? p.fact ?? "";
 
   return (
-    <div className="rounded-2xl bg-warm p-6 text-center">
+    <div className="rounded-lg bg-[#f7f8fa] p-6 text-center">
       {p.image && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={p.image} alt="" className="mx-auto mb-3 h-24 w-24" />
       )}
-      <p className="text-3xl font-black text-steppe">{main}</p>
-      {p.latin && <p className="mt-1 text-sm font-bold text-wolf">{p.latin}</p>}
-      {gloss && <p className="mt-2 text-sm font-semibold text-wolf">{gloss}</p>}
+      <p className="text-[22px] font-semibold text-[#0f172a]">{main}</p>
+      {p.latin && <p className="mt-1 text-sm font-bold text-[#64748b]">{p.latin}</p>}
+      {gloss && <p className="mt-2 text-sm font-semibold text-[#64748b]">{gloss}</p>}
       {audio && (
         <button
           type="button"
           onClick={() => void new Audio(audio).play().catch(() => {})}
-          className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-steppe px-4 py-2 text-sm font-black text-gold transition hover:bg-steppe-700"
+          className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#0f172a] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e293b]"
         >
           <Volume2 size={14} /> Play the clip
         </button>
       )}
       {!audio && (item.kind === "letter" || item.kind === "vocab" || item.kind === "greeting") && (
-        <p className="mt-3 text-xs font-black text-terra">No audio clip exists for this one.</p>
+        <p className="mt-3 text-xs font-semibold text-[#b91c1c]">No audio clip exists for this one.</p>
       )}
     </div>
   );
@@ -95,14 +94,14 @@ function AxisRow({ axis }: { axis: (typeof AXES)[number] }) {
     <fieldset className="flex flex-wrap items-center justify-between gap-2">
       <legend className="sr-only">{axis.label}</legend>
       <div className="min-w-0">
-        <span className="text-sm font-black text-steppe">{axis.label}</span>
-        <p className="text-xs font-semibold text-wolf/70">{axis.hint}</p>
+        <span className="text-sm font-semibold text-[#0f172a]">{axis.label}</span>
+        <p className="text-xs font-semibold text-[#94a3b8]">{axis.hint}</p>
       </div>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
           <label
             key={n}
-            className="cursor-pointer rounded-lg bg-felt px-3 py-1.5 text-sm font-black text-wolf transition hover:bg-gold/20 has-[:checked]:bg-steppe has-[:checked]:text-white"
+            className="cursor-pointer rounded-lg bg-[#eef1f5] px-3 py-1.5 text-sm font-semibold text-[#64748b] transition hover:bg-[#fefce8] has-[:checked]:bg-[#0f172a] has-[:checked]:text-white"
           >
             <input type="radio" name={axis.key} value={n} defaultChecked={n === 3} className="sr-only" />
             {n}
@@ -161,10 +160,10 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
 
   if (done) {
     return (
-      <div className="rounded-2xl bg-white p-10 text-center shadow ring-1 ring-black/5">
+      <div className="rounded-lg bg-white p-10 text-center border border-[#e2e5ea]">
         <Check size={40} className="mx-auto mb-3 text-green-600" />
-        <p className="text-lg font-black text-steppe">Queue clear.</p>
-        <p className="mt-1 text-sm font-semibold text-wolf">
+        <p className="text-[15px] font-semibold text-[#0f172a]">Queue clear.</p>
+        <p className="mt-1 text-sm font-semibold text-[#64748b]">
           You&apos;ve judged everything waiting for you. Refresh later, new questions
           arrive as kids play and as content is generated.
         </p>
@@ -173,14 +172,14 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
   }
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow ring-1 ring-black/5">
+    <div className="rounded-lg bg-white p-5 border border-[#e2e5ea]">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-black uppercase tracking-wider text-wolf">
+        <span className="text-xs font-semibold uppercase tracking-wider text-[#64748b]">
           {index + 1} of {items.length} waiting · {item.kind}
           {item.game_slug ? ` · ${item.game_slug}` : ""}
         </span>
         {item.attempts > 0 && (
-          <span className="text-xs font-bold text-wolf">
+          <span className="text-xs font-bold text-[#64748b]">
             {item.attempts} learner answer{item.attempts === 1 ? "" : "s"}
             {item.p_value !== null && ` · ${Math.round(item.p_value * 100)}% correct`}
           </span>
@@ -188,7 +187,7 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
       </div>
 
       {item.uncertainty_reason && (
-        <p className="mb-3 rounded-xl bg-gold/20 px-3 py-2 text-xs font-black text-steppe-700">
+        <p className="mb-3 rounded-xl bg-[#fefce8] px-3 py-2 text-xs font-semibold text-[#0f172a]">
           Flagged: {REASON_LABELS[item.uncertainty_reason] ?? item.uncertainty_reason}
         </p>
       )}
@@ -213,16 +212,16 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
           {(
             [
               ["good", "Good question", "bg-green-600"],
-              ["unsure", "Not sure", "bg-wolf"],
-              ["bad", "Something's wrong", "bg-terra"],
+              ["unsure", "Not sure", "bg-[#64748b]"],
+              ["bad", "Something's wrong", "bg-[#b91c1c]"],
             ] as const
           ).map(([v, label, bg]) => (
             <button
               key={v}
               type="button"
               onClick={() => setVerdict(v)}
-              className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-black transition ${
-                verdict === v ? `${bg} text-white` : "bg-felt text-wolf hover:bg-felt/70"
+              className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                verdict === v ? `${bg} text-white` : "bg-[#eef1f5] text-[#64748b] hover:bg-[#eef1f5]"
               }`}
             >
               {label}
@@ -230,15 +229,15 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
           ))}
         </div>
 
-        <div className="space-y-3 rounded-xl bg-warm p-4">
+        <div className="space-y-3 rounded-xl bg-[#f7f8fa] p-4">
           {AXES.map((axis) => (
             <AxisRow key={axis.key} axis={axis} />
           ))}
         </div>
 
         <div>
-          <label htmlFor="reason_text" className="mb-1 block text-sm font-black text-steppe">
-            Why? {verdict === "bad" && <span className="text-terra">Required</span>}
+          <label htmlFor="reason_text" className="mb-1 block text-sm font-semibold text-[#0f172a]">
+            Why? {verdict === "bad" && <span className="text-[#b91c1c]">Required</span>}
           </label>
           <textarea
             id="reason_text"
@@ -247,16 +246,16 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="What would you change, and what should it say instead?"
-            className="w-full resize-none rounded-xl border-2 border-felt bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-steppe"
+            className="w-full resize-none rounded-xl border-2 border-[#dbe0e6] bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-[#94a3b8]"
           />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <VoiceNote prefix={`label/${item.item_id}`} onResult={onVoice} disabled={pending} />
-            <label className="flex items-center gap-2 text-xs font-bold text-wolf">
+            <label className="flex items-center gap-2 text-xs font-bold text-[#64748b]">
               How sure are you?
               <select
                 name="rater_confidence"
                 defaultValue="4"
-                className="rounded-lg border-2 border-felt bg-white px-2 py-1 font-bold outline-none focus:border-steppe"
+                className="rounded-lg border-2 border-[#dbe0e6] bg-white px-2 py-1 font-bold outline-none focus:border-[#94a3b8]"
               >
                 {[1, 2, 3, 4, 5].map((n) => (
                   <option key={n} value={n}>
@@ -268,27 +267,39 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
           </div>
         </div>
 
-        {state.error && <p className="text-sm font-bold text-terra">{state.error}</p>}
+        {state.error && <p className="text-sm font-bold text-[#b91c1c]">{state.error}</p>}
 
         <div className="flex flex-wrap items-center gap-2">
           {saved ? (
             <>
-              <span className="inline-flex items-center gap-1 text-sm font-black text-green-700">
+              <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-700">
                 <Check size={14} /> Saved
               </span>
-              <Button variant="gold" type="button" onClick={advance}>
+              <button
+                type="button"
+                onClick={advance}
+                className="inline-flex items-center gap-1 rounded-md bg-[#0f172a] px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-[#1e293b]"
+              >
                 Next question <ChevronRight size={14} />
-              </Button>
+              </button>
             </>
           ) : (
             <>
-              <Button variant="gold" type="submit" disabled={pending}>
+              <button
+                type="submit"
+                disabled={pending}
+                className="inline-flex items-center gap-1 rounded-md bg-[#0f172a] px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-[#1e293b] disabled:opacity-50"
+              >
                 {pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                 Save
-              </Button>
-              <Button variant="ghost" type="button" onClick={advance}>
+              </button>
+              <button
+                type="button"
+                onClick={advance}
+                className="inline-flex items-center gap-1 rounded-md border border-[#dbe0e6] bg-white px-3 py-1.5 text-[13px] font-medium text-[#475569] transition hover:bg-[#f1f3f6]"
+              >
                 Skip <ChevronRight size={14} />
-              </Button>
+              </button>
             </>
           )}
         </div>
