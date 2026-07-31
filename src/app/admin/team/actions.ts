@@ -5,6 +5,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireStaff, type TeamRole } from "@/lib/auth";
 
 const ROLES: TeamRole[] = [
+  "pending",
   "admin",
   "dev",
   "educator",

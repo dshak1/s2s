@@ -26,6 +26,8 @@ export default async function AdminTeamPage() {
     : { data: null };
   const members = (data as TeamMember[] | null) ?? [];
 
+  const waiting = members.filter((m) => m.role === "pending");
+
   return (
     <div className="min-h-dvh bg-warm font-admin">
       <div className="border-b border-black/8 bg-white px-6 py-4">
@@ -35,6 +37,7 @@ export default async function AdminTeamPage() {
             <p className="text-xs text-wolf">
               {members.length} member{members.length === 1 ? "" : "s"} · you are{" "}
               {ROLE_LABELS[me.role]}
+              {waiting.length > 0 && ` · ${waiting.length} waiting for a role`}
             </p>
           </div>
           <form action="/auth/signout" method="post">
@@ -60,13 +63,20 @@ export default async function AdminTeamPage() {
           {members.map((m) => (
             <div
               key={m.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow ring-1 ring-black/5"
+              className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow ${
+                m.role === "pending" ? "ring-2 ring-gold" : "ring-1 ring-black/5"
+              }`}
             >
               <div className="min-w-0">
                 <p className="font-black text-steppe">
                   {m.display_name}
                   {m.id === me.id && (
                     <span className="ml-2 text-xs font-bold text-wolf">(you)</span>
+                  )}
+                  {m.role === "pending" && (
+                    <span className="ml-2 rounded-full bg-gold/25 px-2 py-0.5 text-[10px] font-black text-steppe-700">
+                      needs a role
+                    </span>
                   )}
                 </p>
                 <p className="text-xs text-wolf/70">{m.email}</p>

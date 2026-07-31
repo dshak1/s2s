@@ -30,7 +30,15 @@ Supabase project: `coqvobzfbnidkgshrmqm`. Production: <https://s2s-ten.vercel.ap
 Magic-link sign-in cannot work until these are done, and they cannot be done
 from code.
 
-**1. Redirect URLs.** Authentication → URL Configuration → Redirect URLs, add:
+**1. Site URL and Redirect URLs.** Authentication → URL Configuration.
+
+Set **Site URL** to `https://s2s-ten.vercel.app`. This matters more than it
+looks: when a requested redirect isn't in the allow-list, Supabase silently
+falls back to Site URL, and the default is `http://localhost:3000` — which on
+this machine is a different project entirely. The sign-in link lands there with
+the code attached and nothing works.
+
+Then add to **Redirect URLs**:
 
 ```
 http://localhost:3100/auth/callback
@@ -38,14 +46,19 @@ https://s2s-ten.vercel.app/auth/callback
 ```
 
 **2. The first sign-in.** Go to `/login` and request a link. Whoever signs in
-first becomes `admin` automatically (see `ensure_team_member` in
-`supabase/migrations/0005_identity.sql`). Everyone after that lands as
-`observer`; the admin promotes them at `/admin/team`.
+first becomes `admin` automatically (see `ensure_team_member`). Everyone after
+that lands as `pending` with no access at all; the admin gives them a role at
+`/admin/team`.
+
+Pending is not an inconvenience to design around — `signInWithOtp` creates an
+account for **any** email that asks, so a sign-in link only proves someone owns
+an inbox. Approval is what proves they're on the team.
 
 ## Roles
 
 | Role | Can |
 |---|---|
+| `pending` | Nothing. Sees a "waiting for approval" screen |
 | `admin`, `dev` | Everything, including deciding on ideas and changing roles |
 | `educator`, `native_speaker`, `learner`, `observer` | View the dashboard, submit and vote on ideas, comment, label content |
 

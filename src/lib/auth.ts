@@ -6,6 +6,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 // /ideas decisions, /label, /admin/*, /facilitator.
 
 export type TeamRole =
+  | "pending"
   | "admin"
   | "dev"
   | "educator"
@@ -24,6 +25,7 @@ export type TeamMember = {
 export const STAFF_ROLES: TeamRole[] = ["admin", "dev"];
 
 export const ROLE_LABELS: Record<TeamRole, string> = {
+  pending: "Waiting for approval",
   admin: "Admin",
   dev: "Developer",
   educator: "Educator",
@@ -81,6 +83,10 @@ export async function requireTeam(
   const back = next ? `?next=${encodeURIComponent(next)}` : "";
 
   if (!member) redirect(`/login${back}`);
+  // A magic link proves you own an inbox, not that you belong here. New
+  // accounts wait for an admin — and get told that, rather than being bounced
+  // back to a sign-in page they just used successfully.
+  if (member.role === "pending") redirect("/login?pending=1");
   if (roles && !roles.includes(member.role)) {
     redirect(`/login?denied=${encodeURIComponent(member.role)}`);
   }

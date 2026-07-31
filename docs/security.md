@@ -29,6 +29,16 @@ The same migration added the `storage.objects` policies for the `kid-art` bucket
 that `0001` never created — which is why `syncArtifact` and `syncHomework` had
 been silently swallowing every upload (both helpers `return` on error).
 
+## Open signup
+
+`signInWithOtp` creates an account for any email address that asks. A magic link
+proves someone owns an inbox, not that they belong here. So new accounts land as
+`pending`, `is_team()` excludes `pending`, and an admin assigns a role at
+`/admin/team` (`0013_pending_role.sql`). The first account ever created is the
+admin, so bootstrapping still works.
+
+Without this, anyone on the internet could request a link and read the dashboard.
+
 ## Known gaps
 
 These are real and deliberately not yet closed. They are listed here rather than
