@@ -53,26 +53,49 @@ const PLACES: Place[] = [
 
 const TOTAL = 5;
 
-// Photos supplied by the team. Anything without one keeps the schematic
-// fallback rather than showing a broken image.
-const PHOTOS: Record<string, string> = {
-  almaty: "/img/places-photos/almaty.webp",
-  astana: "/img/places-photos/astana.webp",
-  charyn: "/img/places-photos/charyn.jpg",
-  mangystau: "/img/places-photos/mangystau.jpg",
+// Photos. The team supplied the first four; the rest come from Wikimedia
+// Commons. Four of those are CC BY-SA, which requires the credit to be visible,
+// so `credit` is rendered on the image rather than buried in a file nobody opens.
+// Full licence details are in docs/photo-credits.md.
+type Photo = { src: string; credit?: string };
+
+const PHOTOS: Record<string, Photo> = {
+  almaty: { src: "/img/places-photos/almaty.webp" },
+  astana: { src: "/img/places-photos/astana.webp" },
+  charyn: { src: "/img/places-photos/charyn.jpg" },
+  mangystau: { src: "/img/places-photos/mangystau.jpg" },
+  aral: { src: "/img/places-photos/aral.jpg", credit: "Staecker, public domain" },
+  karaganda: {
+    src: "/img/places-photos/karaganda.jpg",
+    credit: "Grin1372Go, CC BY-SA 3.0",
+  },
+  shymkent: { src: "/img/places-photos/shymkent.jpg", credit: "Hokkey, CC0" },
+  turkistan: {
+    src: "/img/places-photos/turkistan.jpg",
+    credit: "Petar Milosevic, CC BY-SA 3.0",
+  },
+  burabay: { src: "/img/places-photos/burabay.jpg", credit: "Dots foto, CC BY-SA 4.0" },
+  aktau: { src: "/img/places-photos/aktau.jpg", credit: "Vita86, CC BY-SA 3.0" },
 };
 
 function PlacePhoto({ place }: { place: Place }) {
   const photo = PHOTOS[place.id];
   if (photo) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={photo}
-        alt="Somewhere in Kazakhstan"
-        className="h-full w-full object-cover"
-        draggable={false}
-      />
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={photo.src}
+          alt="Somewhere in Kazakhstan"
+          className="h-full w-full object-cover"
+          draggable={false}
+        />
+        {photo.credit && (
+          <span className="absolute bottom-1 right-2 z-10 text-[9px] font-semibold text-white/70 drop-shadow">
+            {photo.credit}
+          </span>
+        )}
+      </>
     );
   }
   return (

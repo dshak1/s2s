@@ -20,6 +20,7 @@ The app has two populations and they are treated oppositely:
 | [labelling-guide.md](labelling-guide.md) | The rubric raters actually use |
 | [research.md](research.md) | The research questions and the benchmark |
 | [security.md](security.md) | The access model and its known gaps |
+| [photo-credits.md](photo-credits.md) | Where every place photo came from, and its licence |
 | [roadmap.md](roadmap.md) | What is built, what is next |
 | [demo-script.md](demo-script.md) | The four-minute walkthrough |
 
