@@ -109,11 +109,11 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* home background — covers designed by workshop players */}
+        {/* home background, covers designed by workshop players */}
         <Card>
           <h2 className="mb-1 text-lg font-black text-steppe">Home background</h2>
           <p className="mb-3 text-sm text-wolf">
-            Designed by our players — pick yours and it becomes your home page.{" "}
+            Designed by our players, pick yours and it becomes your home page.{" "}
             <Link href="/covers" className="font-bold text-steppe underline">See them big →</Link>
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -161,7 +161,7 @@ export default function ProfilePage() {
           <h2 className="mb-3 text-lg font-black text-steppe">My gallery</h2>
           {p.artifacts.length === 0 ? (
             <p className="text-sm text-wolf">
-              Nothing yet — design an avatar or make a comic and it&apos;ll appear here.{" "}
+              Nothing yet, design an avatar or make a comic and it&apos;ll appear here.{" "}
               <Link href="/play/tanba-studio" className="font-bold text-steppe underline">Start drawing →</Link>
             </p>
           ) : (

@@ -184,7 +184,7 @@ export function NewTicketForm({
             <select id="t-priority" name="priority" defaultValue="p2" className={input}>
               {(Object.keys(PRIORITIES) as Array<keyof typeof PRIORITIES>).map((p) => (
                 <option key={p} value={p}>
-                  {PRIORITIES[p].label} — {PRIORITIES[p].blurb}
+                  {PRIORITIES[p].label}, {PRIORITIES[p].blurb}
                 </option>
               ))}
             </select>

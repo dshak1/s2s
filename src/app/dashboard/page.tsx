@@ -59,7 +59,7 @@ function itemLabel(kind: string, payload: Record<string, unknown>, refSlug: stri
 }
 
 function pct(n: number | null | undefined): string {
-  return n === null || n === undefined ? "—" : `${Math.round(n * 100)}%`;
+  return n === null || n === undefined ? ", " : `${Math.round(n * 100)}%`;
 }
 
 function weekLabel(iso: string): string {
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
         <TeamNav member={member} current="/dashboard" />
         <main className="mx-auto max-w-6xl px-4 py-8">
           <EmptyNote>
-            Offline demo mode — Supabase env vars are not set, so there is nothing to
+            Offline demo mode. Supabase env vars are not set, so there is nothing to
             report on yet.
           </EmptyNote>
         </main>
@@ -131,7 +131,7 @@ export default async function DashboardPage() {
         </div>
 
         {isDemoMember(member) && (
-          <EmptyNote>Signed in as the local demo admin — no real account.</EmptyNote>
+          <EmptyNote>Signed in as the local demo admin, no real account.</EmptyNote>
         )}
 
         {/* KPI row */}
@@ -162,7 +162,7 @@ export default async function DashboardPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card
             title="Weekly activity"
-            subtitle="Answers logged per week. Return rate is the number that matters — a flat line means kids play once and stop."
+            subtitle="Answers logged per week. Return rate is the number that matters, a flat line means kids play once and stop."
           >
             {weeks.length === 0 ? (
               <EmptyNote>No answers logged yet. Play a game and refresh.</EmptyNote>
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
                     w.events > 0 ? w.correct / w.events : null,
                   )} correct`,
                 }))}
-                valueLabel="Answers per week — hover a column for learners and accuracy"
+                valueLabel="Answers per week, hover a column for learners and accuracy"
               />
             )}
           </Card>
@@ -195,7 +195,7 @@ export default async function DashboardPage() {
                     g.learners === 1 ? "" : "s"
                   } · ${g.items_touched} questions`,
                   tooltip: `${g.events} answers · median ${
-                    g.median_latency_ms ? `${(g.median_latency_ms / 1000).toFixed(1)}s` : "—"
+                    g.median_latency_ms ? `${(g.median_latency_ms / 1000).toFixed(1)}s` : ", "
                   } to answer`,
                 }))}
               />
@@ -210,7 +210,7 @@ export default async function DashboardPage() {
           {needsLook.length === 0 ? (
             <EmptyNote>
               {graded.length === 0
-                ? `No question has ${MIN_ATTEMPTS} attempts yet — this fills in as kids play.`
+                ? `No question has ${MIN_ATTEMPTS} attempts yet, this fills in as kids play.`
                 : `All ${graded.length} questions with enough data sit inside the healthy band.`}
             </EmptyNote>
           ) : (
@@ -241,7 +241,7 @@ export default async function DashboardPage() {
                         <td className="py-2 pr-3 text-right tabular-nums font-bold">{i.attempts}</td>
                         <td className="py-2 pr-3 text-right tabular-nums font-bold">{pct(i.p_value)}</td>
                         <td className="py-2 pr-3 text-right tabular-nums font-semibold text-wolf">
-                          {i.median_latency_ms ? `${(i.median_latency_ms / 1000).toFixed(1)}s` : "—"}
+                          {i.median_latency_ms ? `${(i.median_latency_ms / 1000).toFixed(1)}s` : ", "}
                         </td>
                         <td className="py-2">
                           <StatusChip

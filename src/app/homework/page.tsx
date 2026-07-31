@@ -57,7 +57,7 @@ export default function HomeworkPage() {
       date: date || undefined,
       note: note.trim() || undefined,
     });
-    toastBus.show({ title: "Homework turned in! +20 XP", body: title.trim() || "Nice work — it's saved to your gallery.", icon: "📚" });
+    toastBus.show({ title: "Homework turned in! +20 XP", body: title.trim() || "Nice work, it's saved to your gallery.", icon: "📚" });
     setPreview(null);
     setTitle("");
     setNote("");
@@ -73,7 +73,7 @@ export default function HomeworkPage() {
         <div className="mb-6">
           <h1 className="text-3xl font-black text-steppe">Turn in homework</h1>
           <p className="mt-1 text-sm font-semibold text-steppe/[.68]">
-            Snap a photo of your work. Labels are optional — a title, the date, or what it is.
+            Snap a photo of your work. Labels are optional, a title, the date, or what it is.
           </p>
         </div>
 
@@ -117,7 +117,7 @@ export default function HomeworkPage() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Title (optional) — e.g. My animal words"
+              placeholder="Title (optional), e.g. My animal words"
               className="w-full rounded-xl border-2 border-felt bg-warm px-3 py-2 font-black text-steppe outline-none focus:border-steppe"
             />
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -147,7 +147,7 @@ export default function HomeworkPage() {
         <h2 className="mb-3 mt-8 text-lg font-black text-steppe">My homework ({submissions.length})</h2>
         {submissions.length === 0 ? (
           <Card>
-            <p className="text-sm text-wolf">Nothing turned in yet — your submissions will show up here.</p>
+            <p className="text-sm text-wolf">Nothing turned in yet, your submissions will show up here.</p>
           </Card>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">

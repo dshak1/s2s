@@ -50,7 +50,7 @@ export default function GreetingsQuiz() {
   const audioPlays = useRef(0);
 
   const prompt = useMemo(() => {
-    if (round.mode === "hear-phrase") return "Listen — which Kazakh greeting is this?";
+    if (round.mode === "hear-phrase") return "Listen, which Kazakh greeting is this?";
     return `Which sound says “${round.answer.kk}”?`;
   }, [round]);
 
@@ -237,7 +237,7 @@ export default function GreetingsQuiz() {
 
           <div className="rounded-2xl bg-felt px-4 py-3 text-center text-sm font-bold text-steppe-700">
             {phase === "wrong"
-              ? `The answer was “${round.answer.kk}” — ${round.answer.en}.`
+              ? `The answer was “${round.answer.kk}”, ${round.answer.en}.`
               : `${round.answer.latin} · meaning appears after you check.`}
           </div>
         </div>

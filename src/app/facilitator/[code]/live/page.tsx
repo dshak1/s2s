@@ -31,7 +31,7 @@ export default function LiveProjector() {
       {/* top bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-8 py-5">
         <div>
-          <div className="text-sm font-bold text-gold">Session code — kids join at {origin || "…"}/join</div>
+          <div className="text-sm font-bold text-gold">Session code, kids join at {origin || "…"}/join</div>
           <div className="text-7xl font-black tracking-[0.3em]">{code}</div>
         </div>
         <div className="rounded-2xl bg-warm p-2">

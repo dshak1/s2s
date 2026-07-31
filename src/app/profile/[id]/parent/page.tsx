@@ -40,7 +40,7 @@ export default function ParentLink() {
           <h1 className="text-xl font-black text-steppe">Add a parent email</h1>
           <p className="mt-1 text-sm text-wolf">
             Link this profile to a parent&apos;s email so progress, art, and badges follow the
-            kid to any device — and a real name can appear on leaderboards only after the parent confirms.
+            kid to any device, and a real name can appear on leaderboards only after the parent confirms.
           </p>
           <form onSubmit={submit} className="mt-4 space-y-3">
             <input

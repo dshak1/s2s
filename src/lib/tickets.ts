@@ -60,7 +60,7 @@ export const PROBLEMS: Record<TicketProblem, string> = {
   wrong_answer: "The marked answer is wrong",
   bad_audio: "Audio is wrong or badly pronounced",
   poor_question: "Weak question or unfair options",
-  unclear: "Confusing — you can't tell what's being asked",
+  unclear: "Confusing, you can't tell what's being asked",
   culturally_wrong: "Not how it's actually said in Kazakh",
   too_hard: "Far too hard for the age group",
   too_easy: "Far too easy to teach anything",

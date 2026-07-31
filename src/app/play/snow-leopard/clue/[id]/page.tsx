@@ -83,7 +83,7 @@ export default function CluePage() {
             Paw print collected! ({p.pawPrints.length}/8)
           </motion.div>
         )}
-        {result === "wrong" && <p className="mt-3 font-bold text-wolf">Not quite — try again!</p>}
+        {result === "wrong" && <p className="mt-3 font-bold text-wolf">Not quite, try again!</p>}
 
         <div className="mt-5 flex justify-center gap-2">
           <Link href="/play/snow-leopard"><Button variant="outline">All stops</Button></Link>

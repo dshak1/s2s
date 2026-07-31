@@ -37,7 +37,7 @@ export default async function LoginPage({
             </p>
             <p className="mt-3 text-xs font-semibold text-wolf/70">
               A sign-in link proves you own an email address, not that you&apos;re on
-              this team — so accounts start with no access to learner data.
+              this team, so accounts start with no access to learner data.
             </p>
             <div className="mt-4 flex gap-2">
               <Link
@@ -71,7 +71,7 @@ export default async function LoginPage({
           <h1 className="mt-4 text-2xl font-black text-steppe">Team sign-in</h1>
           <p className="mt-1 text-sm font-semibold text-wolf">
             For educators, native speakers, and the build team. Kids don&apos;t need an
-            account — they just tap Play.
+            account, they just tap Play.
           </p>
         </div>
 

@@ -17,7 +17,7 @@ export default function Home() {
             Қазақ тілін үйренейік
           </h1>
           <p className="mt-5 max-w-xl text-xl font-extrabold leading-8 text-steppe/80 md:text-2xl">
-            Let&apos;s learn Kazakh — one fun word at a time.
+            Let&apos;s learn Kazakh, one fun word at a time.
           </p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row md:items-start">
             <Link

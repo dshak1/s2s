@@ -213,7 +213,7 @@ export default function Bazaar() {
             </div>
             <div className="flex flex-1 flex-wrap gap-2">
               {basketItems.length === 0 ? (
-                <span className="text-sm font-bold text-wolf">Empty — tap food above.</span>
+                <span className="text-sm font-bold text-wolf">Empty, tap food above.</span>
               ) : (
                 basketItems.map(([slug, qty]) => {
                   const good = goodBySlug(goods, slug);

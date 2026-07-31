@@ -25,7 +25,7 @@ export default async function LabelPage() {
       <div className="min-h-dvh bg-warm font-admin">
         <TeamNav member={member} current="/label" />
         <main className="mx-auto max-w-3xl px-4 py-8">
-          <EmptyNote>Offline demo mode — labelling needs Supabase.</EmptyNote>
+          <EmptyNote>Offline demo mode, labelling needs Supabase.</EmptyNote>
         </main>
       </div>
     );
@@ -57,7 +57,7 @@ export default async function LabelPage() {
           <p className="mt-1 text-sm font-semibold text-wolf">
             Learner data tells us a question is hard. It can&apos;t tell us whether the
             audio is wrong, the options are unfair, or nobody actually says it that way
-            in Kazakh. That part only you can answer — and every judgement you leave
+            in Kazakh. That part only you can answer, and every judgement you leave
             here becomes part of the dataset.
           </p>
         </div>

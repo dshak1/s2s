@@ -406,7 +406,7 @@ export default function SpotlightPanic() {
             </button>
           ))}
 
-        {/* ghosts — faint in the dark, clear in the light */}
+        {/* ghosts, faint in the dark, clear in the light */}
         {playing &&
           ghosts.map((g, i) => (
             <div
@@ -474,7 +474,7 @@ export default function SpotlightPanic() {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4 text-center text-warm">
             <p className="text-2xl font-black">Spotlight Panic</p>
             <p className="max-w-sm text-sm text-warm/80">
-              The steppe is dark. Find every hidden word before the clock runs out — each level gives you less time, and
+              The steppe is dark. Find every hidden word before the clock runs out, each level gives you less time, and
               the ghosts hunt your light!
             </p>
             <div className="grid w-full max-w-md grid-cols-2 gap-2 sm:grid-cols-4">
@@ -493,7 +493,7 @@ export default function SpotlightPanic() {
                 </button>
               ))}
             </div>
-            <p className="text-xs font-bold text-warm/50">Original game design: Almas Bekbolat — contest winner 🥇</p>
+            <p className="text-xs font-bold text-warm/50">Original game design: Almas Bekbolat, contest winner 🥇</p>
           </div>
         )}
 
@@ -503,7 +503,7 @@ export default function SpotlightPanic() {
               <>
                 <Trophy size={44} className="text-gold" />
                 <p className="text-3xl font-black">{meta.kk} mastered!</p>
-                <p>You beat all {MAX_LEVEL} levels — final score {score} (+100 mastery bonus).</p>
+                <p>You beat all {MAX_LEVEL} levels, final score {score} (+100 mastery bonus).</p>
               </>
             ) : (
               <>
@@ -511,7 +511,7 @@ export default function SpotlightPanic() {
                   {overReason.current === "time" ? "Time's up!" : "The ghosts got you!"}
                 </p>
                 <p>
-                  {meta.emoji} {meta.en} — score {score}, reached level {level}.
+                  {meta.emoji} {meta.en}, score {score}, reached level {level}.
                 </p>
               </>
             )}

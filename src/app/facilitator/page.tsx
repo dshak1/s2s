@@ -39,7 +39,7 @@ export default function FacilitatorHome() {
   return (
     <div className="min-h-dvh bg-warm font-admin">
       <header className="bg-steppe px-6 py-4 text-warm">
-        <Link href="/" className="text-xl font-black">Steppe to Screen — Facilitator</Link>
+        <Link href="/" className="text-xl font-black">Steppe to Screen Facilitator</Link>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-8">
         <h1 className="text-2xl font-black text-steppe">Run a workshop</h1>

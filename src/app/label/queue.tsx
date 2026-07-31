@@ -40,12 +40,12 @@ const AXES = [
 const REASON_LABELS: Record<string, string> = {
   too_hard_in_practice: "Learners almost never get this right",
   too_easy_in_practice: "Nearly everyone gets this right",
-  difficulty_unknown: "Generated — difficulty unverified",
-  cultural_accuracy_unverified: "Generated — needs a native speaker",
-  distractors_weak: "Generated — wrong options may be weak",
-  image_layout_unchecked: "Generated — layout not eyeballed",
-  audio_pronunciation_unverified: "Generated audio — pronunciation unverified",
-  translation_ambiguous: "Generated — translation may be ambiguous",
+  difficulty_unknown: "Generated, difficulty unverified",
+  cultural_accuracy_unverified: "Generated, needs a native speaker",
+  distractors_weak: "Generated, wrong options may be weak",
+  image_layout_unchecked: "Generated, layout not eyeballed",
+  audio_pronunciation_unverified: "Generated audio, pronunciation unverified",
+  translation_ambiguous: "Generated, translation may be ambiguous",
 };
 
 function ItemPreview({ item }: { item: QueueItem }) {
@@ -165,7 +165,7 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
         <Check size={40} className="mx-auto mb-3 text-green-600" />
         <p className="text-lg font-black text-steppe">Queue clear.</p>
         <p className="mt-1 text-sm font-semibold text-wolf">
-          You&apos;ve judged everything waiting for you. Refresh later — new questions
+          You&apos;ve judged everything waiting for you. Refresh later, new questions
           arrive as kids play and as content is generated.
         </p>
       </div>

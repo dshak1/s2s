@@ -55,7 +55,7 @@ export default function RegionPage() {
               Your browser cannot play this clip.
             </video>
             <p className="mt-2 text-xs text-warm/70">
-              Placeholder — real elder videos are uploaded later via /admin/content.
+              Placeholder, real elder videos are uploaded later via /admin/content.
             </p>
           </Card>
 
@@ -85,7 +85,7 @@ export default function RegionPage() {
         {next && (
           <div className="mt-8 rounded-3xl bg-steppe p-6 text-center text-warm">
             {nextUnlocked ? (
-              <p className="font-bold text-gold">{next.name} is already unlocked — explore on!</p>
+              <p className="font-bold text-gold">{next.name} is already unlocked, explore on!</p>
             ) : (
               <>
                 <p className="mb-3 font-bold">Finished exploring {region.name}?</p>

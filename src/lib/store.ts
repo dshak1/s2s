@@ -220,7 +220,7 @@ export const store = {
     const normalized = normalizeCode(code);
     const p = load();
     if (p.unlockedWeeks >= JOURNEY.length) {
-      return { ok: true, message: "Whole Silk Road complete — replay any game for more points." };
+      return { ok: true, message: "Whole Silk Road complete, replay any game for more points." };
     }
     const nextStop = JOURNEY[p.unlockedWeeks];
     const expected = normalizeCode(p.weeklyCodes[nextStop.id] ?? nextStop.defaultCode);

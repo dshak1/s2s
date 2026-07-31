@@ -46,7 +46,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Steppe to Screen",
-  description: "Learn Kazakh language and culture — games, art, and the steppe.",
+  description: "Learn Kazakh language and culture, games, art, and the steppe.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

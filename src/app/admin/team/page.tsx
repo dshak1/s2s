@@ -50,7 +50,7 @@ export default async function AdminTeamPage() {
       }
     >
       {isDemoMember(me) && (
-        <Empty>Offline demo mode — no real roster here.</Empty>
+        <Empty>Offline demo mode, no real roster here.</Empty>
       )}
 
       {waiting.length > 0 && (

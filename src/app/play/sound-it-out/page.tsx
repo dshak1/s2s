@@ -70,7 +70,7 @@ export default function SoundItOut() {
   const audioPlays = useRef(0);
 
   const prompt = useMemo(() => {
-    if (round.mode === "hear-letter") return "Listen — which Kazakh letter makes this sound?";
+    if (round.mode === "hear-letter") return "Listen, which Kazakh letter makes this sound?";
     return `Which sound matches ${round.answer.cyr}?`;
   }, [round]);
 

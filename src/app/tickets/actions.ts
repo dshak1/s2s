@@ -162,7 +162,7 @@ export async function decideTicket(
   if (note.length < 10) {
     return {
       ok: false,
-      error: "Write the reason — at least a sentence. Whoever filed it sees this.",
+      error: "Write the reason, at least a sentence. Whoever filed it sees this.",
     };
   }
 
@@ -217,7 +217,7 @@ export async function pushToLinear(
     ticket.problem ? `Problem: ${PROBLEMS[ticket.problem as TicketProblem]}` : "",
     `${ticket.votes} vote${ticket.votes === 1 ? "" : "s"}`,
     ticket.decision_note ? `\nDecision: ${ticket.decision_note}` : "",
-    `\n_${ticket.ref} — filed from the Steppe to Screen ticket board._`,
+    `\n_${ticket.ref}, filed from the Steppe to Screen ticket board._`,
   ]
     .filter(Boolean)
     .join("\n")

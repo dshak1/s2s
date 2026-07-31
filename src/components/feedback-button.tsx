@@ -38,7 +38,7 @@ export function FeedbackButton() {
       });
     }
 
-    toastBus.show({ title: "Feedback sent!", body: "Thanks — the team will see it.", icon: "🙏" });
+    toastBus.show({ title: "Feedback sent!", body: "Thanks, the team will see it.", icon: "🙏" });
     setMessage("");
     setOpen(false);
     setSending(false);

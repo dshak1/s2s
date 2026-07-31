@@ -30,7 +30,7 @@ export const REGIONS: Region[] = [
     category: "family",
     x: 760,
     y: 430,
-    fact: "Almaty sits at the foot of the snowy Alatau mountains and was Kazakhstan's first capital. Its name comes from 'alma' — apple. Wild apples first grew here!",
+    fact: "Almaty sits at the foot of the snowy Alatau mountains and was Kazakhstan's first capital. Its name comes from 'alma', apple. Wild apples first grew here!",
   },
   {
     id: "astana",
@@ -57,7 +57,7 @@ export const REGIONS: Region[] = [
     category: "colors",
     x: 820,
     y: 400,
-    fact: "Charyn Canyon glows red, orange and gold at sunset — a perfect place to learn colours. It is sometimes called the little brother of the Grand Canyon.",
+    fact: "Charyn Canyon glows red, orange and gold at sunset, a perfect place to learn colours. It is sometimes called the little brother of the Grand Canyon.",
   },
   {
     id: "mangystau",

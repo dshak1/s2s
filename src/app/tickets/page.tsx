@@ -63,7 +63,7 @@ export default async function TicketsPage({
   if (!sb) {
     return (
       <AdminShell member={member} current="/tickets" title="Tickets">
-        <Empty>Offline demo mode — the ticket board needs Supabase.</Empty>
+        <Empty>Offline demo mode, the ticket board needs Supabase.</Empty>
       </AdminShell>
     );
   }
@@ -228,7 +228,7 @@ export default async function TicketsPage({
                     {t.type === "question" && (
                       <p className="mt-1.5 text-[12px] text-[#64748b]">
                         <span className="font-mono text-[#94a3b8]">{t.item_id}</span>
-                        {t.problem && ` — ${PROBLEMS[t.problem]}`}
+                        {t.problem && `, ${PROBLEMS[t.problem]}`}
                       </p>
                     )}
 
@@ -356,7 +356,7 @@ export default async function TicketsPage({
 
       <Panel className="mt-6">
         <p className="text-[12px] leading-relaxed text-[#64748b]">
-          A ticket cannot leave the inbox without a written reason — that&apos;s a database
+          A ticket cannot leave the inbox without a written reason, that&apos;s a database
           constraint, not a team norm. Flagged questions carry the exact content id, so
           they line up with the labelling queue and the item analytics.{" "}
           {linearEnabled()

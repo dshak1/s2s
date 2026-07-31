@@ -18,7 +18,7 @@ const MAX_LEVEL = 10;
 const CATCHES_PER_LEVEL = 6; // catches to advance a level, no pause between
 const WORDS_AT_START = 3;
 const WORDS_PER_LEVEL = 2; // new words layered in at each level-up
-const BASE_SPEED = 62; // px/sec — every level starts here…
+const BASE_SPEED = 62; // px/sec, every level starts here…
 const RAMP_PER_CATCH = 11; // …and ramps as you catch words within the level
 const RAMP_LEVEL_BONUS = 1.5; // higher levels ramp a little steeper
 
@@ -308,7 +308,7 @@ export default function FallingSozder() {
           )}
         </AnimatePresence>
 
-        {/* level-up banner — floats over play without pausing the game */}
+        {/* level-up banner, floats over play without pausing the game */}
         <AnimatePresence>
           {banner && (
             <motion.div
@@ -325,7 +325,7 @@ export default function FallingSozder() {
           )}
         </AnimatePresence>
 
-        {/* baskets — regenerated every drop: the answer + 2 words from the pool */}
+        {/* baskets, regenerated every drop: the answer + 2 words from the pool */}
         <div className="absolute inset-x-0 bottom-0 grid grid-cols-3 gap-2 p-3">
           {(playing ? baskets : []).map((b) => (
             <button
@@ -375,7 +375,7 @@ export default function FallingSozder() {
               <>
                 <p className="text-3xl font-black">Game over!</p>
                 <p>
-                  {meta.emoji} {meta.en} — you caught {catches} words and reached level {level}.
+                  {meta.emoji} {meta.en}, you caught {catches} words and reached level {level}.
                 </p>
               </>
             )}
