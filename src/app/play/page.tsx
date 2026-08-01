@@ -152,16 +152,34 @@ function FullHub() {
             <h2 className="text-3xl font-black text-steppe">Ойындар</h2>
             <p className="text-sm font-bold text-steppe/65">Games keep the current features, with the Canva category-card layout.</p>
           </div>
-          <button
-            onClick={() => {
-              store.reset();
-              setMessage(null);
-              setCode("");
-            }}
-            className="inline-flex items-center gap-1 rounded-full border border-steppe/10 bg-white/85 px-3 py-1.5 text-xs font-black text-steppe shadow-sm transition hover:bg-[#fff3cf]"
-          >
-            <RotateCcw size={14} /> Reset demo
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-full border border-steppe/10 bg-white/85 p-1 shadow-sm">
+              {(["en", "ru"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => store.setBaseLanguage(lang)}
+                  aria-pressed={profile.baseLanguage === lang}
+                  className={`rounded-full px-3 py-1 text-xs font-black uppercase transition ${
+                    profile.baseLanguage === lang
+                      ? "bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] text-steppe-700"
+                      : "text-steppe/60 hover:text-steppe"
+                  }`}
+                >
+                  {lang === "en" ? "English" : "Русский"}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                store.reset();
+                setMessage(null);
+                setCode("");
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-steppe/10 bg-white/85 px-3 py-1.5 text-xs font-black text-steppe shadow-sm transition hover:bg-[#fff3cf]"
+            >
+              <RotateCcw size={14} /> Reset demo
+            </button>
+          </div>
         </div>
 
         <div className="relative mt-4 space-y-6">

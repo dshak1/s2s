@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { REGIONS, regionById } from "@/content/regions";
 import { CATEGORY_LABELS, vocabByCategory, imgFor } from "@/content/vocab";
 import { store, useProfile } from "@/lib/store";
+import { baseText } from "@/lib/lang";
 
 export default function RegionPage() {
   const params = useParams<{ region: string }>();
@@ -75,9 +76,9 @@ export default function RegionPage() {
           {vocab.map((v) => (
             <motion.div key={v.slug} whileHover={{ y: -4 }} className="rounded-2xl bg-felt p-3 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imgFor(v)} alt={v.en} className="mx-auto h-16 w-16" />
+              <img src={imgFor(v)} alt={baseText(v, p.baseLanguage)} className="mx-auto h-16 w-16" />
               <div className="mt-1 font-black text-steppe">{v.kk}</div>
-              <div className="text-xs text-wolf">{v.en}</div>
+              <div className="text-xs text-wolf">{baseText(v, p.baseLanguage)}</div>
             </motion.div>
           ))}
         </div>

@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { VOCAB, vocabByCategory, imgFor, CATEGORIES, type VocabCategory, type VocabItem } from "@/content/vocab";
 import { sample, shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord, playWin } from "@/lib/audio";
-import { store } from "@/lib/store";
+import { store, useProfile } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { vocabItemId } from "@/lib/items";
+import { baseText, type BaseLanguage } from "@/lib/lang";
 
 type Mode = "image-kk" | "en-kk";
 const MODE_LABEL: Record<Mode, string> = {
@@ -24,9 +25,9 @@ function initialRound(source: VocabItem[]) {
   return source.slice(0, ROUND_SIZE);
 }
 
-function cardFace(item: VocabItem, mode: Mode) {
-  if (mode === "image-kk") return <img src={imgFor(item)} alt={item.en} className="h-20 w-20" />;
-  return <span className="text-xl font-black text-steppe">{item.en}</span>;
+function cardFace(item: VocabItem, mode: Mode, lang: BaseLanguage) {
+  if (mode === "image-kk") return <img src={imgFor(item)} alt={baseText(item, lang)} className="h-20 w-20" />;
+  return <span className="text-xl font-black text-steppe">{baseText(item, lang)}</span>;
 }
 function labelText(item: VocabItem, mode: Mode) {
   if (mode === "image-kk") return item.kk;
@@ -42,6 +43,7 @@ function pool(cat: string | null): VocabItem[] {
 }
 
 function SozdikMatchInner() {
+  const { baseLanguage } = useProfile();
   const cat = useSearchParams().get("cat");
   const source = useMemo(() => pool(cat), [cat]);
   const [mode, setMode] = useState<Mode>("image-kk");
@@ -165,11 +167,11 @@ function SozdikMatchInner() {
                     animate={{ scale: 1, opacity: 1 }}
                     className="flex flex-col items-center gap-1"
                   >
-                    {cardFace(item, mode)}
+                    {cardFace(item, mode, baseLanguage)}
                     <span className="text-xs font-black text-steppe-700">{item.kk}</span>
                   </motion.div>
                 ) : (
-                  cardFace(item, mode)
+                  cardFace(item, mode, baseLanguage)
                 )}
               </AnimatePresence>
             </div>

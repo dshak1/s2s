@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { VOCAB, VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
 import { shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord } from "@/lib/audio";
-import { store } from "@/lib/store";
+import { store, useProfile } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { vocabItemId } from "@/lib/items";
+import { baseText } from "@/lib/lang";
 import { Heart, Trophy } from "lucide-react";
 
 const FIELD = 380; // px fall distance before "ground"
@@ -26,8 +27,8 @@ const BEST_KEY = "s2s.falling.best.v2";
 
 // All the vocab packs plus a mixed pack that draws from every category.
 type PackKey = VocabCategory | "random";
-const PACKS: Array<{ key: PackKey; kk: string; en: string; emoji: string }> = [
-  { key: "random", kk: "Аралас", en: "Random Mix", emoji: "🎲" },
+const PACKS: Array<{ key: PackKey; kk: string; en: string; ru: string; emoji: string }> = [
+  { key: "random", kk: "Аралас", en: "Random Mix", ru: "Случайный микс", emoji: "🎲" },
   ...VOCAB_CATEGORY_META,
 ];
 
@@ -42,6 +43,7 @@ function readBests(): Partial<Record<PackKey, number>> {
 type Phase = "pick" | "play" | "over" | "mastered";
 
 export default function FallingSozder() {
+  const { baseLanguage } = useProfile();
   const [phase, setPhase] = useState<Phase>("pick");
   const [category, setCategory] = useState<PackKey>("family");
   const [bests, setBests] = useState<Partial<Record<PackKey, number>>>({});
@@ -303,7 +305,7 @@ export default function FallingSozder() {
               className="absolute -translate-x-1/2 rounded-2xl bg-gold px-4 py-2 text-xl font-black text-steppe-700 shadow-lg"
               style={{ top: y, left: `${x}%` }}
             >
-              {current.en}
+              {baseText(current, baseLanguage)}
             </div>
           )}
         </AnimatePresence>
@@ -353,7 +355,7 @@ export default function FallingSozder() {
                 >
                   <div className="text-2xl">{c.emoji}</div>
                   <div className="text-sm font-black">{c.kk}</div>
-                  <div className="text-[11px] font-bold text-steppe/60">{c.en}</div>
+                  <div className="text-[11px] font-bold text-steppe/60">{baseText(c, baseLanguage)}</div>
                   {(bests[c.key] ?? 0) > 0 && (
                     <div className="mt-1 text-[11px] font-black text-terra">Best: Lvl {bests[c.key]}</div>
                   )}
@@ -375,7 +377,7 @@ export default function FallingSozder() {
               <>
                 <p className="text-3xl font-black">Game over!</p>
                 <p>
-                  {meta.emoji} {meta.en}, you caught {catches} words and reached level {level}.
+                  {meta.emoji} {baseText(meta, baseLanguage)}, you caught {catches} words and reached level {level}.
                 </p>
               </>
             )}

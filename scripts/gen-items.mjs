@@ -42,6 +42,7 @@ for (const v of VOCAB) {
     kk: v.kk,
     latin: v.latin,
     en: v.en,
+    ru: v.ru,
     category: v.category,
     image: `/img/${v.category}/${v.slug}.svg`,
     audio: `/audio/vocab/${v.slug}.mp3`,
@@ -61,13 +62,14 @@ for (const g of GREETINGS) {
   push("greeting", greetingSlug(g.audio), "greetings-quiz", {
     kk: g.kk,
     en: g.en,
+    ru: g.ru,
     latin: g.latin,
     audio: g.audio,
   });
 }
 
 for (const p of PHRASES) {
-  push("phrase", p.kk, "story-maker", { kk: p.kk, en: p.en });
+  push("phrase", p.kk, "story-maker", { kk: p.kk, en: p.en, ru: p.ru });
 }
 
 for (const r of REGIONS) {

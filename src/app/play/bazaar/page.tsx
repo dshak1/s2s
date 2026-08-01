@@ -7,9 +7,10 @@ import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { VOCAB, imgFor, type VocabItem } from "@/content/vocab";
 import { playCorrect, playWrong, playWin, speakWord } from "@/lib/audio";
-import { store } from "@/lib/store";
+import { store, useProfile } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { vocabItemId } from "@/lib/items";
+import { baseText } from "@/lib/lang";
 
 type Good = {
   item: VocabItem;
@@ -50,6 +51,7 @@ function exactBasket(basket: Record<string, number>, want: Record<string, number
 }
 
 export default function Bazaar() {
+  const { baseLanguage } = useProfile();
   const goods = useMemo<Good[]>(
     () =>
       VOCAB.filter((item) => item.category === "food" && PRICE_BY_SLUG[item.slug]).map((item) => ({
@@ -199,7 +201,7 @@ export default function Bazaar() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imgFor(good.item)} alt="" className="h-14 w-14 object-contain" />
                     <div className="text-lg font-black text-steppe">{good.item.kk}</div>
-                    <div className="text-xs font-bold text-wolf">{good.item.en.toLowerCase()}</div>
+                    <div className="text-xs font-bold text-wolf">{baseText(good.item, baseLanguage).toLowerCase()}</div>
                     <div className="text-sm font-black text-terra">{good.price} ₸</div>
                   </button>
                 );

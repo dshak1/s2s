@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { VOCAB, VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
 import { shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, playWin, speakWord } from "@/lib/audio";
-import { store } from "@/lib/store";
+import { store, useProfile } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { vocabItemId } from "@/lib/items";
+import { baseText } from "@/lib/lang";
 import { Heart, Timer, Trophy, Volume2 } from "lucide-react";
 
 // Spotlight Panic — original game design by Almas Bekbolat (workshop design
@@ -55,6 +56,7 @@ function readBests(): Partial<Record<VocabCategory, number>> {
 }
 
 export default function SpotlightPanic() {
+  const { baseLanguage } = useProfile();
   const [phase, setPhase] = useState<Phase>("pick");
   const [category, setCategory] = useState<VocabCategory>("animals");
   const [level, setLevel] = useState(1);
@@ -367,7 +369,7 @@ export default function SpotlightPanic() {
             onClick={() => speakWord(target.kk)}
             className="flex items-center gap-2 rounded-full bg-gold px-4 py-1.5 font-black text-steppe-700 shadow-md transition active:scale-95"
           >
-            <Volume2 size={16} /> Find: {target.en}
+            <Volume2 size={16} /> Find: {baseText(target, baseLanguage)}
           </button>
         )}
         <div className="flex items-center gap-3">
@@ -486,7 +488,7 @@ export default function SpotlightPanic() {
                 >
                   <div className="text-2xl">{c.emoji}</div>
                   <div className="text-sm font-black">{c.kk}</div>
-                  <div className="text-[11px] font-bold text-steppe/60">{c.en}</div>
+                  <div className="text-[11px] font-bold text-steppe/60">{baseText(c, baseLanguage)}</div>
                   {(bests[c.key] ?? 0) > 0 && (
                     <div className="mt-1 text-[11px] font-black text-terra">Best: {bests[c.key]}</div>
                   )}
@@ -511,7 +513,7 @@ export default function SpotlightPanic() {
                   {overReason.current === "time" ? "Time's up!" : "The ghosts got you!"}
                 </p>
                 <p>
-                  {meta.emoji} {meta.en}, score {score}, reached level {level}.
+                  {meta.emoji} {baseText(meta, baseLanguage)}, score {score}, reached level {level}.
                 </p>
               </>
             )}

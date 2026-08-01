@@ -21,6 +21,7 @@ import { toastBus } from "@/lib/toast";
 import type { RegionId } from "@/content/regions";
 import { REGIONS } from "@/content/regions";
 import { JOURNEY, defaultWeekCodes, normalizeCode } from "@/content/journey";
+import type { BaseLanguage } from "@/lib/lang";
 
 const BADGE_IDS = BADGES.map((b) => b.id);
 
@@ -63,6 +64,7 @@ export type Profile = {
   pawPrints: string[]; // clue ids collected this session
   gameBackgrounds: Record<string, string>; // game slug -> uploaded background dataUrl
   homeCoverId: string | null; // KidCover id chosen as the home-page background
+  baseLanguage: BaseLanguage; // language prompts are explained in; Kazakh is always what's taught
 };
 
 const KEY = "s2s_profile_v1";
@@ -87,6 +89,7 @@ function freshProfile(): Profile {
     pawPrints: [],
     gameBackgrounds: {},
     homeCoverId: null,
+    baseLanguage: "en",
   };
 }
 
@@ -208,6 +211,10 @@ export const store = {
 
   setHomeCover(coverId: string | null) {
     update((p) => { p.homeCoverId = coverId; });
+  },
+
+  setBaseLanguage(lang: BaseLanguage) {
+    update((p) => { p.baseLanguage = lang; });
   },
 
   // Homework submission: stored like any artifact (offline-first), plus a
