@@ -413,3 +413,66 @@ export function subscribeRealtimeSession(
     if (channel && sb) sb.removeChannel(channel);
   };
 }
+
+// --- Facilitator-led live rounds --------------------------------------------
+//
+// Pure broadcast, no table involved: a round lasts seconds, and every anon
+// table write elsewhere in this app has turned out to need a SECURITY
+// DEFINER workaround for a live RLS drift (0024, 0026). Broadcast sidesteps
+// that class of problem entirely. It never touches a table, so there is no
+// RLS to drift.
+
+export type RoundStartPayload = { roundId: string; placeId: string };
+export type RoundAnswerPayload = {
+  roundId: string;
+  profileId: string;
+  name: string;
+  x: number;
+  y: number;
+  closeness: number;
+};
+export type RoundRevealPayload = { roundId: string };
+export type RoundEndPayload = { roundId: string };
+
+type RoundPayloads = {
+  round_start: RoundStartPayload;
+  round_answer: RoundAnswerPayload;
+  round_reveal: RoundRevealPayload;
+  round_end: RoundEndPayload;
+};
+type RoundEventName = keyof RoundPayloads;
+type RoundHandlers = Partial<{ [K in RoundEventName]: (payload: RoundPayloads[K]) => void }>;
+
+/**
+ * One channel, shared by whoever opens it, for both sending and receiving.
+ * The facilitator opens one for the whole live-round session and calls
+ * `.send()` as the round progresses; a kid's device opens one only while the
+ * live-round overlay is showing.
+ */
+export function openRoundChannel(code: string, handlers: RoundHandlers) {
+  const sb = getSupabaseBrowser();
+  if (!sb) return { send: () => {}, close: () => {} };
+
+  const channel = sb.channel(`s2s:round:${code.toUpperCase()}`, {
+    config: { broadcast: { self: false } },
+  });
+
+  (Object.keys(handlers) as RoundEventName[]).forEach((event) => {
+    const handler = handlers[event];
+    if (!handler) return;
+    channel.on("broadcast", { event }, ({ payload }: { payload: unknown }) =>
+      handler(payload as never),
+    );
+  });
+
+  channel.subscribe();
+
+  return {
+    send<K extends RoundEventName>(event: K, payload: RoundPayloads[K]) {
+      channel.send({ type: "broadcast", event, payload });
+    },
+    close() {
+      sb.removeChannel(channel);
+    },
+  };
+}

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { DebugPanel } from "@/components/debug-panel";
 import { ToastProvider } from "@/components/toast-provider";
 import { FeedbackButton } from "@/components/feedback-button";
+import { LiveRoundOverlay } from "@/components/live-round-overlay";
 import { store } from "@/lib/store";
 
 // Pull down anything this profile made that is not on this device. Runs once
@@ -27,6 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       {children}
       <ToastProvider />
       <FeedbackButton />
+      <LiveRoundOverlay />
       <DebugPanel />
     </QueryClientProvider>
   );
