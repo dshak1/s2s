@@ -11,6 +11,7 @@ import { shuffle } from "@/lib/utils";
 import { store } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { placeItemId } from "@/lib/items";
+import { ReportQuestion } from "@/components/report-question";
 
 type Place = {
   id: string;
@@ -280,6 +281,11 @@ export default function WhereKz() {
                 <Button onClick={next}>{index + 1 >= TOTAL ? "Results" : "Next place"}</Button>
               )}
             </div>
+            {phase === "revealed" && (
+              <div className="mt-2">
+                <ReportQuestion itemId={placeItemId(place)} gameSlug="where-kz" />
+              </div>
+            )}
           </section>
         </div>
       )}

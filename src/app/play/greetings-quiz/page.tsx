@@ -10,6 +10,7 @@ import { playClip, playCorrect, playWrong, playWin } from "@/lib/audio";
 import { store } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { greetingItemId } from "@/lib/items";
+import { ReportQuestion } from "@/components/report-question";
 
 type RoundMode = "hear-phrase" | "match-audio";
 type Round = {
@@ -240,6 +241,10 @@ export default function GreetingsQuiz() {
               ? `The answer was “${round.answer.kk}”, ${round.answer.en}.`
               : `${round.answer.latin} · meaning appears after you check.`}
           </div>
+
+          {phase !== "guess" && (
+            <ReportQuestion itemId={greetingItemId(round.answer)} gameSlug="greetings-quiz" />
+          )}
         </div>
       )}
     </GameShell>
