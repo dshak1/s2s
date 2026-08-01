@@ -86,6 +86,7 @@ export type RemoteProfileState = {
   regionProgress: string[];
   vocabCorrect: Record<string, number>;
   letterStats: Record<string, LetterStat>;
+  homeCoverId: string | null;
 };
 
 /**
@@ -107,6 +108,7 @@ export async function fetchProfileState(profileId: string): Promise<RemoteProfil
     region_progress: string[];
     vocab_correct: Record<string, number>;
     letter_stats: Record<string, LetterStat>;
+    home_cover_id: string | null;
   };
   const row = ((data ?? []) as Row[])[0];
   if (!row) return null;
@@ -116,6 +118,7 @@ export async function fetchProfileState(profileId: string): Promise<RemoteProfil
     regionProgress: row.region_progress ?? [],
     vocabCorrect: row.vocab_correct ?? {},
     letterStats: row.letter_stats ?? {},
+    homeCoverId: row.home_cover_id ?? null,
   };
 }
 
@@ -136,14 +139,21 @@ export async function claimProfile(
 // Fire-and-forget helpers — call with .catch(()=>{}) to suppress unhandled rejections.
 // All functions return early when Supabase env vars are absent (offline demo mode).
 
-export async function syncJoin(profile: Profile, sessionCode: string, table: string) {
+/**
+ * Push xp, progress and the home background choice to the server. Routed
+ * through a SECURITY DEFINER function rather than a direct anon upsert: a
+ * direct upsert silently no-ops live (verified: INSERT works, UPDATE matches
+ * zero rows despite a correct policy and grant, see
+ * 0024_sync_profile_state.sql). The function bypasses RLS by running as its
+ * owner instead of anon.
+ *
+ * Called on a debounce from every `persist()` in store.ts, not only on join.
+ * xp that only reached the server once, at join time, meant a recovery code
+ * used mid-session pulled stale numbers on the second device.
+ */
+export async function syncProfileState(profile: Profile) {
   const sb = getSupabaseBrowser();
   if (!sb) return;
-
-  // A direct anon upsert here silently no-ops live (verified: INSERT works,
-  // UPDATE matches zero rows despite a correct policy and grant — see
-  // 0024_sync_profile_state.sql). Routed through a SECURITY DEFINER function
-  // instead, which bypasses RLS by running as its owner rather than anon.
   await sb.rpc("sync_profile_state", {
     p_profile_id: profile.id,
     p_display_name: profile.displayName,
@@ -152,7 +162,15 @@ export async function syncJoin(profile: Profile, sessionCode: string, table: str
     p_region_progress: profile.regionProgress,
     p_vocab_correct: profile.vocabCorrect,
     p_letter_stats: profile.letterStats,
+    p_home_cover_id: profile.homeCoverId,
   });
+}
+
+export async function syncJoin(profile: Profile, sessionCode: string, table: string) {
+  const sb = getSupabaseBrowser();
+  if (!sb) return;
+
+  await syncProfileState(profile);
 
   const { data: sess } = await sb
     .from("sessions")

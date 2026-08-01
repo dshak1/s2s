@@ -10,6 +10,7 @@ import {
   syncGameRun,
   syncArtifact,
   syncHomework,
+  syncProfileState,
   fetchProfileArt,
   fetchProfileState,
   claimProfile,
@@ -124,11 +125,33 @@ function normalizeProfile(profile: Profile): Profile {
   };
 }
 
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Debounced push to the server on every change, not only at join. xp,
+// region progress, vocab mastery, letter mastery and the home background
+// choice used to reach the server exactly once, when a kid joined a session.
+// Everything earned after that stayed local-only until they rejoined,
+// which most never do mid-play. A recovery code used on a second device then
+// pulled whatever the server had from that one join, not what the kid
+// actually has now. The debounce collapses the bursts of updates a single
+// game round produces into one request after things go quiet.
+function scheduleServerSync() {
+  if (typeof window === "undefined") return;
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    const p = load();
+    if (p.id === "server-profile") return;
+    syncProfileState(p).catch(() => {});
+  }, 2000);
+}
+
 function persist() {
   if (typeof window !== "undefined" && state) {
     localStorage.setItem(KEY, JSON.stringify(state));
   }
   listeners.forEach((l) => l());
+  scheduleServerSync();
 }
 
 function update(fn: (p: Profile) => void) {
@@ -361,6 +384,9 @@ export const store = {
           if (!local || stat.level > local.level || (stat.level === local.level && stat.correct > local.correct)) {
             profile.letterStats[cyr] = stat;
           }
+        }
+        if (!profile.homeCoverId && remoteState.homeCoverId) {
+          profile.homeCoverId = remoteState.homeCoverId;
         }
       }
     });
