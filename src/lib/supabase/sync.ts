@@ -140,18 +140,19 @@ export async function syncJoin(profile: Profile, sessionCode: string, table: str
   const sb = getSupabaseBrowser();
   if (!sb) return;
 
-  await sb.from("profiles").upsert(
-    {
-      id: profile.id,
-      display_name: profile.displayName,
-      xp: profile.xp,
-      streak_weeks: profile.streakWeeks,
-      region_progress: profile.regionProgress,
-      vocab_correct: profile.vocabCorrect,
-      letter_stats: profile.letterStats,
-    },
-    { onConflict: "id" },
-  );
+  // A direct anon upsert here silently no-ops live (verified: INSERT works,
+  // UPDATE matches zero rows despite a correct policy and grant — see
+  // 0024_sync_profile_state.sql). Routed through a SECURITY DEFINER function
+  // instead, which bypasses RLS by running as its owner rather than anon.
+  await sb.rpc("sync_profile_state", {
+    p_profile_id: profile.id,
+    p_display_name: profile.displayName,
+    p_xp: profile.xp,
+    p_streak_weeks: profile.streakWeeks,
+    p_region_progress: profile.regionProgress,
+    p_vocab_correct: profile.vocabCorrect,
+    p_letter_stats: profile.letterStats,
+  });
 
   const { data: sess } = await sb
     .from("sessions")
