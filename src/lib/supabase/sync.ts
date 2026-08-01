@@ -236,12 +236,15 @@ export async function syncArtifact(
   const ext = contentType.split("/")[1]?.split("+")[0] || "png";
   const path = `${profileId}/${artifact.id}.${ext}`;
 
-  const { error } = await sb.storage
-    .from("kid-art")
-    .upload(path, blob, { contentType, upsert: true });
+  // upsert:true makes the Storage API check-then-update on every call, even
+  // for a path that has never existed. That update path hits the same live
+  // RLS drift as profiles/kid_artifacts/homework_items, and unlike those it
+  // has no SECURITY DEFINER workaround (this is a real file, not just a
+  // row). Plain insert works, verified live, and artifact.id is a fresh
+  // UUID every time, so a path collision here would mean something else is
+  // already badly wrong.
+  const { error } = await sb.storage.from("kid-art").upload(path, blob, { contentType });
   if (error) {
-    // The upload itself works; it's the row beneath that has never actually
-    // landed, silently, since day one. See 0026_sync_kid_artifacts.sql.
     captureError(error, { where: "syncArtifact/upload", profileId, path });
     return;
   }
@@ -274,9 +277,10 @@ export async function syncHomework(
   const ext = contentType.split("/")[1]?.split("+")[0] || "jpg";
   const path = `${profileId}/homework-${artifact.id}.${ext}`;
 
-  const { error } = await sb.storage
-    .from("kid-art")
-    .upload(path, blob, { contentType, upsert: true });
+  // Same reasoning as syncArtifact: upsert:true always hits the broken
+  // update path live, plain insert works, and artifact.id is fresh every
+  // time so there is nothing to collide with.
+  const { error } = await sb.storage.from("kid-art").upload(path, blob, { contentType });
   if (error) {
     captureError(error, { where: "syncHomework/upload", profileId, path });
     return;
