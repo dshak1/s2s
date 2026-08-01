@@ -1,6 +1,12 @@
 // Ticket vocabulary, shared by the server actions, the board, and the flag
 // buttons scattered around the app.
 
+// Public URL for an image in the idea-attachments bucket (public, unlike
+// kid-art). Attachment rows store the storage path, not the URL, for images.
+export function ticketAttachmentUrl(storagePath: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/idea-attachments/${storagePath}`;
+}
+
 export type TicketType = "bug" | "request" | "question";
 export type TicketStatus =
   | "inbox"

@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { RecoveryCode } from "@/components/recovery-code";
 import { TopNav } from "@/components/top-nav";
 import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { YurtSVG, YURT_TOTAL } from "@/components/yurt";
 import { VOCAB, CATEGORIES, CATEGORY_LABELS, vocabByCategory, type VocabCategory } from "@/content/vocab";
 import { BADGES } from "@/content/badges";
@@ -16,15 +19,60 @@ import { toastBus } from "@/lib/toast";
 import { Snowflake } from "lucide-react";
 
 export default function ProfilePage() {
+  const params = useParams<{ id: string }>();
   const p = useProfile();
+  const [adopting, setAdopting] = useState(false);
   const masteredVocab = VOCAB.filter((v) => isVocabMastered(p, v.slug)).length;
   const letters = masteredLetterCount(p);
   const earned = new Set(p.badges);
+
+  // The [id] in the URL only matters once the local profile has loaded (it
+  // starts out as "server-profile" during SSR/hydration) and only when it
+  // actually names someone else. That is what "different kid on every
+  // device" looked like from the outside.
+  const foreignId = p.id !== "server-profile" && params.id && params.id !== p.id ? params.id : null;
+
+  async function adoptThisPage() {
+    if (!foreignId) return;
+    setAdopting(true);
+    const result = await store.adoptById(foreignId);
+    setAdopting(false);
+    if (result.ok) {
+      toastBus.show({
+        title: `Welcome back, ${result.name || "friend"}!`,
+        body: "Your drawings and points are here.",
+        icon: "✨",
+      });
+    } else {
+      toastBus.show({
+        title: "Could not find that page",
+        body: "It might only exist on a different device.",
+        icon: "😕",
+      });
+    }
+  }
 
   return (
     <div className="min-h-dvh bg-warm">
       <TopNav />
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+        {foreignId && (
+          <div className="rounded-2xl border-2 border-dashed border-gold bg-gold/10 p-4 text-center">
+            <p className="font-black text-steppe-700">This is someone else&apos;s page. Is this you?</p>
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
+              <Button variant="gold" size="sm" onClick={adoptThisPage} disabled={adopting}>
+                {adopting ? "Loading…" : "Yes, this is me"}
+              </Button>
+              <Link
+                href={`/profile/${p.id}`}
+                className="flex items-center rounded-full bg-white/70 px-4 py-1.5 text-sm font-black text-steppe-700"
+              >
+                No, show mine
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* header */}
         <div className="flex flex-col items-center gap-4 rounded-3xl bg-steppe p-6 text-warm sm:flex-row sm:items-center">
           <Avatar size={88} />

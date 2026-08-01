@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { MessageCircle, Send, X } from "lucide-react";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { useRef, useState } from "react";
+import { MessageCircle, Paperclip, Send, X } from "lucide-react";
 import { store } from "@/lib/store";
 import { toastBus } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -20,26 +19,60 @@ export function FeedbackButton() {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<Kind>("idea");
   const [message, setMessage] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const [sending, setSending] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function setImageFile(file: File | null) {
+    setImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
+    setImage(file);
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
+    const file = item?.getAsFile();
+    if (file) setImageFile(file);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+    if (file) setImageFile(file);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!message.trim()) return;
     setSending(true);
 
-    const sb = getSupabaseBrowser();
-    if (sb) {
-      const profile = store.get();
-      await sb.from("feedback_items").insert({
-        message: message.trim(),
-        kind,
-        page_url: window.location.pathname,
-        profile_id: profile.id === "server-profile" ? null : profile.id,
+    const profile = store.get();
+    const body = new FormData();
+    body.set("message", message.trim());
+    body.set("kind", kind);
+    body.set("page_url", window.location.pathname);
+    if (profile.id !== "server-profile") body.set("profile_id", profile.id);
+    if (image) body.set("image", image);
+
+    try {
+      const res = await fetch("/api/feedback", { method: "POST", body });
+      if (!res.ok) throw new Error();
+      toastBus.show({ title: "Feedback sent!", body: "Thanks, the team will see it.", icon: "🙏" });
+    } catch {
+      toastBus.show({
+        title: "Could not send feedback",
+        body: "Check your connection and try again.",
+        icon: "😕",
       });
     }
 
-    toastBus.show({ title: "Feedback sent!", body: "Thanks, the team will see it.", icon: "🙏" });
     setMessage("");
+    setImageFile(null);
     setOpen(false);
     setSending(false);
   }
@@ -56,7 +89,17 @@ export function FeedbackButton() {
       </button>
 
       {open && (
-        <div className="fixed right-4 top-36 z-[99] w-80 max-w-[calc(100vw-2rem)] rounded-lg bg-white p-4 shadow-2xl ring-1 ring-steppe/10">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          className={`fixed right-4 top-36 z-[99] w-80 max-w-[calc(100vw-2rem)] rounded-lg bg-white p-4 shadow-2xl ring-1 transition ${
+            dragOver ? "ring-2 ring-gold" : "ring-steppe/10"
+          }`}
+        >
           <div className="mb-3 flex items-center justify-between">
             <span className="font-black text-steppe">Send feedback</span>
             <button onClick={() => setOpen(false)} className="text-wolf hover:text-steppe">
@@ -88,10 +131,45 @@ export function FeedbackButton() {
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Tell us more…"
+              onPaste={handlePaste}
+              placeholder="Tell us more… (paste a screenshot too)"
               rows={3}
               required
               className="w-full resize-none rounded-xl border-2 border-felt bg-warm px-3 py-2 text-sm font-semibold outline-none focus:border-steppe"
+            />
+
+            {imagePreview ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imagePreview}
+                  alt="Attached screenshot"
+                  className="max-h-32 w-full rounded-xl border-2 border-felt object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setImageFile(null)}
+                  className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white"
+                  title="Remove screenshot"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-felt py-2 text-xs font-bold text-wolf transition hover:border-steppe/40"
+              >
+                <Paperclip size={13} /> Drop, paste, or tap for a screenshot
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
             />
 
             <Button variant="gold" type="submit" disabled={sending || !message.trim()}>

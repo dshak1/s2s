@@ -11,6 +11,7 @@ import {
   syncArtifact,
   syncHomework,
   fetchProfileArt,
+  fetchProfileState,
   claimProfile,
 } from "@/lib/supabase/sync";
 import type { BadgeId } from "@/content/badges";
@@ -269,6 +270,7 @@ export const store = {
     });
     const p = load();
     syncGameRun(p.id, p.sessionCode, newRun).catch(() => {});
+    maybeShowRecoveryHint();
   },
 
   answerLetter(cyr: string, correct: boolean) {
@@ -316,27 +318,51 @@ export const store = {
   },
 
   /**
-   * Pull anything this profile made that is not on this device.
+   * Pull anything this profile made or earned that is not on this device.
    *
    * Local stays the source of truth so the app still works offline; the server
-   * only fills gaps. Merged by artifact id, newest first. Until this existed,
-   * every drawing and homework photo lived on exactly one browser and a cleared
-   * cache looked identical to "my work was deleted".
+   * only fills gaps. Artifacts merge by id, newest first. XP takes the higher
+   * value and progress takes the union rather than overwriting, so playing on
+   * two devices can only ever add up, never roll back. Until this existed,
+   * every drawing and homework photo (and, before 0021, all progress) lived on
+   * exactly one browser and a cleared cache looked identical to "my work was
+   * deleted".
    */
   async hydrateFromServer() {
     const p = load();
     if (p.id === "server-profile") return;
 
-    const remote = await fetchProfileArt(p.id);
-    if (remote.length === 0) return;
+    const [remoteArtifacts, remoteState] = await Promise.all([
+      fetchProfileArt(p.id),
+      fetchProfileState(p.id),
+    ]);
 
     update((profile) => {
-      const seen = new Set(profile.artifacts.map((a) => a.id));
-      const missing = remote.filter((a) => !seen.has(a.id));
-      if (missing.length === 0) return;
-      profile.artifacts = [...profile.artifacts, ...missing].sort(
-        (a, b) => b.createdAt - a.createdAt,
-      );
+      if (remoteArtifacts.length > 0) {
+        const seen = new Set(profile.artifacts.map((a) => a.id));
+        const missing = remoteArtifacts.filter((a) => !seen.has(a.id));
+        if (missing.length > 0) {
+          profile.artifacts = [...profile.artifacts, ...missing].sort(
+            (a, b) => b.createdAt - a.createdAt,
+          );
+        }
+      }
+
+      if (remoteState) {
+        profile.xp = Math.max(profile.xp, remoteState.xp);
+        for (const region of remoteState.regionProgress as RegionId[]) {
+          if (!profile.regionProgress.includes(region)) profile.regionProgress.push(region);
+        }
+        for (const [slug, count] of Object.entries(remoteState.vocabCorrect)) {
+          profile.vocabCorrect[slug] = Math.max(profile.vocabCorrect[slug] ?? 0, count);
+        }
+        for (const [cyr, stat] of Object.entries(remoteState.letterStats)) {
+          const local = profile.letterStats[cyr];
+          if (!local || stat.level > local.level || (stat.level === local.level && stat.correct > local.correct)) {
+            profile.letterStats[cyr] = stat;
+          }
+        }
+      }
     });
   },
 
@@ -357,6 +383,26 @@ export const store = {
 
     await store.hydrateFromServer();
     return { ok: true, name: found.display_name };
+  },
+
+  /**
+   * Adopt a profile by id rather than recovery code: what happens when the
+   * URL in `/profile/[id]` names a different kid than the one on this device.
+   * Same shape as adoptByCode, minus the code lookup.
+   */
+  async adoptById(id: string): Promise<{ ok: boolean; name?: string }> {
+    const found = await fetchProfileState(id);
+    if (!found) return { ok: false };
+
+    update((p) => {
+      p.id = id;
+      p.displayName = found.displayName || p.displayName;
+      p.xp = Math.max(p.xp, found.xp ?? 0);
+      p.artifacts = [];
+    });
+
+    await store.hydrateFromServer();
+    return { ok: true, name: found.displayName };
   },
 
   // --- debug-only helpers (safe to call in prod; just XP/unlock manipulation) ---
@@ -390,6 +436,23 @@ export const store = {
     update((p) => { p.xp = 99999; });
   },
 };
+
+const RECOVERY_HINT_KEY = "s2s_recovery_hint_shown";
+
+// Shown once per device, at the end of a game run, so a kid who plays on
+// several devices finds out the code exists before they need it rather than
+// after they lose a gallery to a cleared cache.
+function maybeShowRecoveryHint() {
+  if (typeof window === "undefined") return;
+  if (localStorage.getItem(RECOVERY_HINT_KEY)) return;
+  localStorage.setItem(RECOVERY_HINT_KEY, "1");
+  toastBus.show({
+    title: "Playing on another device?",
+    body: "Your code is on your profile page. Use it there to bring your drawings and points along.",
+    icon: "🔑",
+    duration: 6000,
+  });
+}
 
 function award(p: Profile, id: BadgeId) {
   if (!p.badges.includes(id)) {

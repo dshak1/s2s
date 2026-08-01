@@ -9,6 +9,7 @@ import {
   RESOLUTIONS,
   TICKET_STATUSES,
   TICKET_TYPES,
+  ticketAttachmentUrl,
   type Ticket,
   type TicketStatus,
   type TicketType,
@@ -313,17 +314,34 @@ export default async function TicketsPage({
                             Linear ↗
                           </a>
                         )}
-                        {files.map((f) => (
-                          <a
-                            key={f.id}
-                            href={f.url ?? "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[12px] text-[#64748b] underline decoration-[#cbd5e1] hover:text-[#0f172a]"
-                          >
-                            {f.title ?? f.url}
-                          </a>
-                        ))}
+                        {files.map((f) =>
+                          f.kind === "image" && f.storage_path ? (
+                            <a
+                              key={f.id}
+                              href={ticketAttachmentUrl(f.storage_path)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={f.title ?? "Screenshot"}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={ticketAttachmentUrl(f.storage_path)}
+                                alt={f.title ?? "Screenshot"}
+                                className="h-14 w-14 rounded-md border border-[#e2e5ea] object-cover"
+                              />
+                            </a>
+                          ) : (
+                            <a
+                              key={f.id}
+                              href={f.url ?? "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[12px] text-[#64748b] underline decoration-[#cbd5e1] hover:text-[#0f172a]"
+                            >
+                              {f.title ?? f.url}
+                            </a>
+                          ),
+                        )}
                       </div>
                     )}
 

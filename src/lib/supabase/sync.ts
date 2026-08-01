@@ -2,7 +2,7 @@
 
 import { getSupabaseBrowser } from "./client";
 import { captureError } from "@/lib/monitoring";
-import type { Profile, GameRun, Artifact } from "@/lib/store";
+import type { Profile, GameRun, Artifact, LetterStat } from "@/lib/store";
 
 // Public URL for anything in the kid-art bucket. Hydrated artifacts render from
 // this rather than a stored data URL, so pulling a gallery back does not blow
@@ -78,6 +78,45 @@ export async function fetchRecoveryCode(
     return null;
   }
   return (data as string | null) ?? null;
+}
+
+export type RemoteProfileState = {
+  displayName: string;
+  xp: number;
+  regionProgress: string[];
+  vocabCorrect: Record<string, number>;
+  letterStats: Record<string, LetterStat>;
+};
+
+/**
+ * XP, region progress, vocab mastery and letter stats for a profile, straight
+ * from the server. Used to merge state on hydrate, not just artifacts; see
+ * 0021_profile_state_sync.sql.
+ */
+export async function fetchProfileState(profileId: string): Promise<RemoteProfileState | null> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return null;
+  const { data, error } = await sb.rpc("profile_state", { p_profile_id: profileId });
+  if (error) {
+    captureError(error, { where: "fetchProfileState" });
+    return null;
+  }
+  type Row = {
+    display_name: string;
+    xp: number;
+    region_progress: string[];
+    vocab_correct: Record<string, number>;
+    letter_stats: Record<string, LetterStat>;
+  };
+  const row = ((data ?? []) as Row[])[0];
+  if (!row) return null;
+  return {
+    displayName: row.display_name ?? "",
+    xp: row.xp ?? 0,
+    regionProgress: row.region_progress ?? [],
+    vocabCorrect: row.vocab_correct ?? {},
+    letterStats: row.letter_stats ?? {},
+  };
 }
 
 export async function claimProfile(
