@@ -240,21 +240,24 @@ export async function syncArtifact(
     .from("kid-art")
     .upload(path, blob, { contentType, upsert: true });
   if (error) {
-    // This exact silent return is why every upload since day one vanished: the
-    // bucket had no insert policy and nobody found out for two months.
+    // The upload itself works; it's the row beneath that has never actually
+    // landed, silently, since day one. See 0026_sync_kid_artifacts.sql.
     captureError(error, { where: "syncArtifact/upload", profileId, path });
     return;
   }
 
-  const { error: rowError } = await sb.from("kid_artifacts").upsert(
-    { id: artifact.id, profile_id: profileId, kind: artifact.kind, storage_path: path },
-    { onConflict: "id" },
-  );
+  // A direct anon upsert here is rejected outright (42501) despite a
+  // matching insert policy in 0005_identity.sql. Routed through a SECURITY
+  // DEFINER function, which also sets the avatar in the same call, since the
+  // raw profiles UPDATE below it hit the same wall as xp did.
+  const { error: rowError } = await sb.rpc("sync_kid_artifact", {
+    p_id: artifact.id,
+    p_profile_id: profileId,
+    p_kind: artifact.kind,
+    p_storage_path: path,
+    p_is_avatar: avatarArtifactId === artifact.id,
+  });
   if (rowError) captureError(rowError, { where: "syncArtifact/row", profileId });
-
-  if (avatarArtifactId === artifact.id) {
-    await sb.from("profiles").update({ avatar_artifact_id: artifact.id }).eq("id", profileId);
-  }
 }
 
 export async function syncHomework(
@@ -279,18 +282,18 @@ export async function syncHomework(
     return;
   }
 
-  const { error: rowError } = await sb.from("homework_items").upsert(
-    {
-      id: artifact.id,
-      profile_id: profileId,
-      student_name: studentName,
-      title: artifact.meta?.title || null,
-      note: artifact.meta?.note || null,
-      homework_date: artifact.meta?.date || null,
-      storage_path: path,
-    },
-    { onConflict: "id" },
-  );
+  // Same drift as syncArtifact: a direct anon upsert here is rejected
+  // outright despite 0005_identity.sql's insert policy. See
+  // 0026_sync_kid_artifacts.sql.
+  const { error: rowError } = await sb.rpc("sync_homework_item", {
+    p_id: artifact.id,
+    p_profile_id: profileId,
+    p_student_name: studentName,
+    p_title: artifact.meta?.title || null,
+    p_note: artifact.meta?.note || null,
+    p_homework_date: artifact.meta?.date || null,
+    p_storage_path: path,
+  });
   if (rowError) captureError(rowError, { where: "syncHomework/row", profileId });
 }
 
