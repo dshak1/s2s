@@ -4,9 +4,23 @@ Everything built so far, and everything still to do. Each open item also exists
 as a real ticket on `/tickets`, filed under Diar, so this doc and the board do
 not drift.
 
-Last updated 2026-07-31.
+Last updated 2026-08-01.
 
 ## Shipped
+
+### 2026-08-01
+- Cross-device sync, for real: xp, region progress, vocab and letter mastery,
+  home background all sync continuously (debounced on every change, not only
+  at session join). Drawings and homework now actually reach the server too;
+  the upload and the row it depends on were both silently failing before this.
+- Feedback widget takes a screenshot: paste, drag-drop, or file picker. Files
+  a ticket, not just a `feedback_items` row.
+- Report a question, in-game: a flag on the reveal state of Sound It Out,
+  Greetings Quiz and Where in Kazakhstan. Tap what's wrong, done. Rate limited
+  per profile, jumps to the front of the labelling queue.
+- Facilitator-led live rounds: launch a Where-in-Kazakhstan question, every
+  kid's device answers, live count, reveal, leaderboard. Kahoot Pro's
+  replacement, phase 1 of it.
 
 ### Foundation
 - Team accounts by magic link. First person to sign in becomes admin, everyone
@@ -77,8 +91,9 @@ The board is usable but half the workflow is missing.
 - Keyboard first: Y for good, N for bad, next item immediately.
 - A rejected question goes back through the AI and returns to the queue as a
   reworked draft. Without this, labelling marks problems instead of fixing them.
-- Flag audio from inside the game, carrying the question id with it.
-- Screenshot drag and drop in the feedback widget.
+- Report a question: let a kid add a typed detail alongside the problem tag.
+  Currently tap-only (item id + problem, no typing needed by design), which
+  is fast but loses "the audio cuts off after..." specifics a kid could give.
 
 ### The loop worth demoing
 - Feedback lands in a queue. A human kicks off evaluation, so a thousand kid
@@ -95,7 +110,6 @@ The board is usable but half the workflow is missing.
 - The app itself still looks rough. Needs a visual reference to work from.
 
 ### Product and content
-- Custom backgrounds do not persist. They live in localStorage and never sync.
 - Unhide the remaining six games against a written quality bar.
 - Real kid artist names instead of "User 1-6".
 - Remove the contest credit from Spotlight Panic.
@@ -104,6 +118,10 @@ The board is usable but half the workflow is missing.
 - Dataset export and inter-rater agreement.
 - Contributor credits page.
 - Sentry.
+- Screen-level usage telemetry: which screens kids actually go to, how long
+  they spend on each, session paths. Different from `learning_events` (which
+  only fires on an answer). This is closer to page-view analytics, needed to
+  see real usage patterns rather than just quiz performance.
 
 ## Not doing
 

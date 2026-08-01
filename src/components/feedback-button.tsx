@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { MessageCircle, Paperclip, Send, X } from "lucide-react";
 import { store } from "@/lib/store";
 import { toastBus } from "@/lib/toast";
@@ -16,6 +17,11 @@ const KINDS = [
 type Kind = (typeof KINDS)[number]["id"];
 
 export function FeedbackButton() {
+  // The projector view puts a big QR code in the same top-right corner this
+  // button lives in by default, and the two overlap. Drop it below the QR
+  // there instead of guessing a single offset that works everywhere.
+  const pathname = usePathname();
+  const onProjector = pathname?.startsWith("/facilitator") ?? false;
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<Kind>("idea");
   const [message, setMessage] = useState("");
@@ -82,7 +88,9 @@ export function FeedbackButton() {
       <button
         onClick={() => setOpen((o) => !o)}
         title="Send feedback"
-        className="fixed right-4 top-20 z-[99] flex items-center gap-2 rounded-full border border-white/80 bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] px-4 py-3 text-sm font-black text-steppe-700 shadow-xl shadow-orange-200/70 transition hover:scale-105"
+        className={`fixed right-4 z-[99] flex items-center gap-2 rounded-full border border-white/80 bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] px-4 py-3 text-sm font-black text-steppe-700 shadow-xl shadow-orange-200/70 transition hover:scale-105 ${
+          onProjector ? "top-[13rem]" : "top-20"
+        }`}
       >
         <MessageCircle size={18} />
         <span className="hidden sm:inline">Feedback</span>
@@ -96,9 +104,9 @@ export function FeedbackButton() {
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
-          className={`fixed right-4 top-36 z-[99] w-80 max-w-[calc(100vw-2rem)] rounded-lg bg-white p-4 shadow-2xl ring-1 transition ${
-            dragOver ? "ring-2 ring-gold" : "ring-steppe/10"
-          }`}
+          className={`fixed right-4 z-[99] w-80 max-w-[calc(100vw-2rem)] rounded-lg bg-white p-4 shadow-2xl ring-1 transition ${
+            onProjector ? "top-[17rem]" : "top-36"
+          } ${dragOver ? "ring-2 ring-gold" : "ring-steppe/10"}`}
         >
           <div className="mb-3 flex items-center justify-between">
             <span className="font-black text-steppe">Send feedback</span>
