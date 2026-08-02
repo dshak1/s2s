@@ -50,6 +50,9 @@ function LiteHub() {
   return (
     <div className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
       <MountainBackdrop scene="hub" />
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="w-96 h-96 bg-green-400 rounded-full opacity-20"></div>
+      </div>
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.26)_36%,rgba(255,246,206,.08))]" />
       <TopNav />
       <main className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6">
@@ -94,6 +97,9 @@ function FullHub() {
   return (
     <div className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
       <MountainBackdrop scene="hub" />
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="w-96 h-96 bg-green-400 rounded-full opacity-20"></div>
+      </div>
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.26)_36%,rgba(255,246,206,.08))]" />
       <TopNav />
 
