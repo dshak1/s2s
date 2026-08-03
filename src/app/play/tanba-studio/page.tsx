@@ -27,6 +27,7 @@ export default function TanbaStudio() {
   const [color, setColor] = useState(PALETTE[1].hex);
   const [brush, setBrush] = useState(14);
   const [saved, setSaved] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [tab, setTab] = useState<"draw" | "upload">("draw");
   const canvasFileRef = useRef<HTMLInputElement>(null);
   const avatarFileRef = useRef<HTMLInputElement>(null);
@@ -109,9 +110,8 @@ export default function TanbaStudio() {
     };
     img.src = URL.createObjectURL(file);
   }
-  function onAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function handleAvatarFile(file: File | undefined | null) {
+    if (!file || !file.type.startsWith("image/")) return;
     const reader = new FileReader();
     reader.onload = () => {
       store.addArtifact("tanba", String(reader.result));
@@ -120,7 +120,19 @@ export default function TanbaStudio() {
       setTimeout(() => setSaved(false), 2500);
     };
     reader.readAsDataURL(file);
+  }
+  function onAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    handleAvatarFile(e.target.files?.[0]);
     e.currentTarget.value = "";
+  }
+  function onAvatarDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    handleAvatarFile(e.dataTransfer.files?.[0]);
+  }
+  function onAvatarPaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    const item = [...e.clipboardData.items].find((i) => i.type.startsWith("image/"));
+    if (item) handleAvatarFile(item.getAsFile());
   }
   function save() {
     const dataUrl = canvasRef.current!.toDataURL("image/png");
@@ -154,11 +166,21 @@ export default function TanbaStudio() {
       </div>
 
       {tab === "upload" && (
-        <div className="mx-auto mb-8 max-w-xl rounded-2xl border-2 border-dashed border-steppe/30 bg-white p-7 text-center">
+        <div
+          tabIndex={0}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onAvatarDrop}
+          onPaste={onAvatarPaste}
+          className={`mx-auto mb-8 max-w-xl rounded-2xl border-2 border-dashed bg-white p-7 text-center transition ${
+            dragOver ? "border-gold bg-gold/10" : "border-steppe/30"
+          }`}
+        >
           <Upload className="mx-auto text-steppe" size={36} />
           <h2 className="mt-3 text-xl font-black text-steppe">Upload avatar art</h2>
           <p className="mt-1 text-sm font-bold text-wolf">
-            PNG, JPG, or SVG works. The uploaded image is saved directly as your avatar.
+            PNG, JPG, or SVG. Drag a file here, paste one (Ctrl/Cmd+V), or choose one below — saved
+            straight to your avatar.
           </p>
           <input ref={avatarFileRef} type="file" accept="image/png,image/jpeg,image/svg+xml" hidden onChange={onAvatarUpload} />
           <Button variant="gold" size="lg" className="mt-4" onClick={() => avatarFileRef.current?.click()}>

@@ -7,9 +7,11 @@ import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { GREETINGS, type Greeting } from "@/content/greetings";
 import { playClip, playCorrect, playWrong, playWin } from "@/lib/audio";
-import { store } from "@/lib/store";
+import { store, useProfile } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { greetingItemId } from "@/lib/items";
+import { ReportQuestion } from "@/components/report-question";
+import { baseText } from "@/lib/lang";
 
 type RoundMode = "hear-phrase" | "match-audio";
 type Round = {
@@ -38,6 +40,7 @@ function buildRound(previous?: string, index = 0): Round {
 }
 
 export default function GreetingsQuiz() {
+  const { baseLanguage } = useProfile();
   const [roundIndex, setRoundIndex] = useState(0);
   const [round, setRound] = useState(() => buildRound(undefined, 0));
   const [picked, setPicked] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export default function GreetingsQuiz() {
   const audioPlays = useRef(0);
 
   const prompt = useMemo(() => {
-    if (round.mode === "hear-phrase") return "Listen — which Kazakh greeting is this?";
+    if (round.mode === "hear-phrase") return "Listen, which Kazakh greeting is this?";
     return `Which sound says “${round.answer.kk}”?`;
   }, [round]);
 
@@ -209,7 +212,7 @@ export default function GreetingsQuiz() {
                   {round.mode === "hear-phrase" ? (
                     <>
                       <div className="text-2xl font-black text-steppe sm:text-3xl">{option.kk}</div>
-                      {reveal && <div className="mt-2 text-sm font-black text-wolf">{option.latin} · {option.en}</div>}
+                      {reveal && <div className="mt-2 text-sm font-black text-wolf">{option.latin} · {baseText(option, baseLanguage)}</div>}
                     </>
                   ) : (
                     <>
@@ -217,7 +220,7 @@ export default function GreetingsQuiz() {
                         <Volume2 size={28} />
                       </div>
                       <div className="mt-3 text-lg font-black text-steppe">Sound {index + 1}</div>
-                      {reveal && <div className="mt-1 text-sm font-bold text-wolf">{option.kk} · {option.en}</div>}
+                      {reveal && <div className="mt-1 text-sm font-bold text-wolf">{option.kk} · {baseText(option, baseLanguage)}</div>}
                     </>
                   )}
                 </button>
@@ -237,9 +240,13 @@ export default function GreetingsQuiz() {
 
           <div className="rounded-2xl bg-felt px-4 py-3 text-center text-sm font-bold text-steppe-700">
             {phase === "wrong"
-              ? `The answer was “${round.answer.kk}” — ${round.answer.en}.`
+              ? `The answer was “${round.answer.kk}”, ${baseText(round.answer, baseLanguage)}.`
               : `${round.answer.latin} · meaning appears after you check.`}
           </div>
+
+          {phase !== "guess" && (
+            <ReportQuestion itemId={greetingItemId(round.answer)} gameSlug="greetings-quiz" />
+          )}
         </div>
       )}
     </GameShell>

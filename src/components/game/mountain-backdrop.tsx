@@ -17,7 +17,8 @@ export type MountainScene =
   | "maker"
   | "story"
   | "yurt"
-  | "aitys";
+  | "aitys"
+  | "runner";
 
 type SceneConfig = {
   skyTop: string;
@@ -276,6 +277,23 @@ const SCENES: Record<MountainScene, SceneConfig> = {
     flower: "#ffcf4a",
     speed: "22s",
   },
+  runner: {
+    skyTop: "#c9eaff",
+    skyMid: "#eef8ff",
+    skyBottom: "#fff1cf",
+    hillFar: "#d7edaa",
+    hillMid: "#b3df72",
+    hillFront: "#78c854",
+    grass: "#8ad452",
+    grassDeep: "#46a84a",
+    accent: "#e35f4c",
+    accentSoft: "rgba(227, 95, 76, .2)",
+    cloud: "rgba(255, 255, 255, .95)",
+    sun: "#ffd75f",
+    yurt: "#fff2df",
+    flower: "#ffb14b",
+    speed: "16s",
+  },
 };
 
 const GAME_SCENES: Record<string, MountainScene> = {
@@ -286,11 +304,12 @@ const GAME_SCENES: Record<string, MountainScene> = {
   "where-kz": "places",
   bazaar: "bazaar",
   "snow-leopard": "patrol",
+  "steppe-sprint": "places",
   "jaryq-hunter": "flashlight",
   "tanba-studio": "maker",
   "story-maker": "story",
-  "yurt-builder": "yurt",
   aitys: "aitys",
+  "say-and-shift": "runner",
 };
 
 export function sceneForGameSlug(slug: string): MountainScene {

@@ -11,7 +11,7 @@ import {
   type TeamRole,
 } from "@/lib/auth";
 import { AdminShell, Empty, Panel } from "@/components/admin/shell";
-import { approve, setRole } from "./actions";
+import { approve, decline, setRole } from "./actions";
 
 export const metadata = { title: "Team · Steppe to Screen" };
 export const dynamic = "force-dynamic";
@@ -36,7 +36,8 @@ export default async function AdminTeamPage() {
 
   const members = (data as TeamMember[] | null) ?? [];
   const waiting = members.filter((m) => m.role === "pending");
-  const active = members.filter((m) => m.role !== "pending");
+  const active = members.filter((m) => m.role === "member" || m.role === "admin");
+  const declined = members.filter((m) => m.role === "declined");
 
   return (
     <AdminShell
@@ -50,7 +51,7 @@ export default async function AdminTeamPage() {
       }
     >
       {isDemoMember(me) && (
-        <Empty>Offline demo mode — no real roster here.</Empty>
+        <Empty>Offline demo mode, no real roster here.</Empty>
       )}
 
       {waiting.length > 0 && (
@@ -90,6 +91,15 @@ export default async function AdminTeamPage() {
                         className="rounded-md border border-[#dbe0e6] bg-white px-3 py-1.5 text-[12px] font-medium text-[#475569] transition hover:bg-[#f1f3f6]"
                       >
                         Make admin
+                      </button>
+                    </form>
+                    <form action={decline}>
+                      <input type="hidden" name="id" value={m.id} />
+                      <button
+                        type="submit"
+                        className="rounded-md border border-[#fecaca] bg-white px-3 py-1.5 text-[12px] font-medium text-[#b91c1c] transition hover:bg-[#fef2f2]"
+                      >
+                        Decline
                       </button>
                     </form>
                   </div>
@@ -159,6 +169,31 @@ export default async function AdminTeamPage() {
           </ul>
         )}
       </Panel>
+
+      {declined.length > 0 && (
+        <Panel title="Declined" hint="No access. Change their role here to let them back in." className="mt-5">
+          <ul className="divide-y divide-[#eef1f5]">
+            {declined.map((m) => (
+              <li key={m.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                <span className="text-[13px] text-[#64748b]">
+                  {m.display_name} <span className="text-[#94a3b8]">{m.email}</span>
+                </span>
+                {canManage && (
+                  <form action={approve}>
+                    <input type="hidden" name="id" value={m.id} />
+                    <button
+                      type="submit"
+                      className="rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1 text-[12px] font-medium text-[#475569] transition hover:bg-[#f1f3f6]"
+                    >
+                      Let them in
+                    </button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
 
       <Panel title="What the two fields mean" className="mt-5">
         <dl className="space-y-2.5 text-[12px]">

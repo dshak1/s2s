@@ -83,10 +83,10 @@ export function VoiceNote({
       if (res.ok) {
         transcript = json.transcript ?? "";
       } else {
-        setError(json.error ?? "Transcription failed — the recording was still saved.");
+        setError(json.error ?? "Transcription failed, the recording was still saved.");
       }
     } catch {
-      setError("Transcription failed — the recording was still saved.");
+      setError("Transcription failed, the recording was still saved.");
     }
 
     setState("idle");

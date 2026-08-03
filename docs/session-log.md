@@ -1,0 +1,161 @@
+# Session log
+
+Every idea raised across this build, what happened to it, and why. Written
+because a lot of it went past unread.
+
+Status words mean exactly one thing each:
+
+- **Done** shipped to production and verified
+- **Partly** some of it shipped, the rest is named below
+- **Open** filed as a ticket, not started
+- **Dropped** deliberately not doing, with the reason
+
+---
+
+## The original Notion list
+
+| Idea | Status | What actually happened |
+|---|---|---|
+| Dashboard for key insights | Done | `/dashboard`. Item difficulty, weekly activity, per-game accuracy. Two panels were cut after you called them out as counts rather than decisions. |
+| Triage and feature request page | Done | `/tickets`. Started as an upvote board, became a ticket system with types, refs, reviews and edit history. |
+| Upvotes, comments, attachments, inspiration links | Partly | Votes, comments and links done. **Image attachments upload but the feedback widget still cannot take them.** Open. |
+| Android app | Dropped | You chose PWA now, Capacitor later. All eleven games are web canvas and DOM, so a native rewrite forks the thing that works. |
+| Web app | Done | Already existed. |
+| App Store app | Dropped | Same reason. Deferred until a store listing is worth $99 plus review. |
+| DB fully fledged | Done | 20 migrations. Identity, content items, telemetry, tickets, labelling, recovery. |
+| Games complete | Open | Six of eleven still hidden. Needs the written quality bar first. |
+| Maze integration | Done | Snippet was already live with Aimi's key since 18 July. Nobody told her. Results import still Open. |
+| Human labelling with reasons | Done | `/label`. Five axes, required reasons on rejection, gold checks, per-rater credit. |
+| Voice mode that transcribes your thoughts | Done | Records, uploads first, then transcribes via ElevenLabs. A failed transcription never loses the recording. |
+| Research questions | Done | Four in `docs/research.md`, each naming the tables that answer it, plus KazBench-Learn v0. |
+| Linear integration | Partly | Code complete and gated on an API key. **Now questioned, see below.** |
+| Draft published to a test link, attached to the ticket | Partly | The field and the webhook exist. Nothing auto-deploys yet. |
+| AI flags what it is unsure about | Partly | Taxonomy and UI exist and render. No generator emits them yet. |
+| ElevenLabs MCP for voice | Partly | Used the HTTP API instead. Two clips regenerated and approved, one still wrong. |
+| Screen Studio demo | Done | `docs/demo-script.md`, four minutes. |
+| Documentation everywhere | Done | 12 docs in the repo, 6 pages in Notion. |
+
+---
+
+## Things found by using it
+
+| Issue | Status | What happened |
+|---|---|---|
+| Anon key could read every kid's profile | Done | The original migration shipped `for all using (true)` on every table. The anon key ships in the JS bundle, so anyone with dev tools could read everything. Fixed and verified with the real key. |
+| Every artwork and homework upload silently failed | Done | The storage bucket had no insert policy, and both sync helpers `return` on error. Two months of uploads lost. Errors are now reported. |
+| Kid work vanished on a cleared cache | Done | Nothing was ever read back from the server. Added hydration and a six-character recovery code. |
+| **Work does not follow you between devices** | Open | You found this. Same URL, same "Demo Kid", different XP and homework. Explained below, it is not fixed. |
+| Random circle on the journey card | Done | Decorative ring left over from a previous layout. |
+| Six roles that meant two things | Done | Collapsed to pending, member, admin. Expertise became a separate descriptive field. |
+| No way to decline someone | Done | `declined` is a real state, reversible, and keeps them off the queue. |
+| Dashboard wore the kids' theme | Done | New admin shell. Cool grey, Inter, dense. Applied to dashboard, tickets, labelling, feedback, team. |
+| Em dashes everywhere | Done | 75 removed. Two kept: Kazakh uses the dash as a copula, removing it makes the Kazakh wrong. |
+| Emoji in the internal tools | Done | Gone. |
+| Item analysis said "teaches nothing" at n=2 | Done | Threshold raised to 30 attempts, verdict language removed. You were right. |
+| Flagged questions could not be filed without an item id | Done | Now needs an id, or a game, or a stated problem. |
+| Decision form wiped fields left blank | Done | Only writes the keys actually present. |
+| "Try the draft" 404'd when there was no draft | Done | Parses the URL first, otherwise says so. |
+| Where in Kazakhstan was a cloud, not a map | Done | Real map, cropped to a known projection. |
+| Pins in the wrong places | Done | My first attempt was still wrong: I assumed the plot frame was the graticule. Solved from the landmass instead and checked every pin visually. |
+| Six places had no photo | Done | Wikimedia Commons, freely licensed, credited on the image where required. |
+| Two audio clips mispronounced | Partly | Ұ and Қайырлы таң replaced with your picks. **Ү is still wrong**; neither candidate was accepted. |
+| Feedback widget cannot take attachments | Open | Raised twice. Filed but not built. Fair complaint. |
+
+---
+
+## Ideas raised and not yet built
+
+| Idea | Status | Note |
+|---|---|---|
+| Report or flag a question, Duolingo style | Open | Your best small idea. Duolingo puts a flag on the answer screen; a tap files a report against that exact question. We have the ticket type and the item ids already, so this is mostly UI. |
+| Base language toggle, Russian or English | Open | Some kids read Russian better. Real accessibility feature and it doubles the content surface. |
+| Facilitator-led live Where in Kazakhstan | Open | Projector shows the photo, everyone pins on their own device, closest wins. **This is the Kahoot replacement.** |
+| Merge Greetings Quiz into Sound It Out | Open | Both are listen-and-pick. Worth deciding rather than leaving two thin games. |
+| Speech game, say it right to get through | Open | Instagram Reels format. The only mode that would practise speaking. |
+| Kids create their own games or questions | Open | Zhanerke has already told the group this is coming. |
+| Agent that fetches photos for more places | Open | Now proven: the six Commons photos took one pass. |
+| Engine that triages reported tickets | Open | Your brother's project. Good scope: real data, clear success measure, and it does not block anything else. |
+| Feedback goes to AI review on one button | Open | Human presses it, so kids cannot spend the AI budget. |
+| Obsidian ticket mirror | Open | LiveSync is installed on the real vault, so this can be near-instant. |
+| Level-based permissions | Open | Grant no higher than your own level. |
+| Educator homework review | Open | Educators mark homework complete. |
+| Google sign-in | Open | Recommended. Verified email means the roster auto-approval finally works. |
+| shadcn component registry | Open | The actual fix for "everything looks the same". |
+| PWA offline caching | Open | The gym wifi problem. |
+| Dataset export, kappa agreement, credits page, Sentry | Open | Later. |
+
+---
+
+## The device bug, explained
+
+You saw the same URL and the same "Demo Kid" show different XP and homework on
+two machines. That is not a sync failure. There is no account.
+
+A kid's identity is a random id generated in `localStorage` the first time the
+app loads. Two devices generate two different ids, so they are two different
+kids who happen to share a default display name. `/profile/<id>` shows the local
+profile and ignores the id in the URL entirely, which is what makes it look like
+one account.
+
+The recovery code fixes exactly this, and you did not use it because nothing
+told you to. So the real bug is that the app presents two separate profiles as
+if they were one. The fix has three parts, in the plan.
+
+---
+
+## Linear, and whether you need it
+
+You asked. Honest answer: **no, not for this.**
+
+Linear is worth it when several developers need to coordinate work across
+sprints. You have one developer and a board that already does types, refs,
+priorities, assignees, reviews and a full edit history, sitting on the same
+database as the content it is about. A flagged question on `/tickets` carries
+the `content_items` id and lines up with the labelling queue and the analytics.
+A Linear issue never will.
+
+Keeping Linear means two places to look and a sync to maintain. The integration
+is already written and costs nothing to leave dormant behind a missing key, so
+nothing is lost by simply not setting `LINEAR_API_KEY`.
+
+**Warp is not the same category.** It is a terminal, useful for running agents
+locally, but it is not a ticket system and does not replace either.
+
+Recommendation: drop Linear, keep the code dormant, revisit only if a second
+developer joins.
+
+---
+
+## 2026-08-03 — Say & Shift, built and playtested live
+
+New game, plus a real playtest-and-fix loop on it, plus deploy hardening.
+Everything below shipped to `feat/pro-infra` and was deployed to
+`s2s-ten.vercel.app` the same session; see commit history for exact diffs.
+
+| Area | Status | What actually happened |
+|---|---|---|
+| Say & Shift (new game) | Done | Mic-gated "hole in the wall" runner — say the Kazakh word out loud, no button. Continuous overlapping-window listening (a fixed chunk boundary was clipping words), word-spotting match against the target only (never distractors, so overheard chatter can't cost a life), tap fallback after a timeout/offline/denied mic. |
+| Band puppet character system | Done | Kid's drawing/photo sliced into head/torso/legs bands, animated procedurally. Shared between Say & Shift and the avatar/game-builder flows. |
+| 2.5D day/night runner visuals | Done | Six sky palettes across the run, parallax hills/ground, hand-drawn sun-with-rays/crescent-moon SVG (was a flat CSS gradient circle — called out as generic, replaced), horse silhouette SVG (was an emoji, also called out), drifting clouds. Explicit Auto/Day/Night control added, plus the stage now respects a custom background photo instead of painting over it. |
+| Mic accuracy | Partly | Two rounds of real-kid playtesting pulled the confidence threshold in opposite directions (0.62/0.15 too strict → 0.48/0.08 accepted almost anything → settled at 0.58/0.14). **Never validated against a real recording batch** — the original plan's Step 0 spike didn't run, no mic access to do it outside a live session. Revisit with real data before trusting the numbers. |
+| Live multi-table race | Done, gated off | Facilitator projector view, one lane per table, broadcasts each table's live wall progress. Built on the existing round-broadcast pattern, no new infra. Gated behind `NEXT_PUBLIC_ONLINE_FEATURES` (unset in prod) — untested with real multiple devices in a room. |
+| Facilitator session lifecycle | Done | "End session" was fake (navigated away, session stayed "live" forever) — now actually ends it. Persistent "return to live session" banner so navigating away doesn't lose it. |
+| Deploy gating | Done | `/facilitator`, `/join`, live race, and the `/play/create` game builder all show "Coming soon" in the public deploy — none were ready for public traffic. Steppe Sprint hidden from the hub (code intact); Say & Shift is the new featured game. |
+| Vocab expansion | Partly, flagged | +20 words across 3 new categories (weather/school/nature), marked `aiDrafted: true` in `src/content/vocab.ts` — **not checked by a native speaker.** SVG placeholders generated; TTS audio not generated (ElevenLabs plan returned 402 on the library voice via API — needs a plan upgrade, or a different voice). |
+| No-gradient visual pass | Done | Every gradient CTA pill (Button component, feedback button, home hero, top-nav wordmark) replaced with solid color + hard offset shadow + `rounded-2xl` — called out repeatedly as generic "AI slop." |
+| Profile controls | Done | Reset-profile (wipes local progress, confirm-gated), per-artifact delete (gallery + homework), clearer artifact labels. |
+| Drawing tools | Done | Real eraser (erases only the stroke, `destination-out` on transparent canvases) — the existing "Eraser" button was actually a mislabeled clear-all. Drag-and-drop + clipboard-paste image input added alongside the file picker, in the avatar studio and Say & Shift's character step. |
+| Local shadcn/Base UI experiment | Recovered | A Cursor-side `shadcn init` (Base UI style) silently overwrote `utils.ts` (lost `shuffle`/`sample`/`makeSessionCode`), `Button.tsx` (different variant names than the ~50 call sites using `gold`/`primary`/`danger`), and `globals.css` (`@import "shadcn/tailwind.css"` — not a real path). Broke the production build. Restored; `components.json`'s custom registries kept since those are additive, not destructive. |
+| Duolingo-style leveling/roadmap, "tons more vocab" | Open | Requested, scoped, not built this session — see the plan below. The existing `JOURNEY`/`REGIONS` weekly-unlock system is already a path-style progression, just not presented as one. |
+
+**Known gaps, next session:**
+- Mic thresholds are still a guess, not data — the real fix is logging enough
+  real attempts (already flowing into `learning_events` via `logAnswer`) and
+  tuning `CONFIDENCE_THRESHOLD`/`MARGIN_THRESHOLD` in `src/lib/speech-match.ts`
+  against them.
+- Live race has zero real-device testing — needs two actual tables playing
+  at once against one facilitator screen.
+- The 20 AI-drafted vocab words need a native-speaker pass before a real
+  workshop uses the weather/school/nature categories.
+- Per-game difficulty tiers, a visible skill-tree hub, and a real vocab
+  expansion beyond the 20-word draft are scoped but not started.

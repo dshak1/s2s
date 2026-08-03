@@ -5,19 +5,29 @@
 // present it can be synced server-side later (see /supabase/migrations + the
 // Supabase helpers) — the schema mirrors this shape 1:1.
 import { useSyncExternalStore } from "react";
-import { syncJoin, syncGameRun, syncArtifact, syncHomework } from "@/lib/supabase/sync";
+import {
+  syncJoin,
+  syncGameRun,
+  syncArtifact,
+  syncHomework,
+  syncProfileState,
+  fetchProfileArt,
+  fetchProfileState,
+  claimProfile,
+} from "@/lib/supabase/sync";
 import type { BadgeId } from "@/content/badges";
 import { BADGES } from "@/content/badges";
 import { toastBus } from "@/lib/toast";
 import type { RegionId } from "@/content/regions";
 import { REGIONS } from "@/content/regions";
 import { JOURNEY, defaultWeekCodes, normalizeCode } from "@/content/journey";
+import type { BaseLanguage } from "@/lib/lang";
 
 const BADGE_IDS = BADGES.map((b) => b.id);
 
 export type Artifact = {
   id: string;
-  kind: "tanba" | "canva" | "story" | "background" | "homework";
+  kind: "tanba" | "canva" | "story" | "background" | "homework" | "runner";
   dataUrl: string;
   createdAt: number;
   // Optional labels — used by homework submissions ("what is it", date, title).
@@ -35,6 +45,16 @@ export type GameRun = {
 
 export type LetterStat = { level: number; correct: number };
 
+export type CustomGame = {
+  id: string;
+  title: string;
+  mechanic: "steppe-sprint";
+  vocabSlugs: string[];
+  backgroundArtifactId: string | null;
+  backgroundTemplateId: string | null;
+  createdAt: number;
+};
+
 export type Profile = {
   id: string;
   displayName: string;
@@ -43,6 +63,8 @@ export type Profile = {
   xp: number;
   streakWeeks: number;
   avatarArtifactId: string | null;
+  /** say-and-shift's runner character, kept separate from the profile avatar. */
+  runnerArtifactId: string | null;
   unlockedWeeks: number;
   weeklyCodes: Record<RegionId, string>;
   regionProgress: RegionId[];
@@ -54,6 +76,8 @@ export type Profile = {
   pawPrints: string[]; // clue ids collected this session
   gameBackgrounds: Record<string, string>; // game slug -> uploaded background dataUrl
   homeCoverId: string | null; // KidCover id chosen as the home-page background
+  baseLanguage: BaseLanguage; // language prompts are explained in; Kazakh is always what's taught
+  customGames: CustomGame[];
 };
 
 const KEY = "s2s_profile_v1";
@@ -67,6 +91,7 @@ function freshProfile(): Profile {
     xp: 0,
     streakWeeks: 1,
     avatarArtifactId: null,
+    runnerArtifactId: null,
     unlockedWeeks: 1,
     weeklyCodes: defaultWeekCodes(),
     regionProgress: ["almaty"], // first region starts unlocked
@@ -78,6 +103,8 @@ function freshProfile(): Profile {
     pawPrints: [],
     gameBackgrounds: {},
     homeCoverId: null,
+    baseLanguage: "en",
+    customGames: [],
   };
 }
 
@@ -111,9 +138,42 @@ function normalizeProfile(profile: Profile): Profile {
     unlockedWeeks,
     weeklyCodes: { ...fallbackCodes, ...(profile.weeklyCodes ?? {}) },
     regionProgress: profile.regionProgress?.length ? profile.regionProgress : ["almaty"],
+    runnerArtifactId: profile.runnerArtifactId ?? null,
     gameBackgrounds: profile.gameBackgrounds ?? {},
     homeCoverId: profile.homeCoverId ?? null,
+    baseLanguage: profile.baseLanguage === "ru" ? "ru" : "en",
+    customGames: Array.isArray(profile.customGames)
+      ? profile.customGames.filter(
+          (game) =>
+            game &&
+            typeof game.id === "string" &&
+            typeof game.title === "string" &&
+            game.mechanic === "steppe-sprint" &&
+            Array.isArray(game.vocabSlugs),
+        )
+      : [],
   };
+}
+
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Debounced push to the server on every change, not only at join. xp,
+// region progress, vocab mastery, letter mastery and the home background
+// choice used to reach the server exactly once, when a kid joined a session.
+// Everything earned after that stayed local-only until they rejoined,
+// which most never do mid-play. A recovery code used on a second device then
+// pulled whatever the server had from that one join, not what the kid
+// actually has now. The debounce collapses the bursts of updates a single
+// game round produces into one request after things go quiet.
+function scheduleServerSync() {
+  if (typeof window === "undefined") return;
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    const p = load();
+    if (p.id === "server-profile") return;
+    syncProfileState(p).catch(() => {});
+  }, 2000);
 }
 
 function persist() {
@@ -121,6 +181,7 @@ function persist() {
     localStorage.setItem(KEY, JSON.stringify(state));
   }
   listeners.forEach((l) => l());
+  scheduleServerSync();
 }
 
 function update(fn: (p: Profile) => void) {
@@ -165,6 +226,9 @@ export const store = {
         award(p, "storyteller");
         p.xp += 25;
       }
+      if (kind === "runner") {
+        p.runnerArtifactId = id;
+      }
     });
     const p = load();
     syncArtifact(p.id, p.avatarArtifactId, artifact).catch(() => {});
@@ -177,6 +241,10 @@ export const store = {
 
   setHomeCover(coverId: string | null) {
     update((p) => { p.homeCoverId = coverId; });
+  },
+
+  setBaseLanguage(lang: BaseLanguage) {
+    update((p) => { p.baseLanguage = lang; });
   },
 
   // Homework submission: stored like any artifact (offline-first), plus a
@@ -210,6 +278,49 @@ export const store = {
     update((p) => { delete p.gameBackgrounds[slug]; });
   },
 
+  createCustomGame(input: {
+    title: string;
+    vocabSlugs: string[];
+    backgroundDataUrl?: string | null;
+    backgroundArtifactId?: string | null;
+    backgroundTemplateId?: string | null;
+  }): CustomGame {
+    const backgroundArtifactId = input.backgroundDataUrl
+      ? store.addArtifact("background", input.backgroundDataUrl)
+      : (input.backgroundArtifactId ?? null);
+    const game: CustomGame = {
+      id: crypto.randomUUID(),
+      title: input.title.trim().slice(0, 40) || "My Steppe Sprint",
+      mechanic: "steppe-sprint",
+      vocabSlugs: [...new Set(input.vocabSlugs)].slice(0, 24),
+      backgroundArtifactId,
+      backgroundTemplateId: input.backgroundTemplateId ?? null,
+      createdAt: Date.now(),
+    };
+    update((p) => {
+      p.customGames.unshift(game);
+      p.customGames = p.customGames.slice(0, 12);
+    });
+    return game;
+  },
+
+  deleteCustomGame(gameId: string) {
+    update((p) => {
+      p.customGames = p.customGames.filter((game) => game.id !== gameId);
+    });
+  },
+
+  // Removes a drawing/homework/runner from the gallery. Clears the avatar or
+  // runner reference too if that's what got deleted, so the profile doesn't
+  // point at an artifact that no longer exists.
+  deleteArtifact(artifactId: string) {
+    update((p) => {
+      p.artifacts = p.artifacts.filter((a) => a.id !== artifactId);
+      if (p.avatarArtifactId === artifactId) p.avatarArtifactId = null;
+      if (p.runnerArtifactId === artifactId) p.runnerArtifactId = null;
+    });
+  },
+
   setWeekCode(stopId: RegionId, code: string) {
     update((p) => {
       p.weeklyCodes[stopId] = normalizeCode(code) || defaultWeekCodes()[stopId];
@@ -220,7 +331,7 @@ export const store = {
     const normalized = normalizeCode(code);
     const p = load();
     if (p.unlockedWeeks >= JOURNEY.length) {
-      return { ok: true, message: "Whole Silk Road complete — replay any game for more points." };
+      return { ok: true, message: "Whole Silk Road complete, replay any game for more points." };
     }
     const nextStop = JOURNEY[p.unlockedWeeks];
     const expected = normalizeCode(p.weeklyCodes[nextStop.id] ?? nextStop.defaultCode);
@@ -262,6 +373,7 @@ export const store = {
     });
     const p = load();
     syncGameRun(p.id, p.sessionCode, newRun).catch(() => {});
+    maybeShowRecoveryHint();
   },
 
   answerLetter(cyr: string, correct: boolean) {
@@ -308,6 +420,103 @@ export const store = {
     persist();
   },
 
+  /**
+   * Pull anything this profile made or earned that is not on this device.
+   *
+   * Local stays the source of truth so the app still works offline; the server
+   * only fills gaps. Artifacts merge by id, newest first. XP takes the higher
+   * value and progress takes the union rather than overwriting, so playing on
+   * two devices can only ever add up, never roll back. Until this existed,
+   * every drawing and homework photo (and, before 0021, all progress) lived on
+   * exactly one browser and a cleared cache looked identical to "my work was
+   * deleted".
+   */
+  async hydrateFromServer() {
+    const p = load();
+    if (p.id === "server-profile") return;
+
+    const [remoteArtifacts, remoteState] = await Promise.all([
+      fetchProfileArt(p.id),
+      fetchProfileState(p.id),
+    ]);
+
+    update((profile) => {
+      if (remoteArtifacts.length > 0) {
+        const seen = new Set(profile.artifacts.map((a) => a.id));
+        const missing = remoteArtifacts.filter((a) => !seen.has(a.id));
+        if (missing.length > 0) {
+          profile.artifacts = [...profile.artifacts, ...missing].sort(
+            (a, b) => b.createdAt - a.createdAt,
+          );
+        }
+      }
+
+      if (remoteState) {
+        profile.xp = Math.max(profile.xp, remoteState.xp);
+        for (const region of remoteState.regionProgress as RegionId[]) {
+          if (!profile.regionProgress.includes(region)) profile.regionProgress.push(region);
+        }
+        for (const [slug, count] of Object.entries(remoteState.vocabCorrect)) {
+          profile.vocabCorrect[slug] = Math.max(profile.vocabCorrect[slug] ?? 0, count);
+        }
+        for (const [cyr, stat] of Object.entries(remoteState.letterStats)) {
+          const local = profile.letterStats[cyr];
+          if (!local || stat.level > local.level || (stat.level === local.level && stat.correct > local.correct)) {
+            profile.letterStats[cyr] = stat;
+          }
+        }
+        if (!profile.homeCoverId && remoteState.homeCoverId) {
+          profile.homeCoverId = remoteState.homeCoverId;
+        }
+        const localGames = new Map(profile.customGames.map((game) => [game.id, game]));
+        for (const game of remoteState.customGames) localGames.set(game.id, game);
+        profile.customGames = [...localGames.values()]
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 12);
+        profile.baseLanguage = remoteState.baseLanguage;
+      }
+    });
+  },
+
+  /**
+   * Adopt a profile on a new device from its recovery code. Replaces the local
+   * id, then hydrates, so the kid sees their gallery instead of a blank one.
+   */
+  async adoptByCode(code: string): Promise<{ ok: boolean; name?: string }> {
+    const found = await claimProfile(code);
+    if (!found) return { ok: false };
+
+    update((p) => {
+      p.id = found.id;
+      p.displayName = found.display_name || p.displayName;
+      p.xp = Math.max(p.xp, found.xp ?? 0);
+      p.artifacts = [];
+    });
+
+    await store.hydrateFromServer();
+    return { ok: true, name: found.display_name };
+  },
+
+  /**
+   * Adopt a profile by id rather than recovery code: what happens when the
+   * URL in `/profile/[id]` names a different kid than the one on this device.
+   * Same shape as adoptByCode, minus the code lookup.
+   */
+  async adoptById(id: string): Promise<{ ok: boolean; name?: string }> {
+    const found = await fetchProfileState(id);
+    if (!found) return { ok: false };
+
+    update((p) => {
+      p.id = id;
+      p.displayName = found.displayName || p.displayName;
+      p.xp = Math.max(p.xp, found.xp ?? 0);
+      p.artifacts = [];
+    });
+
+    await store.hydrateFromServer();
+    return { ok: true, name: found.displayName };
+  },
+
   // --- debug-only helpers (safe to call in prod; just XP/unlock manipulation) ---
   debugUnlockAll() {
     update((p) => {
@@ -339,6 +548,23 @@ export const store = {
     update((p) => { p.xp = 99999; });
   },
 };
+
+const RECOVERY_HINT_KEY = "s2s_recovery_hint_shown";
+
+// Shown once per device, at the end of a game run, so a kid who plays on
+// several devices finds out the code exists before they need it rather than
+// after they lose a gallery to a cleared cache.
+function maybeShowRecoveryHint() {
+  if (typeof window === "undefined") return;
+  if (localStorage.getItem(RECOVERY_HINT_KEY)) return;
+  localStorage.setItem(RECOVERY_HINT_KEY, "1");
+  toastBus.show({
+    title: "Playing on another device?",
+    body: "Your code is on your profile page. Use it there to bring your drawings and points along.",
+    icon: "🔑",
+    duration: 6000,
+  });
+}
 
 function award(p: Profile, id: BadgeId) {
   if (!p.badges.includes(id)) {

@@ -8,6 +8,7 @@ import { PHRASES } from "@/content/phrases";
 import { VOCAB, imgFor } from "@/content/vocab";
 import { store, useProfile } from "@/lib/store";
 import { playCorrect } from "@/lib/audio";
+import { baseText } from "@/lib/lang";
 import { Download, Send } from "lucide-react";
 
 type PanelState = { img: string; phrase: number };
@@ -122,7 +123,7 @@ export default function StoryMaker() {
               className="mt-1 w-full rounded-xl border-2 border-steppe/20 bg-white px-2 py-1.5 font-bold text-steppe"
             >
               {PHRASES.map((p, pi) => (
-                <option key={pi} value={pi}>{p.kk} — {p.en}</option>
+                <option key={pi} value={pi}>{p.kk}, {baseText(p, profile.baseLanguage)}</option>
               ))}
             </select>
           </div>

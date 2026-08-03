@@ -25,6 +25,7 @@ export type SessionState = {
   createdAt: number;
   currentGame: string | null;
   members: Member[];
+  endedAt?: number;
 };
 
 const PREFIX = "s2s_session_";
@@ -110,6 +111,12 @@ export const sessions = {
   launchGame(code: string, game: string | null) {
     write({ ...read(code), currentGame: game });
     syncLaunchGame(code, game).catch(() => {});
+  },
+  // Marks a session ended so it drops out of "recent sessions" and the
+  // persistent live-session banner — "End session" previously just navigated
+  // away and left the session looking live forever.
+  end(code: string) {
+    write({ ...read(code), endedAt: Date.now() });
   },
   get: read,
   subscribe(code: string, cb: () => void) {

@@ -51,8 +51,8 @@ export default function AdminContent() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-black text-steppe">Content tools</h1>
           <div className="flex gap-2">
-            <a href="/admin/wishlist" className="rounded-full bg-gold px-4 py-2 text-sm font-black text-steppe-700">💡 Wishlist</a>
-            <a href="/admin/feedback" className="rounded-full bg-steppe px-4 py-2 text-sm font-black text-warm">💬 Feedback</a>
+            <a href="/admin/wishlist" className="rounded-full bg-gold px-4 py-2 text-sm font-black text-steppe-700">Wishlist</a>
+            <a href="/admin/feedback" className="rounded-full bg-steppe px-4 py-2 text-sm font-black text-warm">Feedback</a>
           </div>
         </div>
 
@@ -108,7 +108,7 @@ export default function AdminContent() {
           <h2 className="font-black text-steppe">Elder video & word audio</h2>
           <p className="text-sm text-wolf">
             In production these upload to Supabase Storage and back the region clips and the
-            per-word audio in the games. Here they&apos;re placeholder slots — wire to the
+            per-word audio in the games. Here they&apos;re placeholder slots, wire to the
             <code className="mx-1 rounded bg-black/5 px-1">kid-art</code> bucket once Supabase is connected.
           </p>
           <div className="mt-3 flex gap-2">

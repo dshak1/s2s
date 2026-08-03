@@ -32,7 +32,7 @@ export async function setRole(formData: FormData) {
   revalidatePath("/admin/team");
 }
 
-/** One-click approve from the waiting list. */
+/** One-click approve or decline from the waiting list. */
 export async function approve(formData: FormData) {
   await requireStaff("/admin/team");
 
@@ -43,5 +43,20 @@ export async function approve(formData: FormData) {
   if (!sb) return;
 
   await sb.from("team_members").update({ role: "member" }).eq("id", id);
+  revalidatePath("/admin/team");
+}
+
+export async function decline(formData: FormData) {
+  await requireStaff("/admin/team");
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const sb = await getSupabaseServer();
+  if (!sb) return;
+
+  // Not a delete: they would sign in again and land back in the queue. This
+  // keeps the decision made.
+  await sb.from("team_members").update({ role: "declined" }).eq("id", id);
   revalidatePath("/admin/team");
 }

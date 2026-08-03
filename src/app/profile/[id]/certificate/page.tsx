@@ -15,12 +15,12 @@ export default function CertificatePage() {
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    document.title = `S2S Certificate — ${profile.displayName}`;
+    document.title = `S2S Certificate, ${profile.displayName}`;
   }, [profile.displayName]);
 
   return (
     <div className="min-h-dvh bg-felt py-8">
-      {/* print button — hidden on print */}
+      {/* print button, hidden on print */}
       <div className="mb-6 flex justify-center print:hidden">
         <button
           onClick={() => window.print()}
@@ -30,7 +30,7 @@ export default function CertificatePage() {
         </button>
       </div>
 
-      {/* certificate — A4 proportions */}
+      {/* certificate. A4 proportions */}
       <div
         ref={printRef}
         className="mx-auto w-[720px] max-w-[95vw] overflow-hidden rounded-3xl bg-white shadow-2xl print:shadow-none"
@@ -52,7 +52,7 @@ export default function CertificatePage() {
           <p className="text-base font-semibold text-wolf">This certifies that</p>
           <p className="mt-2 text-5xl font-black text-steppe">{profile.displayName}</p>
           <p className="mt-3 text-base font-semibold text-wolf">
-            has completed <strong className="text-steppe">Week {profile.unlockedWeeks} — {currentStop.name}</strong> of the Silk Road journey,
+            has completed <strong className="text-steppe">Week {profile.unlockedWeeks}, {currentStop.name}</strong> of the Silk Road journey,
             earning <strong className="text-gold text-lg">{profile.xp.toLocaleString()} XP</strong> along the way.
           </p>
 

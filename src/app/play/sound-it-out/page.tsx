@@ -10,6 +10,7 @@ import { playCorrect, playLetterPronunciation, playWrong, playWin } from "@/lib/
 import { store } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { letterItemId } from "@/lib/items";
+import { ReportQuestion } from "@/components/report-question";
 
 type LetterCue = {
   cyr: string;
@@ -70,7 +71,7 @@ export default function SoundItOut() {
   const audioPlays = useRef(0);
 
   const prompt = useMemo(() => {
-    if (round.mode === "hear-letter") return "Listen — which Kazakh letter makes this sound?";
+    if (round.mode === "hear-letter") return "Listen, which Kazakh letter makes this sound?";
     return `Which sound matches ${round.answer.cyr}?`;
   }, [round]);
 
@@ -261,6 +262,10 @@ export default function SoundItOut() {
               ? `The answer was ${round.answer.cyr}, as in ${round.answer.example} (${round.answer.exampleEn}).`
               : `${round.answer.hint} · example word appears after you check.`}
           </div>
+
+          {phase !== "guess" && (
+            <ReportQuestion itemId={letterItemId(round.answer.cyr)} gameSlug="sound-it-out" />
+          )}
         </div>
       )}
     </GameShell>

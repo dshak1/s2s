@@ -24,7 +24,7 @@ export const BADGES: Badge[] = [
   { id: "explorer", name: "Steppe Explorer", kk: "Дала зерттеуші", symbol: "✷", hint: "Unlock a new Silk Road stop." },
   { id: "memory_master", name: "Memory Master", kk: "Жад шебері", symbol: "❂", hint: "Clear a board in Memory Match." },
   { id: "word_catcher", name: "Word Catcher", kk: "Сөз аулаушы", symbol: "✺", hint: "Catch 8 words in Falling Words." },
-  { id: "first_yurt", name: "Yurt Builder", kk: "Үй құрушы", symbol: "⌂", hint: "Master all 36 Kazakh letters." },
+  { id: "first_yurt", name: "Alphabet Master", kk: "Әліпби шебері", symbol: "Ә", hint: "Master all 36 Kazakh letters." },
   { id: "snow_tracker", name: "Snow Tracker", kk: "Із кесуші", symbol: "❄", hint: "Collect all 8 snow-leopard clues in one session." },
   { id: "storyteller", name: "Storyteller", kk: "Әңгімеші", symbol: "✶", hint: "Make a 3-panel comic in Story Maker." },
 ];

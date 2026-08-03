@@ -1,48 +1,56 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Lock, MapPinned, PlayCircle, RotateCcw, Route, Sparkles, Star } from "lucide-react";
-import { GAME_GROUPS, GAMES, VISIBLE_GAMES, type GameGroup, type GameMeta } from "@/content/games";
-import { JOURNEY } from "@/content/journey";
+import {
+  ArrowRight,
+  BookOpenCheck,
+  Brush,
+  Check,
+  ChevronRight,
+  CircleUserRound,
+  Gamepad2,
+  Languages,
+  Lock,
+  Palette,
+  Play,
+  Plus,
+  Route,
+  Trash2,
+} from "lucide-react";
+import SpotlightCard from "@/components/SpotlightCard";
 import { TopNav } from "@/components/top-nav";
 import { GameGlyph } from "@/components/game/game-glyph";
 import { MountainBackdrop, sceneForGameSlug } from "@/components/game/mountain-backdrop";
 import { Button } from "@/components/ui/button";
-import { store, useProfile, masteredLetterCount } from "@/lib/store";
+import { GAME_GROUPS, GAMES, VISIBLE_GAMES, type GameGroup, type GameMeta } from "@/content/games";
+import { JOURNEY } from "@/content/journey";
+import { GAME_BUILDER_ENABLED } from "@/lib/online-features";
+import { store, useProfile } from "@/lib/store";
 import { IS_LITE, LITE_GAME_SLUGS } from "@/lib/lite";
-import { useMemo, useState } from "react";
 
-const GROUP_STYLE: Record<GameGroup, { kk: string; en: string; chip: string; line: string }> = {
-  "Words & Letters": {
-    kk: "Әріптер",
-    en: "Alphabet",
-    chip: "bg-[#fff4bd] text-steppe",
-    line: "bg-[#ffcf4a]",
-  },
-  "Places & Culture": {
-    kk: "Жерлер",
-    en: "Places",
-    chip: "bg-[#ffe0d2] text-steppe",
-    line: "bg-[#ff8f4f]",
-  },
-  "Get Up & Move": {
-    kk: "Қозғал",
-    en: "Move",
-    chip: "bg-[#dff0ff] text-steppe",
-    line: "bg-[#4f8be8]",
-  },
-  "Make Your Own": {
-    kk: "Жаса",
-    en: "Create",
-    chip: "bg-[#ffe1ec] text-steppe",
-    line: "bg-[#ff6f9f]",
-  },
+const STOP_IMAGES: Record<string, string> = {
+  almaty: "/img/places-photos/almaty.webp",
+  astana: "/img/places-photos/astana.webp",
+  aral: "/img/places-photos/aral.jpg",
+  charyn: "/img/places-photos/charyn.jpg",
+  mangystau: "/img/places-photos/mangystau.jpg",
+  karaganda: "/img/places-photos/karaganda.jpg",
+  shymkent: "/img/places-photos/shymkent.jpg",
+  turkistan: "/img/places-photos/turkistan.jpg",
+};
+
+const GROUP_STYLE: Record<GameGroup, { label: string; active: string }> = {
+  "Words & Letters": { label: "Words", active: "bg-steppe text-white" },
+  "Places & Culture": { label: "Places", active: "bg-[#e35f4c] text-white" },
+  "Get Up & Move": { label: "Move", active: "bg-[#2f8d47] text-white" },
+  "Make Your Own": { label: "Create", active: "bg-[#ffcf4a] text-steppe" },
 };
 
 export default function PlayHub() {
-  if (IS_LITE) return <LiteHub />;
-  return <FullHub />;
+  return IS_LITE ? <LiteHub /> : <FullHub />;
 }
 
 function LiteHub() {
@@ -50,19 +58,15 @@ function LiteHub() {
   return (
     <div className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
       <MountainBackdrop scene="hub" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.26)_36%,rgba(255,246,206,.08))]" />
+      <div className="absolute inset-0 bg-white/20" />
       <TopNav />
       <main className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <div className="text-center">
           <h1 className="text-3xl font-black text-steppe sm:text-4xl">Қазақ тілін үйренейік</h1>
-          <p className="mt-2 text-sm font-bold text-steppe/70 sm:text-base">
-            Tap a game to start. Listen, then pick the match.
-          </p>
+          <p className="mt-2 text-sm font-bold text-steppe/70 sm:text-base">Choose a game and start playing.</p>
         </div>
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {liteGames.map((game) => (
-            <GameCard key={game.slug} game={game} />
-          ))}
+          {liteGames.map((game) => <GameCard key={game.slug} game={game} />)}
         </div>
       </main>
     </div>
@@ -73,261 +77,291 @@ function FullHub() {
   const profile = useProfile();
   const [code, setCode] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [activeGroup, setActiveGroup] = useState<GameGroup>("Words & Letters");
   const currentStop = JOURNEY[Math.min(profile.unlockedWeeks - 1, JOURNEY.length - 1)];
   const nextStop = JOURNEY[profile.unlockedWeeks];
-  const grouped = useMemo(
-    () =>
-      GAME_GROUPS.map((group) => ({ ...group, games: VISIBLE_GAMES.filter((game) => game.group === group.key) })).filter(
-        (group) => group.games.length > 0,
-      ),
-    [],
-  );
-  const mastered = masteredLetterCount(profile);
+  const activeGames = VISIBLE_GAMES.filter((game) => game.group === activeGroup);
 
-  function unlock(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  const continueGame = useMemo(() => {
+    const latest = profile.gameRuns[0];
+    if (latest?.game.startsWith("custom:")) {
+      const id = latest.game.slice("custom:".length);
+      const custom = profile.customGames.find((game) => game.id === id);
+      if (custom) return { title: custom.title, href: `/play/create/${custom.id}`, kk: "Менің ойыным" };
+    }
+    const known = VISIBLE_GAMES.find((game) => game.slug === latest?.game);
+    return known ?? VISIBLE_GAMES.find((game) => game.slug === "say-and-shift") ?? VISIBLE_GAMES[0];
+  }, [profile.customGames, profile.gameRuns]);
+
+  function unlock(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     const result = store.unlockWeekWithCode(code);
     setMessage({ ok: result.ok, text: result.message });
     if (result.ok) setCode("");
   }
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
-      <MountainBackdrop scene="hub" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.26)_36%,rgba(255,246,206,.08))]" />
+    <div className="min-h-dvh bg-[#eef7fb] text-steppe">
       <TopNav />
 
-      <main className="relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8">
-        <section className="relative overflow-hidden rounded-lg border border-white/80 bg-white/[.82] p-4 text-steppe shadow-[0_20px_60px_rgba(69,128,59,.16)] backdrop-blur-md sm:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] px-5 py-2 font-black text-steppe-700 shadow-md shadow-orange-200/60">
-                <Route size={18} /> Менің жолым
-              </div>
-              <h1 className="mt-4 text-3xl font-black leading-tight sm:text-4xl">
-                My Journey: {currentStop.name}
+      <main>
+        <section className="relative min-h-[440px] overflow-hidden bg-steppe text-white">
+          <Image
+            src={STOP_IMAGES[currentStop.id]}
+            alt={currentStop.name}
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,40,70,.9)_0%,rgba(16,50,78,.74)_45%,rgba(16,50,78,.2)_100%)]" />
+          <div className="relative mx-auto grid min-h-[440px] max-w-6xl items-end gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_360px] lg:items-center">
+            <div className="max-w-2xl pb-2 lg:pb-0">
+              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#ffd84f]">
+                <Route size={16} /> Stop {currentStop.week} of {JOURNEY.length}
+              </p>
+              <h1 className="mt-3 max-w-xl text-4xl font-black leading-tight sm:text-5xl">
+                Your adventure continues in {currentStop.name}
               </h1>
-              <p className="mt-2 max-w-xl text-sm font-bold leading-6 text-steppe/[.72] sm:text-base">
+              <p className="mt-3 max-w-xl text-sm font-bold leading-6 text-white/80 sm:text-base">
                 {currentStop.fact}
               </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link href={continueGame.href} className="inline-flex items-center gap-2 rounded-full bg-[#ffd84f] px-5 py-3 font-black text-steppe shadow-lg transition hover:bg-[#ffe478]">
+                  <Play size={18} fill="currentColor" /> Continue: {continueGame.title}
+                </Link>
+                <Link href={`/profile/${profile.id}`} className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/15 px-5 py-3 font-black text-white backdrop-blur transition hover:bg-white/25">
+                  <CircleUserRound size={18} /> Player account
+                </Link>
+              </div>
             </div>
 
-            <form onSubmit={unlock} className="w-full max-w-sm rounded-lg border border-steppe/10 bg-[#fff9e8]/90 p-3 shadow-sm">
-              <label className="text-xs font-black uppercase text-[#e35f4c]">
-                Unlock the next workshop stop
-              </label>
-              <div className="mt-2 flex gap-2">
+            <SpotlightCard className="border border-white/25 bg-[#102f4b]/75 p-5 shadow-2xl backdrop-blur-md">
+              <p className="text-xs font-black uppercase tracking-wider text-[#ffd84f]">Featured game</p>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="grid h-14 w-14 place-items-center rounded-lg bg-white/12 text-[#ffd84f]">
+                  <GameGlyph slug="say-and-shift" size={44} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black">Say it, slip through the wall</h2>
+                  <p className="text-sm font-bold text-white/65">Say the Kazakh word out loud — the mic is always listening</p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <MissionStat value={profile.xp.toLocaleString()} label="Points" />
+                <MissionStat value={`${profile.unlockedWeeks}/8`} label="Stops" />
+                <MissionStat value={`${profile.customGames.length}`} label="My games" />
+              </div>
+            </SpotlightCard>
+          </div>
+        </section>
+
+        <section className="border-b border-steppe/10 bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+            <JourneyRail unlockedWeeks={profile.unlockedWeeks} />
+            <form onSubmit={unlock} className="mt-4 flex flex-col gap-2 border-t border-steppe/10 pt-4 sm:flex-row sm:items-center">
+              <div className="mr-auto">
+                <p className="text-xs font-black uppercase text-steppe/45">Workshop unlock</p>
+                <p className="font-black text-steppe">{nextStop ? `Next: ${nextStop.name}` : "All stops unlocked"}</p>
+              </div>
+              <div className="flex gap-2">
                 <input
                   value={code}
-                  onChange={(event) => setCode(event.target.value)}
+                  onChange={(event) => setCode(event.target.value.toUpperCase())}
                   disabled={!nextStop}
-                  placeholder={nextStop ? "Today's code" : "Complete"}
-                  className="min-w-0 flex-1 rounded-lg border-2 border-steppe/10 bg-white px-4 py-2 font-black uppercase text-steppe outline-none placeholder:text-steppe/35 focus:border-[#ff9a4f]"
+                  maxLength={8}
+                  placeholder={nextStop ? "SESSION CODE" : "COMPLETE"}
+                  aria-label="Workshop unlock code"
+                  className="min-w-0 rounded-lg border-2 border-steppe/15 bg-[#f4f8fb] px-3 py-2 text-center font-mono font-black uppercase tracking-wider text-steppe outline-none focus:border-[#ff9a4f]"
                 />
-                <Button variant="gold" type="submit" disabled={!nextStop}>
-                  Unlock
-                </Button>
+                <Button variant="gold" size="sm" type="submit" disabled={!nextStop || !code.trim()}>Unlock</Button>
               </div>
-              <p className={`mt-2 min-h-5 text-xs font-bold ${message?.ok ? "text-[#2f8d47]" : "text-steppe/[.58]"}`}>
-                {message
-                  ? message.text
-                  : nextStop
-                    ? `Next stop: ${nextStop.name}. Demo code: ${profile.weeklyCodes[nextStop.id]}.`
-                    : "Whole Silk Road complete. Replay any game for more points."}
-              </p>
+              {message && <p className={`text-xs font-bold sm:max-w-48 ${message.ok ? "text-[#2f8d47]" : "text-[#b44736]"}`}>{message.text}</p>}
             </form>
           </div>
-
-          <SilkRoadTrail unlockedWeeks={profile.unlockedWeeks} />
         </section>
 
-        <section className="mt-4 grid gap-3 md:grid-cols-3">
-          <StatTile icon={<Sparkles size={22} />} label="Points" value={profile.xp.toLocaleString()} note="Replay any game for more" tone="steppe" />
-          <StatTile icon={<MapPinned size={22} />} label="Stops Open" value={`${profile.unlockedWeeks}/${JOURNEY.length}`} note="Workshop codes unlock weeks" tone="terra" />
-          <StatTile icon={<Star size={22} />} label="Yurt Reward" value={`${Math.min(mastered, 9)}/9`} note="Master the special Kazakh letters" tone="gold" />
-        </section>
+        <section className="bg-[#fff9e8] py-9">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-[#e35f4c]">Maker lab</p>
+                <h2 className="text-3xl font-black text-steppe">Make it yours</h2>
+              </div>
+              {GAME_BUILDER_ENABLED && (
+                <Link href="/play/create" className="inline-flex items-center gap-2 font-black text-steppe underline">
+                  Build a new game <ArrowRight size={16} />
+                </Link>
+              )}
+            </div>
 
-        <div className="mt-7 flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="text-3xl font-black text-steppe">Ойындар</h2>
-            <p className="text-sm font-bold text-steppe/65">Games keep the current features, with the Canva category-card layout.</p>
-          </div>
-          <button
-            onClick={() => {
-              store.reset();
-              setMessage(null);
-              setCode("");
-            }}
-            className="inline-flex items-center gap-1 rounded-full border border-steppe/10 bg-white/85 px-3 py-1.5 text-xs font-black text-steppe shadow-sm transition hover:bg-[#fff3cf]"
-          >
-            <RotateCcw size={14} /> Reset demo
-          </button>
-        </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {GAME_BUILDER_ENABLED && (
+                <MakerCard href="/play/create" image="/img/places-photos/charyn.jpg" icon={<Gamepad2 size={22} />} title="Build a game" copy="Choose the words, draw the world, then run it." />
+              )}
+              <MakerCard href="/play/tanba-studio" image="/kid-covers/cover-2.jpg" icon={<Palette size={22} />} title="Design your avatar" copy="Draw or import the character you play as." />
+              <MakerCard href="/play/story-maker" image="/kid-covers/cover-5.jpg" icon={<Brush size={22} />} title="Make a story" copy="Turn your artwork into a Kazakh comic." />
+            </div>
 
-        <div className="relative mt-4 space-y-6">
-          <svg className="pointer-events-none absolute inset-x-4 top-0 hidden h-full opacity-45 lg:block" viewBox="0 0 1040 720" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M30 90 C220 10 250 190 430 125 S690 20 1010 160" fill="none" stroke="#ff9a4f" strokeDasharray="6 20" strokeLinecap="round" strokeWidth="8" />
-            <path d="M72 340 C280 240 350 430 532 326 S806 250 982 430" fill="none" stroke="#ff6f9f" strokeDasharray="6 20" strokeLinecap="round" strokeWidth="8" />
-          </svg>
-
-          {grouped.map((group, shelfIndex) => {
-            const style = GROUP_STYLE[group.key];
-            return (
-              <section key={group.key} className="relative">
-                <div className="mb-3 flex items-center gap-3">
-                  <span className={`h-10 w-2 rounded-full ${style.line}`} />
-                  <div>
-                    <div className={`inline-flex rounded-full px-4 py-1.5 text-sm font-black shadow-sm ${style.chip}`}>
-                      {style.kk} · {style.en}
-                    </div>
-                    <p className="mt-1 text-xs font-bold text-steppe/[.58]">{group.kk} · {group.blurb}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  {group.games.map((game, gameIndex) => (
-                    <motion.div
-                      key={game.slug}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: shelfIndex * 0.04 + gameIndex * 0.03 }}
-                    >
-                      <GameCard game={game} />
-                    </motion.div>
+            {GAME_BUILDER_ENABLED && profile.customGames.length > 0 && (
+              <div className="mt-7">
+                <h3 className="text-lg font-black text-steppe">My games</h3>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {profile.customGames.map((game) => (
+                    <article key={game.id} className="flex items-center gap-3 rounded-lg border border-steppe/10 bg-white p-3 shadow-sm">
+                      <Link href={`/play/create/${game.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[#dff0ff] text-steppe"><GameGlyph slug="steppe-sprint" size={38} /></div>
+                        <div className="min-w-0">
+                          <h4 className="truncate font-black text-steppe">{game.title}</h4>
+                          <p className="text-xs font-bold text-steppe/50">{game.vocabSlugs.length} words</p>
+                        </div>
+                      </Link>
+                      <button type="button" title="Delete game" aria-label={`Delete ${game.title}`} onClick={() => store.deleteCustomGame(game.id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-steppe/45 transition hover:bg-[#ffe8e2] hover:text-[#b44736]"><Trash2 size={17} /></button>
+                    </article>
                   ))}
                 </div>
-              </section>
-            );
-          })}
-        </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="py-10">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-[#2f8d47]">Game library</p>
+                <h2 className="text-3xl font-black text-steppe">Choose your next move</h2>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {GAME_GROUPS.map((group) => (
+                  <button
+                    key={group.key}
+                    type="button"
+                    onClick={() => setActiveGroup(group.key)}
+                    aria-pressed={activeGroup === group.key}
+                    className={`h-10 shrink-0 rounded-full px-4 text-sm font-black transition ${
+                      activeGroup === group.key ? GROUP_STYLE[group.key].active : "bg-white text-steppe/60 shadow-sm ring-1 ring-steppe/10"
+                    }`}
+                  >
+                    {GROUP_STYLE[group.key].label}
+                  </button>
+                ))}
+                <div className="ml-2 flex rounded-full border border-steppe/10 bg-white p-1 shadow-sm">
+                  <Languages size={16} className="ml-2 self-center text-steppe/45" />
+                  {(["en", "ru"] as const).map((language) => (
+                    <button
+                      key={language}
+                      type="button"
+                      onClick={() => store.setBaseLanguage(language)}
+                      aria-pressed={profile.baseLanguage === language}
+                      className={`rounded-full px-3 py-1 text-xs font-black ${profile.baseLanguage === language ? "bg-steppe text-white" : "text-steppe/50"}`}
+                    >
+                      {language === "en" ? "EN" : "RU"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {activeGames.length > 0 ? (
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {activeGames.map((game, index) => (
+                  <motion.div key={game.slug} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
+                    <GameCard game={game} />
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5 flex min-h-52 flex-col items-center justify-center rounded-lg border-2 border-dashed border-steppe/15 bg-white text-center">
+                <Plus size={28} className="text-steppe/35" />
+                <p className="mt-2 font-black text-steppe">Your creations live here</p>
+                {GAME_BUILDER_ENABLED && (
+                  <Link href="/play/create" className="mt-2 text-sm font-black text-steppe underline">Build a game</Link>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="border-t border-steppe/10 bg-white py-6">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-lg bg-[#dff0ff] text-steppe"><BookOpenCheck size={21} /></div>
+              <div><p className="font-black text-steppe">Homework</p><p className="text-sm font-bold text-steppe/55">Turn in a photo from this week.</p></div>
+            </div>
+            <Link href="/homework" className="inline-flex items-center gap-1 font-black text-steppe">Open homework <ChevronRight size={17} /></Link>
+          </div>
+        </section>
       </main>
     </div>
   );
 }
 
-function StatTile({
-  icon,
-  label,
-  value,
-  note,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  note: string;
-  tone: "steppe" | "terra" | "gold";
-}) {
-  const toneClass = {
-    steppe: "bg-[#dff0ff] text-steppe",
-    terra: "bg-[#ffe0d2] text-steppe",
-    gold: "bg-[#fff4bd] text-steppe",
-  }[tone];
+function MissionStat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-white/85 bg-white/[.82] p-4 text-steppe shadow-sm backdrop-blur">
-      <div className={`grid h-12 w-12 place-items-center rounded-lg ${toneClass}`}>{icon}</div>
-      <div>
-        <div className="text-xs font-black uppercase text-steppe/55">{label}</div>
-        <div className="text-2xl font-black leading-tight text-steppe">{value}</div>
-        <div className="text-xs font-bold text-steppe/[.62]">{note}</div>
-      </div>
+    <div className="rounded-lg bg-white/10 px-2 py-3 text-center">
+      <p className="text-lg font-black text-white">{value}</p>
+      <p className="text-[10px] font-black uppercase text-white/55">{label}</p>
     </div>
   );
 }
 
-function GameCard({ game }: { game: GameMeta }) {
-  const scene = sceneForGameSlug(game.slug);
-
+function JourneyRail({ unlockedWeeks }: { unlockedWeeks: number }) {
   return (
-    <Link
-      href={game.href}
-      className="group relative flex min-h-[196px] flex-col justify-between overflow-hidden rounded-lg border-2 border-white bg-white/90 p-4 text-steppe shadow-[0_14px_32px_rgba(69,128,59,.14)] transition hover:-translate-y-1 hover:border-[#ffcf4a] hover:shadow-[0_18px_40px_rgba(69,128,59,.2)]"
-    >
-      <MountainBackdrop scene={scene} className="canva-card-backdrop opacity-70 transition group-hover:scale-[1.02]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.72)_48%,rgba(255,255,255,.94))]" />
-      {game.isNew && (
-        <span className="absolute right-3 top-3 z-10 rounded-full bg-[#ff6f9f] px-2.5 py-1 text-[10px] font-black uppercase text-white shadow">
-          New
-        </span>
-      )}
-      <div className="relative z-10 flex items-start justify-between">
-        <span className="rounded-full bg-[#fff4bd] px-3 py-1 text-[11px] font-black text-steppe shadow-sm">
-          {game.kk}
-        </span>
-        <div className="grid h-12 w-12 place-items-center rounded-lg bg-white/80 text-[#ff8f4f] shadow-sm">
-          <GameGlyph slug={game.slug} size={42} />
-        </div>
-      </div>
-      <div className="relative z-10">
-        <h4 className="text-base font-black leading-tight text-steppe">{game.title}</h4>
-        <p className="mt-1 text-xs font-bold leading-4 text-steppe/[.66]">{game.blurb}</p>
-        <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] px-3 py-1.5 text-xs font-black text-steppe-700 shadow-sm">
-          <PlayCircle size={14} /> Play
-        </span>
+    <div className="no-scrollbar flex gap-0 overflow-x-auto" aria-label="Adventure roadmap">
+      {JOURNEY.map((stop, index) => {
+        const unlocked = index < unlockedWeeks;
+        const current = index === unlockedWeeks - 1;
+        return (
+          <div key={stop.id} className="relative flex min-w-[128px] flex-1 items-center">
+            {index > 0 && <span className={`absolute left-0 right-1/2 top-5 h-1 ${unlocked ? "bg-[#ff9a4f]" : "bg-steppe/10"}`} />}
+            {index < JOURNEY.length - 1 && <span className={`absolute left-1/2 right-0 top-5 h-1 ${index < unlockedWeeks - 1 ? "bg-[#ff9a4f]" : "bg-steppe/10"}`} />}
+            <div className="relative z-10 mx-auto text-center">
+              <div className={`mx-auto grid h-10 w-10 place-items-center rounded-full border-4 border-white shadow-sm ${unlocked ? "bg-[#ffd84f] text-steppe" : "bg-[#e4eaee] text-steppe/35"} ${current ? "ring-2 ring-[#ff9a4f] ring-offset-2" : ""}`}>
+                {unlocked ? (index < unlockedWeeks - 1 ? <Check size={17} /> : index + 1) : <Lock size={15} />}
+              </div>
+              <p className={`mt-2 text-xs font-black ${current ? "text-[#e35f4c]" : unlocked ? "text-steppe" : "text-steppe/35"}`}>{stop.name}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MakerCard({ href, image, icon, title, copy }: { href: string; image: string; icon: React.ReactNode; title: string; copy: string }) {
+  return (
+    <Link href={href} className="group relative min-h-56 overflow-hidden rounded-lg bg-steppe shadow-lg">
+      <Image src={image} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition duration-500 group-hover:scale-105" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_20%,rgba(13,45,70,.9)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+        <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#ffd84f] text-steppe">{icon}</div>
+        <h3 className="mt-3 text-xl font-black">{title}</h3>
+        <p className="mt-1 text-sm font-bold text-white/70">{copy}</p>
       </div>
     </Link>
   );
 }
 
-function SilkRoadTrail({ unlockedWeeks }: { unlockedWeeks: number }) {
-  const nodes = [
-    { x: 60, y: 150 },
-    { x: 180, y: 88 },
-    { x: 300, y: 150 },
-    { x: 430, y: 96 },
-    { x: 560, y: 150 },
-    { x: 690, y: 92 },
-    { x: 810, y: 150 },
-    { x: 920, y: 96 },
-  ];
-  const path = nodes.map((node, index) => `${index === 0 ? "M" : "L"}${node.x} ${node.y}`).join(" ");
-  const progress = ((Math.max(1, unlockedWeeks) - 1) / (JOURNEY.length - 1)) * 100;
-
+function GameCard({ game }: { game: GameMeta }) {
+  const scene = sceneForGameSlug(game.slug);
   return (
-    <svg viewBox="0 0 980 220" className="mt-3 block w-full" aria-label="Silk Road journey">
-      <path d={path} fill="none" stroke="rgba(30,77,140,.16)" strokeWidth="7" strokeLinecap="round" strokeDasharray="2 14" />
-      <path
-        d={path}
-        fill="none"
-        stroke="#ff9a4f"
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeDasharray={`${progress} 100`}
-        pathLength={100}
-      />
-      {nodes.map((node, index) => {
-        const stop = JOURNEY[index];
-        const done = index < unlockedWeeks - 1;
-        const current = index === unlockedWeeks - 1;
-        const locked = index >= unlockedWeeks;
-        return (
-          <g key={stop.id} transform={`translate(${node.x},${node.y})`}>
-            {current && <circle r="26" fill="none" stroke="#ff9a4f" strokeWidth="3" opacity="0.6" />}
-            <circle
-              r={current ? 18 : 14}
-              fill={locked ? "rgba(30,77,140,.13)" : "#ffd84f"}
-              stroke={locked ? "rgba(30,77,140,.22)" : "#ffffff"}
-              strokeWidth={current ? 4 : 3}
-            />
-            {locked ? (
-              <Lock x="-7" y="-7" width="14" height="14" color="rgba(30,77,140,.5)" strokeWidth="3" />
-            ) : (
-              <text x="0" y="5" textAnchor="middle" fontWeight="900" fontSize="15" fill="#173c6e">
-                {done ? "✓" : index + 1}
-              </text>
-            )}
-            <text
-              x="0"
-              y={node.y > 120 ? 38 : -26}
-              textAnchor="middle"
-              fontWeight={current ? 900 : 700}
-              fontSize="14"
-              fill={locked ? "rgba(30,77,140,.45)" : current ? "#e35f4c" : "#1e4d8c"}
-            >
-              {stop.name}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <Link
+      href={game.href}
+      className="group relative flex min-h-[230px] flex-col justify-between overflow-hidden rounded-lg border border-white bg-white text-steppe shadow-[0_14px_32px_rgba(31,70,92,.12)] transition hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(31,70,92,.2)]"
+    >
+      <div className="relative h-32 overflow-hidden">
+        <MountainBackdrop scene={scene} className="canva-card-backdrop transition duration-500 group-hover:scale-[1.03]" />
+        <div className="absolute inset-0 bg-white/15" />
+        <div className="absolute left-3 top-3 grid h-12 w-12 place-items-center rounded-lg bg-white/90 text-[#e35f4c] shadow-sm"><GameGlyph slug={game.slug} size={40} /></div>
+        {game.isNew && <span className="absolute right-3 top-3 rounded-full bg-[#ffcf4a] px-2.5 py-1 text-[10px] font-black uppercase text-steppe shadow">New</span>}
+      </div>
+      <div className="flex flex-1 flex-col p-4">
+        <p className="text-xs font-black text-[#e35f4c]">{game.kk}</p>
+        <h3 className="mt-1 text-lg font-black leading-tight text-steppe">{game.title}</h3>
+        <p className="mt-1 flex-1 text-xs font-bold leading-5 text-steppe/58">{game.blurb}</p>
+        <span className="mt-3 inline-flex items-center gap-1 text-sm font-black text-steppe">Play <ChevronRight size={16} /></span>
+      </div>
+    </Link>
   );
 }

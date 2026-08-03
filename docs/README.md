@@ -12,14 +12,21 @@ The app has two populations and they are treated oppositely:
 
 | Doc | What it covers |
 |---|---|
+| [session-log.md](session-log.md) | Every idea raised, what happened to it, and why |
+| [team-context.md](team-context.md) | Who the team is and how the workshops actually run |
+| [backlog.md](backlog.md) | Everything shipped, everything open. Mirrors /tickets |
 | [setup.md](setup.md) | Getting it running, env vars, the manual Supabase steps |
 | [architecture.md](architecture.md) | How the pieces fit, and why offline-first |
 | [data-model.md](data-model.md) | Every table, what it is for, who can read it |
 | [telemetry.md](telemetry.md) | How an answer becomes a row, and how to add a game |
 | [labelling-guide.md](labelling-guide.md) | The rubric raters actually use |
 | [research.md](research.md) | The research questions and the benchmark |
+| [perplexity-game-research-prompt.md](perplexity-game-research-prompt.md) | Deep-research prompt for customizable language games |
+| [higgsfield-turkistan-runner-prompt.md](higgsfield-turkistan-runner-prompt.md) | Five consistent background plates for a Turkistan runner route |
 | [security.md](security.md) | The access model and its known gaps |
+| [photo-credits.md](photo-credits.md) | Where every place photo came from, and its licence |
 | [roadmap.md](roadmap.md) | What is built, what is next |
+| [next-plan.md](next-plan.md) | The current plan, written to be executed |
 | [demo-script.md](demo-script.md) | The four-minute walkthrough |
 
 ## The short version

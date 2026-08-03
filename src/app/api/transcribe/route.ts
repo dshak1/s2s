@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const key = process.env.ELEVENLABS_API_KEY;
   if (!key) {
     return NextResponse.json(
-      { error: "Transcription is off — set ELEVENLABS_API_KEY." },
+      { error: "Transcription is off, set ELEVENLABS_API_KEY." },
       { status: 501 },
     );
   }

@@ -1,27 +1,216 @@
 "use client";
 
 import { getSupabaseBrowser } from "./client";
-import type { Profile, GameRun, Artifact } from "@/lib/store";
+import { captureError } from "@/lib/monitoring";
+import type { Profile, GameRun, Artifact, LetterStat, CustomGame } from "@/lib/store";
+import type { BaseLanguage } from "@/lib/lang";
+
+// Public URL for anything in the kid-art bucket. Hydrated artifacts render from
+// this rather than a stored data URL, so pulling a gallery back does not blow
+// up the localStorage quota.
+export function kidArtUrl(storagePath: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/kid-art/${storagePath}`;
+}
+
+/**
+ * Everything this profile has made, from the server.
+ *
+ * Reads go through SECURITY DEFINER functions rather than RLS, because an
+ * anonymous kid has no identity a policy could match on. Knowing the profile id
+ * is the credential; see 0018_kid_recovery.sql.
+ */
+export async function fetchProfileArt(profileId: string): Promise<Artifact[]> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return [];
+
+  const [art, homework] = await Promise.all([
+    sb.rpc("profile_artifacts", { p_profile_id: profileId }),
+    sb.rpc("profile_homework", { p_profile_id: profileId }),
+  ]);
+
+  if (art.error) captureError(art.error, { where: "fetchProfileArt/artifacts" });
+  if (homework.error) captureError(homework.error, { where: "fetchProfileArt/homework" });
+
+  type ArtRow = { id: string; kind: string; storage_path: string; created_at: string };
+  type HwRow = {
+    id: string;
+    title: string | null;
+    note: string | null;
+    homework_date: string | null;
+    storage_path: string;
+    created_at: string;
+  };
+
+  const artifacts: Artifact[] = ((art.data ?? []) as ArtRow[]).map((r) => ({
+    id: r.id,
+    kind: r.kind as Artifact["kind"],
+    dataUrl: kidArtUrl(r.storage_path),
+    createdAt: new Date(r.created_at).getTime(),
+  }));
+
+  const homeworkItems: Artifact[] = ((homework.data ?? []) as HwRow[]).map((r) => ({
+    id: r.id,
+    kind: "homework",
+    dataUrl: kidArtUrl(r.storage_path),
+    createdAt: new Date(r.created_at).getTime(),
+    meta: {
+      title: r.title ?? undefined,
+      note: r.note ?? undefined,
+      date: r.homework_date ?? undefined,
+    },
+  }));
+
+  return [...artifacts, ...homeworkItems];
+}
+
+/** The code a kid types on a second device to get their work back. */
+export async function fetchRecoveryCode(
+  profileId: string,
+  displayName: string,
+): Promise<string | null> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return null;
+  const { data, error } = await sb.rpc("profile_recovery_code", {
+    p_profile_id: profileId,
+    p_display_name: displayName,
+  });
+  if (error) {
+    captureError(error, { where: "fetchRecoveryCode" });
+    return null;
+  }
+  return (data as string | null) ?? null;
+}
+
+export type RemoteProfileState = {
+  displayName: string;
+  xp: number;
+  regionProgress: string[];
+  vocabCorrect: Record<string, number>;
+  letterStats: Record<string, LetterStat>;
+  homeCoverId: string | null;
+  customGames: CustomGame[];
+  baseLanguage: BaseLanguage;
+};
+
+/**
+ * XP, region progress, vocab mastery and letter stats for a profile, straight
+ * from the server. Used to merge state on hydrate, not just artifacts; see
+ * 0021_profile_state_sync.sql.
+ */
+export async function fetchProfileState(profileId: string): Promise<RemoteProfileState | null> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return null;
+  const { data, error } = await sb.rpc("profile_state", { p_profile_id: profileId });
+  if (error) {
+    captureError(error, { where: "fetchProfileState" });
+    return null;
+  }
+  type Row = {
+    display_name: string;
+    xp: number;
+    region_progress: string[];
+    vocab_correct: Record<string, number>;
+    letter_stats: Record<string, LetterStat>;
+    home_cover_id: string | null;
+    custom_games: CustomGame[];
+    base_language: BaseLanguage;
+  };
+  const row = ((data ?? []) as Row[])[0];
+  if (!row) return null;
+  return {
+    displayName: row.display_name ?? "",
+    xp: row.xp ?? 0,
+    regionProgress: row.region_progress ?? [],
+    vocabCorrect: row.vocab_correct ?? {},
+    letterStats: row.letter_stats ?? {},
+    homeCoverId: row.home_cover_id ?? null,
+    customGames: Array.isArray(row.custom_games) ? row.custom_games : [],
+    baseLanguage: row.base_language === "ru" ? "ru" : "en",
+  };
+}
+
+export async function claimProfile(
+  code: string,
+): Promise<{ id: string; display_name: string; xp: number } | null> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return null;
+  const { data, error } = await sb.rpc("claim_profile", { p_code: code });
+  if (error) {
+    captureError(error, { where: "claimProfile" });
+    return null;
+  }
+  const rows = (data ?? []) as Array<{ id: string; display_name: string; xp: number }>;
+  return rows[0] ?? null;
+}
 
 // Fire-and-forget helpers — call with .catch(()=>{}) to suppress unhandled rejections.
 // All functions return early when Supabase env vars are absent (offline demo mode).
+
+/**
+ * Push xp, progress and the home background choice to the server. Routed
+ * through a SECURITY DEFINER function rather than a direct anon upsert: a
+ * direct upsert silently no-ops live (verified: INSERT works, UPDATE matches
+ * zero rows despite a correct policy and grant, see
+ * 0024_sync_profile_state.sql). The function bypasses RLS by running as its
+ * owner instead of anon.
+ *
+ * Called on a debounce from every `persist()` in store.ts, not only on join.
+ * xp that only reached the server once, at join time, meant a recovery code
+ * used mid-session pulled stale numbers on the second device.
+ */
+export async function syncProfileState(profile: Profile) {
+  const sb = getSupabaseBrowser();
+  if (!sb) return;
+  await sb.rpc("sync_profile_state", {
+    p_profile_id: profile.id,
+    p_display_name: profile.displayName,
+    p_xp: profile.xp,
+    p_streak_weeks: profile.streakWeeks,
+    p_region_progress: profile.regionProgress,
+    p_vocab_correct: profile.vocabCorrect,
+    p_letter_stats: profile.letterStats,
+    p_home_cover_id: profile.homeCoverId,
+    p_custom_games: profile.customGames,
+    p_base_language: profile.baseLanguage,
+  });
+}
+
+export type LinkedPlayerProfile = {
+  id: string;
+  displayName: string;
+  xp: number;
+  recoveryCode: string | null;
+};
+
+export async function linkPlayerProfile(profileId: string, recoveryCode: string): Promise<void> {
+  const sb = getSupabaseBrowser();
+  if (!sb) throw new Error("Player accounts are unavailable offline.");
+  const { error } = await sb.rpc("link_player_profile", {
+    p_profile_id: profileId,
+    p_recovery_code: recoveryCode,
+  });
+  if (error) throw error;
+}
+
+export async function fetchLinkedPlayerProfiles(): Promise<LinkedPlayerProfile[]> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return [];
+  const { data, error } = await sb.rpc("my_player_profiles");
+  if (error) throw error;
+  type Row = { id: string; display_name: string; xp: number; recovery_code: string | null };
+  return ((data ?? []) as Row[]).map((row) => ({
+    id: row.id,
+    displayName: row.display_name,
+    xp: row.xp,
+    recoveryCode: row.recovery_code,
+  }));
+}
 
 export async function syncJoin(profile: Profile, sessionCode: string, table: string) {
   const sb = getSupabaseBrowser();
   if (!sb) return;
 
-  await sb.from("profiles").upsert(
-    {
-      id: profile.id,
-      display_name: profile.displayName,
-      xp: profile.xp,
-      streak_weeks: profile.streakWeeks,
-      region_progress: profile.regionProgress,
-      vocab_correct: profile.vocabCorrect,
-      letter_stats: profile.letterStats,
-    },
-    { onConflict: "id" },
-  );
+  await syncProfileState(profile);
 
   const { data: sess } = await sb
     .from("sessions")
@@ -87,19 +276,31 @@ export async function syncArtifact(
   const ext = contentType.split("/")[1]?.split("+")[0] || "png";
   const path = `${profileId}/${artifact.id}.${ext}`;
 
-  const { error } = await sb.storage
-    .from("kid-art")
-    .upload(path, blob, { contentType, upsert: true });
-  if (error) return;
-
-  await sb.from("kid_artifacts").upsert(
-    { id: artifact.id, profile_id: profileId, kind: artifact.kind, storage_path: path },
-    { onConflict: "id" },
-  );
-
-  if (avatarArtifactId === artifact.id) {
-    await sb.from("profiles").update({ avatar_artifact_id: artifact.id }).eq("id", profileId);
+  // upsert:true makes the Storage API check-then-update on every call, even
+  // for a path that has never existed. That update path hits the same live
+  // RLS drift as profiles/kid_artifacts/homework_items, and unlike those it
+  // has no SECURITY DEFINER workaround (this is a real file, not just a
+  // row). Plain insert works, verified live, and artifact.id is a fresh
+  // UUID every time, so a path collision here would mean something else is
+  // already badly wrong.
+  const { error } = await sb.storage.from("kid-art").upload(path, blob, { contentType });
+  if (error) {
+    captureError(error, { where: "syncArtifact/upload", profileId, path });
+    return;
   }
+
+  // A direct anon upsert here is rejected outright (42501) despite a
+  // matching insert policy in 0005_identity.sql. Routed through a SECURITY
+  // DEFINER function, which also sets the avatar in the same call, since the
+  // raw profiles UPDATE below it hit the same wall as xp did.
+  const { error: rowError } = await sb.rpc("sync_kid_artifact", {
+    p_id: artifact.id,
+    p_profile_id: profileId,
+    p_kind: artifact.kind,
+    p_storage_path: path,
+    p_is_avatar: avatarArtifactId === artifact.id,
+  });
+  if (rowError) captureError(rowError, { where: "syncArtifact/row", profileId });
 }
 
 export async function syncHomework(
@@ -116,23 +317,28 @@ export async function syncHomework(
   const ext = contentType.split("/")[1]?.split("+")[0] || "jpg";
   const path = `${profileId}/homework-${artifact.id}.${ext}`;
 
-  const { error } = await sb.storage
-    .from("kid-art")
-    .upload(path, blob, { contentType, upsert: true });
-  if (error) return;
+  // Same reasoning as syncArtifact: upsert:true always hits the broken
+  // update path live, plain insert works, and artifact.id is fresh every
+  // time so there is nothing to collide with.
+  const { error } = await sb.storage.from("kid-art").upload(path, blob, { contentType });
+  if (error) {
+    captureError(error, { where: "syncHomework/upload", profileId, path });
+    return;
+  }
 
-  await sb.from("homework_items").upsert(
-    {
-      id: artifact.id,
-      profile_id: profileId,
-      student_name: studentName,
-      title: artifact.meta?.title || null,
-      note: artifact.meta?.note || null,
-      homework_date: artifact.meta?.date || null,
-      storage_path: path,
-    },
-    { onConflict: "id" },
-  );
+  // Same drift as syncArtifact: a direct anon upsert here is rejected
+  // outright despite 0005_identity.sql's insert policy. See
+  // 0026_sync_kid_artifacts.sql.
+  const { error: rowError } = await sb.rpc("sync_homework_item", {
+    p_id: artifact.id,
+    p_profile_id: profileId,
+    p_student_name: studentName,
+    p_title: artifact.meta?.title || null,
+    p_note: artifact.meta?.note || null,
+    p_homework_date: artifact.meta?.date || null,
+    p_storage_path: path,
+  });
+  if (rowError) captureError(rowError, { where: "syncHomework/row", profileId });
 }
 
 export async function syncSessionCreate(code: string) {
@@ -245,5 +451,116 @@ export function subscribeRealtimeSession(
   return () => {
     torn = true;
     if (channel && sb) sb.removeChannel(channel);
+  };
+}
+
+// --- Facilitator-led live rounds --------------------------------------------
+//
+// Pure broadcast, no table involved: a round lasts seconds, and every anon
+// table write elsewhere in this app has turned out to need a SECURITY
+// DEFINER workaround for a live RLS drift (0024, 0026). Broadcast sidesteps
+// that class of problem entirely. It never touches a table, so there is no
+// RLS to drift.
+
+export type RoundStartPayload = { roundId: string; placeId: string };
+export type RoundAnswerPayload = {
+  roundId: string;
+  profileId: string;
+  name: string;
+  x: number;
+  y: number;
+  closeness: number;
+};
+export type RoundRevealPayload = { roundId: string };
+export type RoundEndPayload = { roundId: string };
+
+type RoundPayloads = {
+  round_start: RoundStartPayload;
+  round_answer: RoundAnswerPayload;
+  round_reveal: RoundRevealPayload;
+  round_end: RoundEndPayload;
+};
+type RoundEventName = keyof RoundPayloads;
+type RoundHandlers = Partial<{ [K in RoundEventName]: (payload: RoundPayloads[K]) => void }>;
+
+/**
+ * One channel, shared by whoever opens it, for both sending and receiving.
+ * The facilitator opens one for the whole live-round session and calls
+ * `.send()` as the round progresses; a kid's device opens one only while the
+ * live-round overlay is showing.
+ */
+export function openRoundChannel(code: string, handlers: RoundHandlers) {
+  const sb = getSupabaseBrowser();
+  if (!sb) return { send: () => {}, close: () => {} };
+
+  const channel = sb.channel(`s2s:round:${code.toUpperCase()}`, {
+    config: { broadcast: { self: false } },
+  });
+
+  (Object.keys(handlers) as RoundEventName[]).forEach((event) => {
+    const handler = handlers[event];
+    if (!handler) return;
+    channel.on("broadcast", { event }, ({ payload }: { payload: unknown }) =>
+      handler(payload as never),
+    );
+  });
+
+  channel.subscribe();
+
+  return {
+    send<K extends RoundEventName>(event: K, payload: RoundPayloads[K]) {
+      channel.send({ type: "broadcast", event, payload });
+    },
+    close() {
+      sb.removeChannel(channel);
+    },
+  };
+}
+
+// --- Live multi-table race (say-and-shift projector view) ------------------
+//
+// Same broadcast-only shape as the round channel above, one event instead of
+// four: a player's device sends its current wall/lives whenever they change,
+// the facilitator's race screen renders one runner per table from whatever
+// it has seen. Nothing persisted — a projector-only view, not a leaderboard
+// of record.
+
+export type RaceProgressPayload = {
+  profileId: string;
+  name: string;
+  table: string;
+  wallIndex: number;
+  totalWalls: number;
+  lives: number;
+  finished: boolean;
+};
+
+export function openRaceChannel(
+  code: string,
+  handlers: { progress?: (payload: RaceProgressPayload) => void } = {},
+) {
+  const sb = getSupabaseBrowser();
+  if (!sb) return { send: () => {}, close: () => {} };
+
+  const channel = sb.channel(`s2s:race:${code.toUpperCase()}`, {
+    config: { broadcast: { self: false } },
+  });
+
+  if (handlers.progress) {
+    const onProgress = handlers.progress;
+    channel.on("broadcast", { event: "progress" }, ({ payload }: { payload: unknown }) =>
+      onProgress(payload as RaceProgressPayload),
+    );
+  }
+
+  channel.subscribe();
+
+  return {
+    send(payload: RaceProgressPayload) {
+      channel.send({ type: "broadcast", event: "progress", payload });
+    },
+    close() {
+      sb.removeChannel(channel);
+    },
   };
 }

@@ -77,6 +77,24 @@ export function GameGlyph({
         <circle cx="72" cy="44" r="6.5" {...fill} />
       </g>
     ),
+    "steppe-sprint": (
+      <g>
+        <path d="M18 76 L38 26 H62 L82 76" {...stroke} />
+        <path d="M50 26 V82" strokeDasharray="5 9" {...stroke} />
+        <circle cx="50" cy="20" r="8" {...fill} />
+        <path d="M40 52 H60" {...stroke} />
+      </g>
+    ),
+    "say-and-shift": (
+      <g>
+        <rect x="38" y="14" width="24" height="38" rx="12" {...stroke} />
+        <path d="M26 44 Q26 68 50 68 Q74 68 74 44" {...stroke} />
+        <path d="M50 68 V82" {...stroke} />
+        <path d="M34 82 H66" {...stroke} />
+        <path d="M84 34 Q92 42 84 50" {...stroke} />
+        <path d="M92 26 Q106 42 92 58" {...stroke} />
+      </g>
+    ),
     "jaryq-hunter": (
       <g>
         <rect x="42" y="64" width="18" height="20" rx="4" {...stroke} />

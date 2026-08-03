@@ -18,7 +18,7 @@ export default function PrintQR() {
 
       <div className="no-print sticky top-0 flex items-center justify-between bg-steppe px-6 py-4 text-warm">
         <div>
-          <div className="font-black">Snow Leopard Patrol — printable clues</div>
+          <div className="font-black">Snow Leopard Patrol, printable clues</div>
           <div className="text-sm text-warm/70">Session {code} · print, cut, and hide these around the room.</div>
         </div>
         <Button variant="gold" onClick={() => window.print()}><Printer size={18} /> Print</Button>

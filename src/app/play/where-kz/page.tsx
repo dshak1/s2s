@@ -5,58 +5,36 @@ import { MapPin } from "lucide-react";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
-import { REGIONS } from "@/content/regions";
 import { playCorrect, playWrong, playWin } from "@/lib/audio";
 import { shuffle } from "@/lib/utils";
 import { store } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { placeItemId } from "@/lib/items";
-
-type Place = {
-  id: string;
-  name: string;
-  kk: string;
-  x: number;
-  y: number;
-  fact: string;
-  hue: string;
-  sky: [string, string];
-};
-
-const PLACES: Place[] = [
-  ...REGIONS.map((region) => ({
-    ...region,
-    hue: region.id === "charyn" ? "#c8102e" : region.id === "mangystau" ? "#cdb98e" : "#3f7d4f",
-    sky: ["#dcecf6", "#f6efd8"] as [string, string],
-  })),
-  {
-    id: "burabay",
-    name: "Burabay",
-    kk: "Бурабай",
-    x: 555,
-    y: 205,
-    hue: "#3f7d4f",
-    sky: ["#bfe0f2", "#eaf6e0"],
-    fact: "Burabay is known for pine forests, blue lakes, and the Okzhetpes rock.",
-  },
-  {
-    id: "aktau",
-    name: "Aktau",
-    kk: "Ақтау",
-    x: 115,
-    y: 430,
-    hue: "#d6c39b",
-    sky: ["#dbeef6", "#f7efd8"],
-    fact: "Aktau sits by the Caspian Sea. Its name means white mountain.",
-  },
-];
-
-const KZ_OUTLINE =
-  "M60 300 Q120 200 250 215 Q360 150 470 185 Q600 130 720 175 Q880 150 940 250 Q975 330 880 380 Q800 470 640 440 Q500 510 360 460 Q210 500 120 420 Q40 360 60 300 Z";
+import { ReportQuestion } from "@/components/report-question";
+import { PLACES, PHOTOS, placeCloseness, type Place } from "@/content/places";
 
 const TOTAL = 5;
 
 function PlacePhoto({ place }: { place: Place }) {
+  const photo = PHOTOS[place.id];
+  if (photo) {
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={photo.src}
+          alt="Somewhere in Kazakhstan"
+          className="h-full w-full object-cover"
+          draggable={false}
+        />
+        {photo.credit && (
+          <span className="absolute bottom-1 right-2 z-10 text-[9px] font-semibold text-white/70 drop-shadow">
+            {photo.credit}
+          </span>
+        )}
+      </>
+    );
+  }
   return (
     <svg viewBox="0 0 600 440" className="h-full w-full" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <defs>
@@ -102,7 +80,7 @@ export default function WhereKz() {
   function guess() {
     if (!pin || phase !== "guess") return;
     const distance = Math.hypot(pin.x - place.x, pin.y - place.y);
-    const close = Math.max(0, Math.round(100 - distance / 4.5));
+    const close = placeCloseness(pin, place);
     logAnswer({
       gameSlug: "where-kz",
       itemId: placeItemId(place),
@@ -178,9 +156,11 @@ export default function WhereKz() {
             </div>
             <div className="relative min-h-[360px] flex-1 overflow-hidden rounded-2xl shadow-xl shadow-steppe/15">
               <PlacePhoto place={place} />
-              <div className="absolute left-3 top-3 rounded-lg bg-black/55 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-warm">
-                Photo placeholder · add real photos later
-              </div>
+              {!PHOTOS[place.id] && (
+                <div className="absolute left-3 top-3 rounded-lg bg-black/55 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-warm">
+                  No photo yet
+                </div>
+              )}
               {phase === "revealed" && (
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-steppe-700 to-transparent p-5 pt-20 text-warm">
                   <div className="text-3xl font-black">
@@ -199,11 +179,14 @@ export default function WhereKz() {
             <svg
               ref={svgRef}
               viewBox="0 0 1000 600"
-              className="h-[420px] w-full touch-none rounded-xl bg-[#eef4fa]"
+              className="h-[420px] w-full touch-none rounded-xl bg-[#f2f0e6]"
               onPointerDown={dropPin}
               aria-label="Map of Kazakhstan"
             >
-              <path d={KZ_OUTLINE} fill="#e8ddc1" stroke="#1e4d8c" strokeWidth="5" strokeLinejoin="round" />
+              {/* Real map, drawn to a known projection: left edge 46E, right 88E,
+                  top 55.5N, bottom 40.5N. Every pin coordinate in regions.ts is
+                  computed from that box, so a place sits where it actually is. */}
+              <image href="/img/where-in-kz.png" x="0" y="0" width="1000" height="600" preserveAspectRatio="none" />
               {PLACES.map((item) => (
                 <circle key={item.id} cx={item.x} cy={item.y} r="6" fill="rgba(30,77,140,.18)" />
               ))}
@@ -234,6 +217,11 @@ export default function WhereKz() {
                 <Button onClick={next}>{index + 1 >= TOTAL ? "Results" : "Next place"}</Button>
               )}
             </div>
+            {phase === "revealed" && (
+              <div className="mt-2">
+                <ReportQuestion itemId={placeItemId(place)} gameSlug="where-kz" />
+              </div>
+            )}
           </section>
         </div>
       )}

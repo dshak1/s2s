@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { VOCAB, type VocabItem } from "@/content/vocab";
 import { sample, shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord, playWin } from "@/lib/audio";
-import { store } from "@/lib/store";
+import { store, useProfile } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { vocabItemId } from "@/lib/items";
+import { baseText } from "@/lib/lang";
 
 type Tile = { key: string; item: VocabItem; face: "en" | "kk" };
 
@@ -25,6 +26,7 @@ function buildBoard(pairs: number, randomize = true): Tile[] {
 }
 
 export default function MemoryMatch() {
+  const { baseLanguage } = useProfile();
   const [pairs, setPairs] = useState(6);
   const [board, setBoard] = useState(() => buildBoard(6, false));
   const [flipped, setFlipped] = useState<string[]>([]);
@@ -138,7 +140,7 @@ export default function MemoryMatch() {
                   }`}
                 >
                   {tile.face === "en" ? (
-                    <span className="text-center text-base font-black text-steppe">{tile.item.en}</span>
+                    <span className="text-center text-base font-black text-steppe">{baseText(tile.item, baseLanguage)}</span>
                   ) : (
                     <span className="text-center text-lg font-black text-steppe">{tile.item.kk}</span>
                   )}

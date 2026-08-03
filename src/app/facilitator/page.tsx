@@ -21,7 +21,7 @@ export default function FacilitatorHome() {
       if (k?.startsWith("s2s_session_")) {
         try {
           const s = JSON.parse(localStorage.getItem(k)!);
-          if (s.createdAt > week) list.push({ code: s.code, createdAt: s.createdAt, count: s.members?.length ?? 0 });
+          if (s.createdAt > week && !s.endedAt) list.push({ code: s.code, createdAt: s.createdAt, count: s.members?.length ?? 0 });
         } catch {
           /* ignore */
         }
@@ -39,7 +39,7 @@ export default function FacilitatorHome() {
   return (
     <div className="min-h-dvh bg-warm font-admin">
       <header className="bg-steppe px-6 py-4 text-warm">
-        <Link href="/" className="text-xl font-black">Steppe to Screen — Facilitator</Link>
+        <Link href="/" className="text-xl font-black">Steppe to Screen Facilitator</Link>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-8">
         <h1 className="text-2xl font-black text-steppe">Run a workshop</h1>

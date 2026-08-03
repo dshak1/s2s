@@ -141,7 +141,7 @@ export async function flush(): Promise<void> {
   if (queue.length === 0) return;
 
   const sb = getSupabaseBrowser();
-  if (!sb) return; // offline demo mode — keep the queue, it costs nothing
+  if (!sb) return; // offline demo mode, keep the queue, it costs nothing
 
   flushing = true;
   const batch = queue.slice(0, MAX_BATCH);

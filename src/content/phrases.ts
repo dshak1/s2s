@@ -1,17 +1,17 @@
 // Curated Kazakh phrases for the Story Maker comic builder.
-export type Phrase = { kk: string; en: string };
+export type Phrase = { kk: string; en: string; ru: string };
 
 export const PHRASES: Phrase[] = [
-  { kk: "Сәлем!", en: "Hi!" },
-  { kk: "Қалайсың?", en: "How are you?" },
-  { kk: "Жақсы!", en: "I'm good!" },
-  { kk: "Менің атым ...", en: "My name is ..." },
-  { kk: "Бұл — ...", en: "This is ..." },
-  { kk: "Мен ...мын", en: "I am ..." },
-  { kk: "Рахмет!", en: "Thank you!" },
-  { kk: "Сау бол!", en: "Goodbye!" },
-  { kk: "Керемет!", en: "Awesome!" },
-  { kk: "Көрейік!", en: "Let's see!" },
+  { kk: "Сәлем!", en: "Hi!", ru: "Привет!" },
+  { kk: "Қалайсың?", en: "How are you?", ru: "Как дела?" },
+  { kk: "Жақсы!", en: "I'm good!", ru: "Хорошо!" },
+  { kk: "Менің атым ...", en: "My name is ...", ru: "Меня зовут ..." },
+  { kk: "Бұл — ...", en: "This is ...", ru: "Это ..." },
+  { kk: "Мен ...мын", en: "I am ...", ru: "Я ..." },
+  { kk: "Рахмет!", en: "Thank you!", ru: "Спасибо!" },
+  { kk: "Сау бол!", en: "Goodbye!", ru: "Пока!" },
+  { kk: "Керемет!", en: "Awesome!", ru: "Здорово!" },
+  { kk: "Көрейік!", en: "Let's see!", ru: "Давай посмотрим!" },
 ];
 
 // Snow Leopard Patrol — nature-vocab clue questions (8 stops).

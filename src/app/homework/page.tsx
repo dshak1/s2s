@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpenCheck, Camera, Loader2, X } from "lucide-react";
+import { BookOpenCheck, Camera, Loader2, Trash2, X } from "lucide-react";
 import { TopNav } from "@/components/top-nav";
 import { MountainBackdrop } from "@/components/game/mountain-backdrop";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ export default function HomeworkPage() {
       date: date || undefined,
       note: note.trim() || undefined,
     });
-    toastBus.show({ title: "Homework turned in! +20 XP", body: title.trim() || "Nice work — it's saved to your gallery.", icon: "📚" });
+    toastBus.show({ title: "Homework turned in! +20 XP", body: title.trim() || "Nice work, it's saved to your gallery.", icon: "📚" });
     setPreview(null);
     setTitle("");
     setNote("");
@@ -73,7 +73,7 @@ export default function HomeworkPage() {
         <div className="mb-6">
           <h1 className="text-3xl font-black text-steppe">Turn in homework</h1>
           <p className="mt-1 text-sm font-semibold text-steppe/[.68]">
-            Snap a photo of your work. Labels are optional — a title, the date, or what it is.
+            Snap a photo of your work. Labels are optional, a title, the date, or what it is.
           </p>
         </div>
 
@@ -117,7 +117,7 @@ export default function HomeworkPage() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Title (optional) — e.g. My animal words"
+              placeholder="Title (optional), e.g. My animal words"
               className="w-full rounded-xl border-2 border-felt bg-warm px-3 py-2 font-black text-steppe outline-none focus:border-steppe"
             />
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -147,7 +147,7 @@ export default function HomeworkPage() {
         <h2 className="mb-3 mt-8 text-lg font-black text-steppe">My homework ({submissions.length})</h2>
         {submissions.length === 0 ? (
           <Card>
-            <p className="text-sm text-wolf">Nothing turned in yet — your submissions will show up here.</p>
+            <p className="text-sm text-wolf">Nothing turned in yet, your submissions will show up here.</p>
           </Card>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -156,8 +156,20 @@ export default function HomeworkPage() {
                 key={a.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="overflow-hidden rounded-2xl bg-white shadow ring-1 ring-black/5"
+                className="relative overflow-hidden rounded-2xl bg-white shadow ring-1 ring-black/5"
               >
+                <button
+                  type="button"
+                  title="Delete"
+                  aria-label={`Delete ${a.meta?.title || "this homework"}`}
+                  onClick={() => {
+                    store.deleteArtifact(a.id);
+                    toastBus.show({ title: "Deleted", body: "That submission is gone.", icon: "🗑️" });
+                  }}
+                  className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/55 text-white shadow-sm transition hover:bg-black/75"
+                >
+                  <Trash2 size={15} />
+                </button>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={a.dataUrl} alt={a.meta?.title ?? "Homework"} className="aspect-video w-full bg-felt object-cover" />
                 <div className="p-3">

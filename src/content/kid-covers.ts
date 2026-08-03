@@ -24,7 +24,7 @@ export const KID_COVERS: KidCover[] = [
     id: "batyr-horse",
     artist: "User 1",
     image: "/kid-covers/cover-2.jpg",
-    alt: "A batyr hero, a horse, and beshbarmak — Let's learn Kazakh together",
+    alt: "A batyr hero, a horse, and beshbarmak. Let's learn Kazakh together",
     hotspot: null,
   },
   {

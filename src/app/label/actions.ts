@@ -38,7 +38,7 @@ export async function saveLabel(
   if (verdict === "bad" && reason.length < 3) {
     return {
       ok: false,
-      error: "Say what's wrong with it — a rejection without a reason can't be acted on.",
+      error: "Say what's wrong with it, a rejection without a reason can't be acted on.",
     };
   }
 

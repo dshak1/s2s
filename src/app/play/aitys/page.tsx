@@ -89,7 +89,7 @@ export default function Aitys() {
         <div className="mx-auto max-w-xl rounded-3xl bg-felt p-6 text-steppe-700">
           <h2 className="text-xl font-black text-steppe">What is aitys?</h2>
           <p className="mt-2">
-            Aitys (айтыс) is a Kazakh tradition of improvised, rhyming poetry — two
+            Aitys (айтыс) is a Kazakh tradition of improvised, rhyming poetry. Two
             poets answer each other in song, line for line. Here you finish the
             couplet by choosing the word that fits <em>and</em> rhymes.
           </p>

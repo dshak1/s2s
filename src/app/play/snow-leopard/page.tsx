@@ -25,7 +25,7 @@ export default function SnowLeopardLanding() {
 
       <div className="rounded-3xl bg-felt p-4">
         <div className="mb-2 flex items-center gap-2 text-sm font-bold text-steppe-700">
-          <QrCode size={16} /> Clue stops (in the room these are QR codes — tap to simulate a scan)
+          <QrCode size={16} /> Clue stops (in the room these are QR codes, tap to simulate a scan)
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {CLUES.map((c, i) => (
