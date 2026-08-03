@@ -123,3 +123,39 @@ locally, but it is not a ticket system and does not replace either.
 
 Recommendation: drop Linear, keep the code dormant, revisit only if a second
 developer joins.
+
+---
+
+## 2026-08-03 — Say & Shift, built and playtested live
+
+New game, plus a real playtest-and-fix loop on it, plus deploy hardening.
+Everything below shipped to `feat/pro-infra` and was deployed to
+`s2s-ten.vercel.app` the same session; see commit history for exact diffs.
+
+| Area | Status | What actually happened |
+|---|---|---|
+| Say & Shift (new game) | Done | Mic-gated "hole in the wall" runner — say the Kazakh word out loud, no button. Continuous overlapping-window listening (a fixed chunk boundary was clipping words), word-spotting match against the target only (never distractors, so overheard chatter can't cost a life), tap fallback after a timeout/offline/denied mic. |
+| Band puppet character system | Done | Kid's drawing/photo sliced into head/torso/legs bands, animated procedurally. Shared between Say & Shift and the avatar/game-builder flows. |
+| 2.5D day/night runner visuals | Done | Six sky palettes across the run, parallax hills/ground, hand-drawn sun-with-rays/crescent-moon SVG (was a flat CSS gradient circle — called out as generic, replaced), horse silhouette SVG (was an emoji, also called out), drifting clouds. Explicit Auto/Day/Night control added, plus the stage now respects a custom background photo instead of painting over it. |
+| Mic accuracy | Partly | Two rounds of real-kid playtesting pulled the confidence threshold in opposite directions (0.62/0.15 too strict → 0.48/0.08 accepted almost anything → settled at 0.58/0.14). **Never validated against a real recording batch** — the original plan's Step 0 spike didn't run, no mic access to do it outside a live session. Revisit with real data before trusting the numbers. |
+| Live multi-table race | Done, gated off | Facilitator projector view, one lane per table, broadcasts each table's live wall progress. Built on the existing round-broadcast pattern, no new infra. Gated behind `NEXT_PUBLIC_ONLINE_FEATURES` (unset in prod) — untested with real multiple devices in a room. |
+| Facilitator session lifecycle | Done | "End session" was fake (navigated away, session stayed "live" forever) — now actually ends it. Persistent "return to live session" banner so navigating away doesn't lose it. |
+| Deploy gating | Done | `/facilitator`, `/join`, live race, and the `/play/create` game builder all show "Coming soon" in the public deploy — none were ready for public traffic. Steppe Sprint hidden from the hub (code intact); Say & Shift is the new featured game. |
+| Vocab expansion | Partly, flagged | +20 words across 3 new categories (weather/school/nature), marked `aiDrafted: true` in `src/content/vocab.ts` — **not checked by a native speaker.** SVG placeholders generated; TTS audio not generated (ElevenLabs plan returned 402 on the library voice via API — needs a plan upgrade, or a different voice). |
+| No-gradient visual pass | Done | Every gradient CTA pill (Button component, feedback button, home hero, top-nav wordmark) replaced with solid color + hard offset shadow + `rounded-2xl` — called out repeatedly as generic "AI slop." |
+| Profile controls | Done | Reset-profile (wipes local progress, confirm-gated), per-artifact delete (gallery + homework), clearer artifact labels. |
+| Drawing tools | Done | Real eraser (erases only the stroke, `destination-out` on transparent canvases) — the existing "Eraser" button was actually a mislabeled clear-all. Drag-and-drop + clipboard-paste image input added alongside the file picker, in the avatar studio and Say & Shift's character step. |
+| Local shadcn/Base UI experiment | Recovered | A Cursor-side `shadcn init` (Base UI style) silently overwrote `utils.ts` (lost `shuffle`/`sample`/`makeSessionCode`), `Button.tsx` (different variant names than the ~50 call sites using `gold`/`primary`/`danger`), and `globals.css` (`@import "shadcn/tailwind.css"` — not a real path). Broke the production build. Restored; `components.json`'s custom registries kept since those are additive, not destructive. |
+| Duolingo-style leveling/roadmap, "tons more vocab" | Open | Requested, scoped, not built this session — see the plan below. The existing `JOURNEY`/`REGIONS` weekly-unlock system is already a path-style progression, just not presented as one. |
+
+**Known gaps, next session:**
+- Mic thresholds are still a guess, not data — the real fix is logging enough
+  real attempts (already flowing into `learning_events` via `logAnswer`) and
+  tuning `CONFIDENCE_THRESHOLD`/`MARGIN_THRESHOLD` in `src/lib/speech-match.ts`
+  against them.
+- Live race has zero real-device testing — needs two actual tables playing
+  at once against one facilitator screen.
+- The 20 AI-drafted vocab words need a native-speaker pass before a real
+  workshop uses the weather/school/nature categories.
+- Per-game difficulty tiers, a visible skill-tree hub, and a real vocab
+  expansion beyond the 20-word draft are scoped but not started.
