@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpenCheck, Camera, Loader2, X } from "lucide-react";
+import { BookOpenCheck, Camera, Loader2, Trash2, X } from "lucide-react";
 import { TopNav } from "@/components/top-nav";
 import { MountainBackdrop } from "@/components/game/mountain-backdrop";
 import { Button } from "@/components/ui/button";
@@ -156,8 +156,20 @@ export default function HomeworkPage() {
                 key={a.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="overflow-hidden rounded-2xl bg-white shadow ring-1 ring-black/5"
+                className="relative overflow-hidden rounded-2xl bg-white shadow ring-1 ring-black/5"
               >
+                <button
+                  type="button"
+                  title="Delete"
+                  aria-label={`Delete ${a.meta?.title || "this homework"}`}
+                  onClick={() => {
+                    store.deleteArtifact(a.id);
+                    toastBus.show({ title: "Deleted", body: "That submission is gone.", icon: "🗑️" });
+                  }}
+                  className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/55 text-white shadow-sm transition hover:bg-black/75"
+                >
+                  <Trash2 size={15} />
+                </button>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={a.dataUrl} alt={a.meta?.title ?? "Homework"} className="aspect-video w-full bg-felt object-cover" />
                 <div className="p-3">

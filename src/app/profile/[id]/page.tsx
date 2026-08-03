@@ -15,12 +15,23 @@ import { VISIBLE_GAMES } from "@/content/games";
 import { KID_COVERS } from "@/content/kid-covers";
 import { store, useProfile, masteredLetterCount, isVocabMastered } from "@/lib/store";
 import { toastBus } from "@/lib/toast";
-import { BookOpenCheck, Gamepad2, Snowflake, Volume2 } from "lucide-react";
+import { BookOpenCheck, Gamepad2, RotateCcw, Snowflake, Trash2, TriangleAlert, Volume2 } from "lucide-react";
+import type { Artifact } from "@/lib/store";
+
+const ARTIFACT_LABELS: Record<Artifact["kind"], string> = {
+  tanba: "🎨 Avatar",
+  canva: "🎨 Drawing",
+  story: "📖 Story",
+  background: "🏞️ Background",
+  homework: "📚 Homework",
+  runner: "🏃 Runner",
+};
 
 export default function ProfilePage() {
   const params = useParams<{ id: string }>();
   const p = useProfile();
   const [adopting, setAdopting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const masteredVocab = VOCAB.filter((v) => isVocabMastered(p, v.slug)).length;
   const letters = masteredLetterCount(p);
   const earned = new Set(p.badges);
@@ -228,11 +239,23 @@ export default function ProfilePage() {
           ) : (
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
               {p.artifacts.map((a) => (
-                <motion.div key={a.id} whileHover={{ scale: 1.05 }} className="overflow-hidden rounded-2xl border-2 border-steppe/20 bg-white">
+                <motion.div key={a.id} whileHover={{ scale: 1.05 }} className="relative overflow-hidden rounded-2xl border-2 border-steppe/20 bg-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={a.dataUrl} alt={a.kind} className="aspect-square w-full object-cover" />
-                  <div className="bg-felt py-0.5 text-center text-[10px] font-bold text-steppe-700">
-                    {a.kind === "homework" ? `📚 ${a.meta?.title || "homework"}` : a.kind}
+                  <button
+                    type="button"
+                    title="Delete"
+                    aria-label={`Delete this ${a.kind}`}
+                    onClick={() => {
+                      store.deleteArtifact(a.id);
+                      toastBus.show({ title: "Deleted", body: "It's gone from your gallery.", icon: "🗑️" });
+                    }}
+                    className="absolute right-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-black/55 text-white shadow-sm transition hover:bg-black/75"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <div className="truncate bg-felt py-0.5 text-center text-[10px] font-bold text-steppe-700">
+                    {a.kind === "homework" ? `📚 ${a.meta?.title || "homework"}` : ARTIFACT_LABELS[a.kind]}
                   </div>
                 </motion.div>
               ))}
@@ -241,6 +264,31 @@ export default function ProfilePage() {
         </Card>
 
         <PlayerAccountPanel />
+
+        <Card className="border-2 border-terra/20">
+          <h2 className="mb-1 flex items-center gap-2 text-lg font-black text-steppe"><TriangleAlert size={18} className="text-terra" /> Reset profile</h2>
+          <p className="mb-3 text-sm text-wolf">Starts you over from zero on this device — points, badges, drawings, everything. Can&apos;t be undone.</p>
+          {!confirmReset ? (
+            <Button variant="outline" size="sm" onClick={() => setConfirmReset(true)}>
+              <RotateCcw size={15} /> Reset my profile
+            </Button>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-black text-terra">Delete everything and start over?</p>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  store.reset();
+                  toastBus.show({ title: "Profile reset", body: "Fresh start!", icon: "🔄" });
+                }}
+              >
+                Yes, reset
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmReset(false)}>Cancel</Button>
+            </div>
+          )}
+        </Card>
 
         <div className="pb-6" />
       </main>

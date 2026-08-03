@@ -90,7 +90,7 @@ function FullHub() {
       if (custom) return { title: custom.title, href: `/play/create/${custom.id}`, kk: "Менің ойыным" };
     }
     const known = VISIBLE_GAMES.find((game) => game.slug === latest?.game);
-    return known ?? VISIBLE_GAMES.find((game) => game.slug === "steppe-sprint") ?? VISIBLE_GAMES[0];
+    return known ?? VISIBLE_GAMES.find((game) => game.slug === "say-and-shift") ?? VISIBLE_GAMES[0];
   }, [profile.customGames, profile.gameRuns]);
 
   function unlock(event: React.FormEvent<HTMLFormElement>) {
@@ -137,14 +137,14 @@ function FullHub() {
             </div>
 
             <SpotlightCard className="border border-white/25 bg-[#102f4b]/75 p-5 shadow-2xl backdrop-blur-md">
-              <p className="text-xs font-black uppercase tracking-wider text-[#ffd84f]">Next mission</p>
+              <p className="text-xs font-black uppercase tracking-wider text-[#ffd84f]">Featured game</p>
               <div className="mt-3 flex items-center gap-3">
                 <div className="grid h-14 w-14 place-items-center rounded-lg bg-white/12 text-[#ffd84f]">
-                  <GameGlyph slug="steppe-sprint" size={44} />
+                  <GameGlyph slug="say-and-shift" size={44} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black">Run to the next fork</h2>
-                  <p className="text-sm font-bold text-white/65">4 vocabulary gates, one finish line</p>
+                  <h2 className="text-xl font-black">Say it, slip through the wall</h2>
+                  <p className="text-sm font-bold text-white/65">Say the Kazakh word out loud — the mic is always listening</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2">

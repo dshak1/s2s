@@ -78,7 +78,7 @@ export default async function LoginPage({
         {denied && (
           <div className="mb-4 rounded-xl bg-terra/10 p-4 text-sm font-bold text-terra">
             Your account is signed in as {ROLE_LABELS[denied as TeamRole] ?? denied}, which
-            doesn&apos;t have access to that page. Ask an admin to change your role.
+            doesn&apos;t have access to that page. Contact a team admin to update your role.
           </div>
         )}
         {error && (

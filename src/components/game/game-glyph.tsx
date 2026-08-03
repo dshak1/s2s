@@ -85,6 +85,16 @@ export function GameGlyph({
         <path d="M40 52 H60" {...stroke} />
       </g>
     ),
+    "say-and-shift": (
+      <g>
+        <rect x="38" y="14" width="24" height="38" rx="12" {...stroke} />
+        <path d="M26 44 Q26 68 50 68 Q74 68 74 44" {...stroke} />
+        <path d="M50 68 V82" {...stroke} />
+        <path d="M34 82 H66" {...stroke} />
+        <path d="M84 34 Q92 42 84 50" {...stroke} />
+        <path d="M92 26 Q106 42 92 58" {...stroke} />
+      </g>
+    ),
     "jaryq-hunter": (
       <g>
         <rect x="42" y="64" width="18" height="20" rx="4" {...stroke} />

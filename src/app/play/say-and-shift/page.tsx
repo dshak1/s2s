@@ -60,6 +60,46 @@ const SKY_PALETTES: SkyStop[] = [
   { top: "#16213b", mid: "#263a5e", bottom: "#3c4f74", sun: "#f4f1de", sunY: 78, night: true },
 ];
 
+// Sun-with-rays by day, crescent moon by night — same hand-drawn language as
+// MountainBackdrop's scene-sun, not a plain CSS circle with a glow filter.
+function SkySun({ color, night }: { color: string; night: boolean }) {
+  if (night) {
+    return (
+      <svg viewBox="0 0 100 100" className="h-full w-full" aria-hidden="true">
+        <path d="M64 8a42 42 0 1 0 0 84 33 33 0 1 1 0-84Z" fill={color} />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 120 120" className="h-full w-full" aria-hidden="true">
+      <g stroke={color} strokeLinecap="round" strokeWidth="7">
+        <path d="M60 6v14" />
+        <path d="M60 100v14" />
+        <path d="M6 60h14" />
+        <path d="M100 60h14" />
+        <path d="M21 21l10 10" />
+        <path d="M89 89l10 10" />
+        <path d="M99 21l-10 10" />
+        <path d="M31 89l-10 10" />
+      </g>
+      <circle cx="60" cy="60" r="30" fill={color} />
+    </svg>
+  );
+}
+
+// A running horse silhouette, not an emoji — one filled path, side profile.
+function HorseSilhouette({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 60" className={className} aria-hidden="true">
+      <path
+        d="M8 46c-3-9 3-16 12-17l3-10c2-6 8-11 15-11 3 0 5 2 5 5l-1 6 9-3c7-2 14 1 17 7l4 8c4 1 7 4 7 8 0 4-3 7-7 7h-3l-2 9h-7l1-8-11 1-3 9h-7l2-9c-6-1-11-4-14-8l-9 2-1 8H9l2-9c-2-1-3-3-3-5Z"
+        fill="currentColor"
+      />
+      <circle cx="70" cy="20" r="2.2" fill="var(--horse-eye, #16213b)" />
+    </svg>
+  );
+}
+
 // How long the runner spends crossing open ground toward each wall — this is
 // the "Subway Surfer" stretch: scrolling scenery, an occasional horse, and
 // the bonus word's letters revealing one at a time.
@@ -233,6 +273,7 @@ export default function SayAndShiftPage() {
   const [drawMode, setDrawMode] = useState<"draw" | "upload">("draw");
   const [pendingRunner, setPendingRunner] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const recordedRef = useRef(false);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -249,7 +290,10 @@ export default function SayAndShiftPage() {
   const savedRunner = profile.artifacts.find((a) => a.id === profile.runnerArtifactId)?.dataUrl ?? null;
   const runnerImage = pendingRunner ?? savedRunner;
   const showTapFallback = !online || micPermission === "denied" || wallTimedOut || manualFallback;
-  const listenActive = phase === "wall" && outcome === null && !showTapFallback && micPermission === "granted";
+  // Keeps listening even once the tap-fallback grid is showing (after a
+  // timeout, or the kid tapped "Tap instead" themselves) — saying the word
+  // out loud should still resolve it, not require abandoning the mic entirely.
+  const listenActive = phase === "wall" && outcome === null && online && micPermission === "granted";
 
   useEffect(() => {
     function goOnline() { setOnline(true); }
@@ -435,12 +479,26 @@ export default function SayAndShiftPage() {
         {sky.night && (
           <div className="pointer-events-none absolute inset-0 opacity-70" style={{ backgroundImage: "radial-gradient(1.5px 1.5px at 15% 20%, white, transparent), radial-gradient(1.5px 1.5px at 35% 12%, white, transparent), radial-gradient(1px 1px at 55% 25%, white, transparent), radial-gradient(1.5px 1.5px at 75% 15%, white, transparent), radial-gradient(1px 1px at 90% 30%, white, transparent), radial-gradient(1px 1px at 25% 8%, white, transparent), radial-gradient(1.5px 1.5px at 65% 6%, white, transparent)" }} />
         )}
+
+        {!sky.night && (
+          <div
+            className="mountain-clouds pointer-events-none opacity-80"
+            style={{ "--scene-cloud": "rgba(255,255,255,.92)", "--mountain-speed": "26s" } as React.CSSProperties}
+          >
+            <span />
+            <span />
+            <span />
+          </div>
+        )}
+
         <motion.div
-          className="pointer-events-none absolute z-0 h-14 w-14 rounded-full opacity-90"
-          animate={{ left: "82%", top: `${sky.sunY}%`, backgroundColor: sky.sun, boxShadow: `0 0 40px ${sky.sun}` }}
+          className="pointer-events-none absolute z-0 h-16 w-16"
+          animate={{ left: "82%", top: `${sky.sunY}%` }}
           transition={{ duration: 1.4, ease: "easeInOut" }}
-          style={{ marginLeft: -28, marginTop: -28 }}
-        />
+          style={{ marginLeft: -32, marginTop: -32, filter: `drop-shadow(0 0 18px ${sky.sun}99)` }}
+        >
+          <SkySun color={sky.sun} night={Boolean(sky.night)} />
+        </motion.div>
 
         <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 p-3">
           <div className="rounded-lg bg-white/92 px-3 py-2 text-xs font-black text-steppe shadow-sm backdrop-blur">
@@ -489,13 +547,12 @@ export default function SayAndShiftPage() {
 
           {phase === "run" && wallIndex % 2 === 0 && (
             <motion.div
-              className="absolute bottom-16 z-10 text-3xl opacity-40"
-              initial={{ left: "-10%" }}
-              animate={{ left: "115%" }}
+              className="absolute bottom-16 z-10 w-16 text-steppe-700 opacity-35 sm:w-20"
+              initial={{ left: "-15%" }}
+              animate={{ left: "120%" }}
               transition={{ duration: RUN_MS / 1000, ease: "linear" }}
-              aria-hidden="true"
             >
-              🐎
+              <HorseSilhouette className="w-full" />
             </motion.div>
           )}
 
@@ -606,7 +663,20 @@ export default function SayAndShiftPage() {
                         {drawMode === "draw" ? (
                           <DrawingBoard canvasRef={canvasRef} onChange={setPendingRunner} transparent aspect="portrait" />
                         ) : (
-                          <div>
+                          <div
+                            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                            onDragLeave={() => setDragOver(false)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              setDragOver(false);
+                              onUpload(e.dataTransfer.files?.[0]);
+                            }}
+                            onPaste={(e) => {
+                              const item = [...e.clipboardData.items].find((i) => i.type.startsWith("image/"));
+                              if (item) onUpload(item.getAsFile() ?? undefined);
+                            }}
+                            tabIndex={0}
+                          >
                             <input
                               ref={fileRef}
                               type="file"
@@ -617,9 +687,11 @@ export default function SayAndShiftPage() {
                             <button
                               type="button"
                               onClick={() => fileRef.current?.click()}
-                              className="grid aspect-[3/4] w-full max-w-40 place-items-center rounded-lg border-2 border-dashed border-steppe/25 bg-[#f4f8fb] text-steppe"
+                              className={`grid aspect-[3/4] w-full max-w-40 place-items-center rounded-lg border-2 border-dashed text-steppe transition ${
+                                dragOver ? "border-gold bg-gold/10" : "border-steppe/25 bg-[#f4f8fb]"
+                              }`}
                             >
-                              <span className="text-center text-xs font-black"><Upload size={22} className="mx-auto mb-1" />Choose a photo</span>
+                              <span className="text-center text-xs font-black"><Upload size={22} className="mx-auto mb-1" />Drop, paste, or choose</span>
                             </button>
                             {uploadError && <p role="alert" className="mt-2 text-xs font-bold text-[#b44736]">{uploadError}</p>}
                           </div>

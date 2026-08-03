@@ -50,12 +50,15 @@ const FOLD: Record<string, string> = {
   "j": "zh",
 };
 
-// Loosened from 0.62/0.15 after real playtesting: kids had to repeat a
-// correct word several times before it landed. Untuned against real
-// recordings either way (the spike this needed never ran — no mic access to
-// do it), so this is a judgment call in the forgiving direction, not data.
-export const CONFIDENCE_THRESHOLD = 0.48;
-export const MARGIN_THRESHOLD = 0.08;
+// Two rounds of real playtesting pulled this in opposite directions: 0.62/0.15
+// missed real words split across chunk boundaries (fixed separately, by
+// overlapping listen windows — see useWallListener), then 0.48/0.08 turned
+// out to accept almost anything vaguely similar-length. Splitting the
+// difference. Still untuned against real recordings (the spike that needed
+// never ran), so treat this as a judgment call to revisit with real data,
+// not a settled number.
+export const CONFIDENCE_THRESHOLD = 0.58;
+export const MARGIN_THRESHOLD = 0.14;
 
 function fold(text: string): string {
   return text

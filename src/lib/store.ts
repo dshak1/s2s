@@ -310,6 +310,17 @@ export const store = {
     });
   },
 
+  // Removes a drawing/homework/runner from the gallery. Clears the avatar or
+  // runner reference too if that's what got deleted, so the profile doesn't
+  // point at an artifact that no longer exists.
+  deleteArtifact(artifactId: string) {
+    update((p) => {
+      p.artifacts = p.artifacts.filter((a) => a.id !== artifactId);
+      if (p.avatarArtifactId === artifactId) p.avatarArtifactId = null;
+      if (p.runnerArtifactId === artifactId) p.runnerArtifactId = null;
+    });
+  },
+
   setWeekCode(stopId: RegionId, code: string) {
     update((p) => {
       p.weeklyCodes[stopId] = normalizeCode(code) || defaultWeekCodes()[stopId];

@@ -58,7 +58,7 @@ export const GAMES: GameMeta[] = [
   { slug: "falling-sozder", title: "Falling Words", kk: "Құлайтын сөздер", blurb: "Catch each English prompt in the Kazakh basket.", href: "/play/falling-sozder", accent: "bg-steppe-700", group: "Words & Letters" },
   { slug: "where-kz", title: "Where in Kazakhstan?", kk: "Қайда?", blurb: "See a place, drop a pin on the map.", href: "/play/where-kz", accent: "bg-terra", group: "Places & Culture", isNew: true },
   { slug: "bazaar", title: "Steppe Bazaar", kk: "Базар", blurb: "Shop for food and count your teńge.", href: "/play/bazaar", accent: "bg-terra", group: "Places & Culture", hidden: true },
-  { slug: "steppe-sprint", title: "Steppe Sprint", kk: "Дала жарысы", blurb: "Run the trail and choose the right word at each fork.", href: "/play/steppe-sprint", accent: "bg-[#2f8d47]", group: "Get Up & Move", isNew: true },
+  { slug: "steppe-sprint", title: "Steppe Sprint", kk: "Дала жарысы", blurb: "Run the trail and choose the right word at each fork.", href: "/play/steppe-sprint", accent: "bg-[#2f8d47]", group: "Get Up & Move", hidden: true },
   { slug: "snow-leopard", title: "Snow Leopard Patrol", kk: "Қар барысы", blurb: "Scan QR clues hidden around the room.", href: "/play/snow-leopard", accent: "bg-wolf", group: "Get Up & Move", hidden: true },
   { slug: "jaryq-hunter", title: "Spotlight Panic", kk: "Жарық", blurb: "Hunt words in the dark, dodge the ghosts!", href: "/play/jaryq-hunter", accent: "bg-[#1b1b1b]", group: "Get Up & Move", isNew: true },
   { slug: "say-and-shift", title: "Say & Shift", kk: "Айт та өт", blurb: "Say the Kazakh word out loud to slip through the wall.", href: "/play/say-and-shift", accent: "bg-[#c8513e]", group: "Get Up & Move", isNew: true },

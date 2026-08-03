@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Eraser, Paintbrush } from "lucide-react";
+import { Eraser, PenLine, Trash2 } from "lucide-react";
 
 const DRAW_COLORS = ["#1e4d8c", "#ffd84f", "#e35f4c", "#2f8d47", "#ffffff", "#1b1b1b"];
 
@@ -22,6 +22,7 @@ export function DrawingBoard({
   const drawing = useRef(false);
   const [color, setColor] = useState(DRAW_COLORS[0]);
   const [brush, setBrush] = useState(18);
+  const [mode, setMode] = useState<"draw" | "erase">("draw");
   const dims = aspect === "portrait"
     ? { width: 720, height: 960, className: "aspect-[3/4]" }
     : { width: 1280, height: 720, className: "aspect-video" };
@@ -63,8 +64,18 @@ export function DrawingBoard({
     const context = canvasRef.current?.getContext("2d");
     if (!context) return;
     const current = point(event);
-    context.strokeStyle = color;
-    context.lineWidth = brush;
+    if (mode === "erase") {
+      // Transparent canvases punch a real hole; opaque ones just paint back
+      // over with the base fill — either way, erasing only touches the
+      // stroke, not the whole drawing (that's what "Clear all" is for).
+      context.globalCompositeOperation = transparent ? "destination-out" : "source-over";
+      context.strokeStyle = transparent ? "rgba(0,0,0,1)" : "#f8fbff";
+      context.lineWidth = brush * 1.6;
+    } else {
+      context.globalCompositeOperation = "source-over";
+      context.strokeStyle = color;
+      context.lineWidth = brush;
+    }
     context.lineCap = "round";
     context.lineJoin = "round";
     context.lineTo(current.x, current.y);
@@ -110,14 +121,27 @@ export function DrawingBoard({
             type="button"
             title={`Use ${swatch}`}
             aria-label={`Use ${swatch}`}
-            aria-pressed={color === swatch}
-            onClick={() => setColor(swatch)}
-            className={`h-9 w-9 rounded-full border-2 ${color === swatch ? "border-steppe ring-2 ring-[#ffd84f]" : "border-black/15"}`}
+            aria-pressed={mode === "draw" && color === swatch}
+            onClick={() => {
+              setColor(swatch);
+              setMode("draw");
+            }}
+            className={`h-9 w-9 rounded-full border-2 ${mode === "draw" && color === swatch ? "border-steppe ring-2 ring-[#ffd84f]" : "border-black/15"}`}
             style={{ backgroundColor: swatch }}
           />
         ))}
+        <button
+          type="button"
+          title="Eraser"
+          aria-label="Eraser"
+          aria-pressed={mode === "erase"}
+          onClick={() => setMode((m) => (m === "erase" ? "draw" : "erase"))}
+          className={`grid h-9 w-9 place-items-center rounded-lg border-2 ${mode === "erase" ? "border-steppe bg-steppe text-white" : "border-steppe/15 bg-white text-steppe"}`}
+        >
+          <Eraser size={17} />
+        </button>
         <label className="ml-auto flex items-center gap-2 text-xs font-black text-steppe">
-          <Paintbrush size={16} />
+          {mode === "erase" ? <Eraser size={16} /> : <PenLine size={16} />}
           <input
             type="range"
             min={6}
@@ -129,12 +153,12 @@ export function DrawingBoard({
         </label>
         <button
           type="button"
-          title="Clear drawing"
-          aria-label="Clear drawing"
+          title="Clear all"
+          aria-label="Clear the whole drawing"
           onClick={clear}
-          className="grid h-9 w-9 place-items-center rounded-lg border border-steppe/15 bg-white text-steppe"
+          className="grid h-9 w-9 place-items-center rounded-lg border border-steppe/15 bg-white text-[#b44736]"
         >
-          <Eraser size={17} />
+          <Trash2 size={17} />
         </button>
       </div>
     </div>
