@@ -115,3 +115,31 @@ export function ticketAnsweredEmail(input: {
     ].join("\n"),
   };
 }
+
+export function ticketAiReadyEmail(input: {
+  ref: string;
+  title: string;
+  status: string;
+  summary: string;
+  previewUrl?: string | null;
+  branchUrl?: string | null;
+}) {
+  return {
+    subject: `AI finished ${input.ref}: ${input.status}`,
+    body: [
+      `AI finished investigating a ticket.`,
+      "",
+      `${input.ref}  ${input.title}`,
+      `Status: ${input.status}`,
+      "",
+      input.summary,
+      "",
+      input.previewUrl ? `Preview: ${input.previewUrl}` : "Preview: not ready yet",
+      input.branchUrl ? `Branch: ${input.branchUrl}` : "",
+      "",
+      `Open it: ${APP_URL}/tickets`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,12 +12,13 @@ import { useSession, sessions } from "@/lib/sessions";
 import { openRoundChannel, type RoundAnswerPayload } from "@/lib/supabase/sync";
 import { PLACES, type Place } from "@/content/places";
 import { shuffle } from "@/lib/utils";
-import { VolumeX, Pause, Map, Power, Printer, MapPin, Trophy } from "lucide-react";
+import { VolumeX, Pause, Map, Power, Printer, MapPin, Trophy, Flag } from "lucide-react";
 
 type RoundStatus = "idle" | "live" | "revealed";
 
 export default function LiveProjector() {
   const { code } = useParams<{ code: string }>();
+  const router = useRouter();
   const state = useSession(code);
   const [origin, setOrigin] = useState("");
   const [muted, setMuted] = useState(false);
@@ -227,9 +228,18 @@ export default function LiveProjector() {
         <Link href={`/facilitator/${code}/print`} target="_blank">
           <Button variant="outline" className="border-warm bg-white/10 text-warm"><Printer size={18} /> Print QR hunt</Button>
         </Link>
-        <Link href="/facilitator">
-          <Button variant="danger"><Power size={18} /> End session</Button>
+        <Link href={`/facilitator/${code}/race`} target="_blank">
+          <Button variant="outline" className="border-warm bg-white/10 text-warm"><Flag size={18} /> Say &amp; Shift race</Button>
         </Link>
+        <Button
+          variant="danger"
+          onClick={() => {
+            sessions.end(code);
+            router.push("/facilitator");
+          }}
+        >
+          <Power size={18} /> End session
+        </Button>
       </div>
     </div>
   );

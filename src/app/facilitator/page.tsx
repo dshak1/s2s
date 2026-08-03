@@ -21,7 +21,7 @@ export default function FacilitatorHome() {
       if (k?.startsWith("s2s_session_")) {
         try {
           const s = JSON.parse(localStorage.getItem(k)!);
-          if (s.createdAt > week) list.push({ code: s.code, createdAt: s.createdAt, count: s.members?.length ?? 0 });
+          if (s.createdAt > week && !s.endedAt) list.push({ code: s.code, createdAt: s.createdAt, count: s.members?.length ?? 0 });
         } catch {
           /* ignore */
         }

@@ -1,15 +1,20 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
+import { getSupabaseService } from "@/lib/supabase/service";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireTeam, requireStaff, type TeamMember } from "@/lib/auth";
-import { createLinearIssue, linearEnabled } from "@/lib/linear";
+import { investigateTicketRun, ticketAiReadiness } from "@/lib/ai/ticket-agent";
+import { addAiArtifact, logAiStep, updateAiRun } from "@/lib/ai/run-log";
 import {
   emailEnabled,
   reviewRequestEmail,
   sendEmail,
   ticketAnsweredEmail,
 } from "@/lib/email";
+import { githubCommitUrl, mergeBranch } from "@/lib/github";
+import { waitForProduction } from "@/lib/vercel";
 import {
   DECIDED_STATUSES,
   PROBLEMS,
@@ -22,9 +27,10 @@ import {
   type TicketType,
 } from "@/lib/tickets";
 
-export type ActionResult = { ok: boolean; error?: string; ref?: string };
+export type ActionResult = { ok: boolean; error?: string; ref?: string; runId?: string };
 
 type SupabaseServer = NonNullable<Awaited<ReturnType<typeof getSupabaseServer>>>;
+type SupabaseService = NonNullable<ReturnType<typeof getSupabaseService>>;
 
 function isType(v: string): v is TicketType {
   return v in TICKET_TYPES;
@@ -337,6 +343,105 @@ async function notifyAuthor(
   await sendEmail({ to: author.email as string, ...mail, replyTo: decider.email });
 }
 
+async function completeApprovedAiRun(sb: SupabaseService, input: {
+  runId: string;
+  actorId: string;
+}) {
+  const { data: run } = await sb
+    .from("ticket_ai_runs")
+    .select("id, ticket_id, status, branch_name, preview_url")
+    .eq("id", input.runId)
+    .maybeSingle();
+  if (!run) throw new Error("AI run not found.");
+  if (run.status !== "ready") throw new Error("Only ready AI runs can be merged.");
+  if (!run.branch_name) throw new Error("AI run has no branch to merge.");
+
+  const { data: ticket } = await sb
+    .from("tickets")
+    .select("id, ref, title")
+    .eq("id", run.ticket_id)
+    .maybeSingle();
+  if (!ticket) throw new Error("Ticket not found.");
+
+  const productionBranch =
+    process.env.AI_PRODUCTION_BRANCH ||
+    process.env.AI_BASE_BRANCH ||
+    "feat/pro-infra";
+
+  await logAiStep(sb, input.runId, "approve", `Merging ${run.branch_name} into ${productionBranch}.`, {
+    productionBranch,
+  });
+
+  const merge = await mergeBranch({
+    base: productionBranch,
+    head: run.branch_name,
+    message: `${ticket.ref} approve AI run ${input.runId.slice(0, 8)}`,
+  });
+  await updateAiRun(sb, input.runId, { commit_sha: merge.sha });
+  await logAiStep(
+    sb,
+    input.runId,
+    "merge",
+    merge.merged
+      ? `Merged AI branch into ${productionBranch}.`
+      : `${productionBranch} already contains this AI branch.`,
+    { productionBranch, mergeSha: merge.sha, merged: merge.merged },
+  );
+  await addAiArtifact(sb, {
+    runId: input.runId,
+    kind: "branch",
+    title: merge.merged ? "Merged commit" : "Already merged commit",
+    url: merge.url ?? githubCommitUrl(merge.sha),
+    metadata: { productionBranch, mergeSha: merge.sha, merged: merge.merged },
+  });
+
+  await logAiStep(sb, input.runId, "deploy", "Waiting for production deployment.");
+  const production = await waitForProduction({ branch: productionBranch, commitSha: merge.sha });
+  const productionUrl = production?.url ?? null;
+  const deploySummary = productionUrl
+    ? `Approved and merged. Production is ready: ${productionUrl}`
+    : `Approved and merged into ${productionBranch}. Production deployment was not found yet.`;
+
+  if (productionUrl) {
+    await addAiArtifact(sb, {
+      runId: input.runId,
+      kind: "deployment",
+      title: "Production deployment",
+      url: productionUrl,
+      metadata: {
+        deploymentUrl: production?.deploymentUrl,
+        deploymentId: production?.uid,
+        productionBranch,
+      },
+    });
+  }
+
+  await updateAiRun(sb, input.runId, {
+    summary: deploySummary,
+    preview_url: productionUrl ?? run.preview_url,
+  });
+
+  await sb.from("ticket_comments").insert({
+    ticket_id: ticket.id,
+    author_id: input.actorId,
+    body: deploySummary,
+  });
+  await sb
+    .from("tickets")
+    .update({
+      status: "closed",
+      resolution: "implemented",
+      decision_note: deploySummary,
+      decided_by: input.actorId,
+      decided_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...(productionUrl ? { preview_url: productionUrl } : {}),
+    })
+    .eq("id", ticket.id);
+
+  await logAiStep(sb, input.runId, "finish", deploySummary, { productionUrl });
+}
+
 /** Ask a named person to look at a ticket. Stays open until someone closes it. */
 export async function requestReview(
   _prev: ActionResult,
@@ -420,15 +525,20 @@ export async function closeReview(formData: FormData) {
   revalidatePath("/tickets");
 }
 
-export async function pushToLinear(
+export async function startAiInvestigation(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireStaff("/tickets");
+  const member = await requireStaff("/tickets");
   const sb = await getSupabaseServer();
   if (!sb) return { ok: false, error: "Supabase is not configured." };
-  if (!linearEnabled()) {
-    return { ok: false, error: "Set LINEAR_API_KEY to push tickets to Linear." };
+
+  const readiness = ticketAiReadiness();
+  if (!readiness.enabled) {
+    return {
+      ok: false,
+      error: `Missing ${readiness.missing.join(", ")}.`,
+    };
   }
 
   const ticketId = String(formData.get("ticket_id") ?? "");
@@ -436,44 +546,165 @@ export async function pushToLinear(
 
   const { data: ticket } = await sb
     .from("tickets")
-    .select("id, ref, title, body, decision_note, linear_issue_id, votes, item_id, problem")
+    .select("id")
     .eq("id", ticketId)
     .maybeSingle();
-
   if (!ticket) return { ok: false, error: "Ticket not found." };
-  if (ticket.linear_issue_id) return { ok: false, error: "Already on Linear." };
 
-  const description = [
-    ticket.body ?? "",
-    "",
-    ticket.item_id ? `Question: \`${ticket.item_id}\`` : "",
-    ticket.problem ? `Problem: ${PROBLEMS[ticket.problem as TicketProblem]}` : "",
-    `${ticket.votes} vote${ticket.votes === 1 ? "" : "s"}`,
-    ticket.decision_note ? `\nDecision: ${ticket.decision_note}` : "",
-    `\n_${ticket.ref}, filed from the Steppe to Screen ticket board._`,
-  ]
-    .filter(Boolean)
-    .join("\n")
-    .trim();
+  const { data: active } = await sb
+    .from("ticket_ai_runs")
+    .select("id")
+    .eq("ticket_id", ticketId)
+    .in("status", ["queued", "running", "preview_pending"])
+    .maybeSingle();
+  if (active?.id) return { ok: false, error: "AI is already investigating this ticket." };
 
-  try {
-    const issue = await createLinearIssue({
-      title: `${ticket.ref} ${ticket.title}`,
-      description,
-    });
-    if (!issue) return { ok: false, error: "Linear did not create the issue." };
+  const { data: run, error } = await sb
+    .from("ticket_ai_runs")
+    .insert({ ticket_id: ticketId, actor_id: member.id, status: "queued" })
+    .select("id")
+    .single();
+  if (error || !run) {
+    return { ok: false, error: error?.message ?? "Could not start AI investigation." };
+  }
 
-    await sb
-      .from("tickets")
-      .update({ linear_issue_id: issue.id, linear_issue_url: issue.url })
-      .eq("id", ticketId);
-
+  const runId = run.id as string;
+  after(async () => {
+    await investigateTicketRun(runId, member.id);
     revalidatePath("/tickets");
-    return { ok: true };
-  } catch (err) {
+    revalidatePath("/dashboard");
+  });
+
+  revalidatePath("/tickets");
+  return { ok: true, runId };
+}
+
+export async function continueAiInvestigation(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const member = await requireStaff("/tickets");
+  const sb = await getSupabaseServer();
+  if (!sb) return { ok: false, error: "Supabase is not configured." };
+
+  const readiness = ticketAiReadiness();
+  if (!readiness.enabled) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Linear request failed.",
+      error: `Missing ${readiness.missing.join(", ")}.`,
     };
   }
+
+  const ticketId = String(formData.get("ticket_id") ?? "");
+  const runId = String(formData.get("run_id") ?? "");
+  const body = String(formData.get("body") ?? "").trim();
+  if (!ticketId || !runId) return { ok: false, error: "Missing run." };
+  if (body.length < 8) {
+    return { ok: false, error: "Add a little more detail so AI has real guidance." };
+  }
+
+  const { data: previousRun } = await sb
+    .from("ticket_ai_runs")
+    .select("id, status, ticket_id")
+    .eq("id", runId)
+    .eq("ticket_id", ticketId)
+    .maybeSingle();
+  if (!previousRun) return { ok: false, error: "AI run not found." };
+  if (previousRun.status !== "needs_human") {
+    return { ok: false, error: "This run is not waiting for human feedback." };
+  }
+
+  const { data: active } = await sb
+    .from("ticket_ai_runs")
+    .select("id")
+    .eq("ticket_id", ticketId)
+    .in("status", ["queued", "running", "preview_pending"])
+    .maybeSingle();
+  if (active?.id) return { ok: false, error: "AI is already investigating this ticket." };
+
+  const feedback = `Human feedback for ${runId.slice(0, 8)}: ${body}`;
+  const { error: commentError } = await sb
+    .from("ticket_comments")
+    .insert({ ticket_id: ticketId, author_id: member.id, body: feedback });
+  if (commentError) return { ok: false, error: commentError.message };
+
+  const { data: run, error } = await sb
+    .from("ticket_ai_runs")
+    .insert({ ticket_id: ticketId, actor_id: member.id, status: "queued" })
+    .select("id")
+    .single();
+  if (error || !run) {
+    return { ok: false, error: error?.message ?? "Could not continue AI investigation." };
+  }
+
+  const nextRunId = run.id as string;
+  await sb.from("ticket_ai_steps").insert({
+    run_id: runId,
+    step_type: "human_feedback",
+    summary: "Human feedback submitted; queued a follow-up AI investigation.",
+    metadata: { feedback, nextRunId },
+  });
+
+  after(async () => {
+    await investigateTicketRun(nextRunId, member.id);
+    revalidatePath("/tickets");
+    revalidatePath(`/tickets/ai/${runId}`);
+    revalidatePath(`/tickets/ai/${nextRunId}`);
+    revalidatePath("/dashboard");
+  });
+
+  revalidatePath("/tickets");
+  revalidatePath(`/tickets/ai/${runId}`);
+  return { ok: true, runId: nextRunId };
+}
+
+export async function approveAiRun(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const member = await requireStaff("/tickets");
+  const sb = await getSupabaseServer();
+  if (!sb) return { ok: false, error: "Supabase is not configured." };
+
+  const runId = String(formData.get("run_id") ?? "");
+  const ticketId = String(formData.get("ticket_id") ?? "");
+  if (!runId || !ticketId) return { ok: false, error: "Missing AI run." };
+
+  const { data: run } = await sb
+    .from("ticket_ai_runs")
+    .select("id, ticket_id, status, branch_name")
+    .eq("id", runId)
+    .eq("ticket_id", ticketId)
+    .maybeSingle();
+  if (!run) return { ok: false, error: "AI run not found." };
+  if (run.status !== "ready") {
+    return { ok: false, error: "Only ready AI runs can be merged." };
+  }
+  if (!run.branch_name) return { ok: false, error: "This AI run has no branch to merge." };
+
+  await sb.from("ticket_ai_steps").insert({
+    run_id: runId,
+    step_type: "approve",
+    summary: "Human approved this AI run for production merge.",
+    metadata: { actorId: member.id },
+  });
+
+  after(async () => {
+    const service = getSupabaseService();
+    if (!service) return;
+    try {
+      await completeApprovedAiRun(service, { runId, actorId: member.id });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not merge AI run.";
+      await updateAiRun(service, runId, { error: message });
+      await logAiStep(service, runId, "failed", message);
+    }
+    revalidatePath("/tickets");
+    revalidatePath(`/tickets/ai/${runId}`);
+    revalidatePath("/dashboard");
+  });
+
+  revalidatePath("/tickets");
+  revalidatePath(`/tickets/ai/${runId}`);
+  return { ok: true, runId };
 }

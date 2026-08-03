@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ClipboardList, PlayCircle, Users } from "lucide-react";
 import { HomeCoverBackdrop } from "@/components/home-cover-backdrop";
 import { IS_LITE } from "@/lib/lite";
+import { ONLINE_FEATURES_ENABLED } from "@/lib/online-features";
 
 export default function Home() {
   return (
@@ -22,20 +23,20 @@ export default function Home() {
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row md:items-start">
             <Link
               href="/play"
-              className="inline-flex items-center justify-center gap-3 rounded-full bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] px-8 py-4 text-lg font-black text-steppe-700 shadow-lg shadow-orange-200/60 transition hover:-translate-y-0.5 hover:brightness-105 active:scale-95"
+              className="inline-flex items-center justify-center gap-3 rounded-2xl bg-gold px-8 py-4 text-lg font-black text-steppe-700 shadow-[4px_5px_0_0_#b8960a] transition hover:brightness-105 active:translate-y-[2px] active:shadow-none"
             >
               <PlayCircle size={24} /> Ойнау
             </Link>
-            {!IS_LITE && (
+            {!IS_LITE && ONLINE_FEATURES_ENABLED && (
               <Link
                 href="/join"
-                className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-steppe bg-white/80 px-6 py-4 text-base font-black text-steppe shadow-sm transition hover:bg-[#fff3cf]"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-steppe bg-white/80 px-6 py-4 text-base font-black text-steppe shadow-sm transition hover:bg-[#fff3cf]"
               >
                 <Users size={20} /> Join session
               </Link>
             )}
           </div>
-          {!IS_LITE && (
+          {!IS_LITE && ONLINE_FEATURES_ENABLED && (
             <Link
               href="/facilitator"
               className="mt-5 inline-flex items-center gap-2 text-sm font-black text-steppe/70 underline-offset-4 hover:text-steppe hover:underline"

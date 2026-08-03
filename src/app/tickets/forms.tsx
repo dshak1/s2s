@@ -13,11 +13,13 @@ import {
   type TicketType,
 } from "@/lib/tickets";
 import {
+  approveAiRun,
   createTicket,
+  continueAiInvestigation,
   decideTicket,
   editTicket,
-  pushToLinear,
   requestReview,
+  startAiInvestigation,
   type ActionResult,
 } from "./actions";
 
@@ -446,16 +448,98 @@ export function RequestReviewForm({
   );
 }
 
-export function PushToLinearButton({ ticketId }: { ticketId: string }) {
-  const [state, action, pending] = useActionState(pushToLinear, EMPTY);
+export function AiInvestigateButton({
+  ticketId,
+  disabledReason,
+}: {
+  ticketId: string;
+  disabledReason?: string | null;
+}) {
+  const [state, action, pending] = useActionState(startAiInvestigation, EMPTY);
+  const disabled = pending || Boolean(disabledReason);
   return (
-    <form action={action} className="inline">
+    <form action={action} className="inline-flex items-center gap-2">
       <input type="hidden" name="ticket_id" value={ticketId} />
-      <button type="submit" disabled={pending} className={btnGhost}>
-        {pending ? "Filing…" : "Linear"}
+      <button type="submit" disabled={disabled} className={btnGhost} title={disabledReason ?? "AI investigate"}>
+        {pending ? "Starting AI…" : "AI investigate"}
       </button>
+      {disabledReason && (
+        <span className="text-[12px] font-medium text-[#dc2626]">{disabledReason}</span>
+      )}
+      {state.ok && (
+        <span className="text-[12px] font-medium text-[#15803d]">AI run started.</span>
+      )}
       {state.error && (
-        <span className="ml-2 text-[12px] font-medium text-[#dc2626]">{state.error}</span>
+        <span className="text-[12px] font-medium text-[#dc2626]">{state.error}</span>
+      )}
+    </form>
+  );
+}
+
+export function AiRunFeedbackForm({
+  ticketId,
+  runId,
+}: {
+  ticketId: string;
+  runId: string;
+}) {
+  const [state, action, pending] = useActionState(continueAiInvestigation, EMPTY);
+
+  return (
+    <form action={action} className="mt-3 rounded-md border border-[#fed7aa] bg-white px-3 py-2.5">
+      <input type="hidden" name="ticket_id" value={ticketId} />
+      <input type="hidden" name="run_id" value={runId} />
+      <label className="mb-1 block text-[12px] font-medium text-[#9a3412]" htmlFor={`ai-feedback-${runId}`}>
+        Human feedback
+      </label>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <textarea
+          id={`ai-feedback-${runId}`}
+          name="body"
+          required
+          rows={2}
+          placeholder="Example: make it centered, solid green, and place it above the game cards."
+          className={`${input} min-h-16 resize-none`}
+        />
+        <button type="submit" disabled={pending} className={`${btnPrimary} shrink-0 self-start`}>
+          {pending ? "Continuing…" : "Send and continue"}
+        </button>
+      </div>
+      {state.ok && (
+        <p className="mt-2 text-[12px] font-medium text-[#15803d]">
+          Feedback saved. Follow-up AI run started.
+        </p>
+      )}
+      {state.error && (
+        <p className="mt-2 text-[12px] font-medium text-[#dc2626]">{state.error}</p>
+      )}
+    </form>
+  );
+}
+
+export function ApproveAiRunForm({
+  ticketId,
+  runId,
+}: {
+  ticketId: string;
+  runId: string;
+}) {
+  const [state, action, pending] = useActionState(approveAiRun, EMPTY);
+
+  return (
+    <form action={action} className="inline-flex items-center gap-2">
+      <input type="hidden" name="ticket_id" value={ticketId} />
+      <input type="hidden" name="run_id" value={runId} />
+      <button type="submit" disabled={pending} className={btnPrimary}>
+        {pending ? "Merging…" : "Approve and merge"}
+      </button>
+      {state.ok && (
+        <span className="text-[12px] font-medium text-[#15803d]">
+          Merge started.
+        </span>
+      )}
+      {state.error && (
+        <span className="text-[12px] font-medium text-[#dc2626]">{state.error}</span>
       )}
     </form>
   );

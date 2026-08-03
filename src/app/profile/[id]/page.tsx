@@ -4,19 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { RecoveryCode } from "@/components/recovery-code";
+import { PlayerAccountPanel } from "@/components/player-account-panel";
 import { TopNav } from "@/components/top-nav";
 import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { YurtSVG, YURT_TOTAL } from "@/components/yurt";
 import { VOCAB, CATEGORIES, CATEGORY_LABELS, vocabByCategory, type VocabCategory } from "@/content/vocab";
 import { BADGES } from "@/content/badges";
 import { VISIBLE_GAMES } from "@/content/games";
 import { KID_COVERS } from "@/content/kid-covers";
 import { store, useProfile, masteredLetterCount, isVocabMastered } from "@/lib/store";
 import { toastBus } from "@/lib/toast";
-import { Snowflake } from "lucide-react";
+import { BookOpenCheck, Gamepad2, Snowflake, Volume2 } from "lucide-react";
 
 export default function ProfilePage() {
   const params = useParams<{ id: string }>();
@@ -90,9 +89,8 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/play" className="rounded-full bg-gold px-5 py-2.5 font-black text-steppe-700">Play games</Link>
-            <Link href="/homework" className="rounded-full bg-white/20 px-5 py-2.5 font-black text-warm">📚 Homework</Link>
-            <Link href={`/profile/${p.id}/certificate`} className="rounded-full bg-white/20 px-5 py-2.5 font-black text-warm">🏅 Certificate</Link>
+            <Link href="/play" className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 font-black text-steppe-700"><Gamepad2 size={17} /> Play</Link>
+            <Link href="/homework" className="inline-flex items-center gap-2 rounded-full bg-white/20 px-5 py-2.5 font-black text-warm"><BookOpenCheck size={17} /> Homework</Link>
           </div>
         </div>
 
@@ -120,11 +118,25 @@ export default function ProfilePage() {
             </div>
           </Card>
 
-          {/* yurt */}
+          {/* sound progress */}
           <Card>
-            <h2 className="mb-1 text-lg font-black text-steppe">Yurt builder</h2>
-            <p className="mb-2 text-sm text-wolf">{letters} / {YURT_TOTAL} letters mastered</p>
-            <YurtSVG mastered={letters} className="mx-auto w-full max-w-xs" />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="mb-1 text-lg font-black text-steppe">Kazakh sounds</h2>
+                <p className="text-sm text-wolf">{letters} letters mastered</p>
+              </div>
+              <div className="grid h-11 w-11 place-items-center rounded-lg bg-[#fff4bd] text-steppe">
+                <Volume2 size={22} />
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-9 gap-1.5" aria-label={`${letters} letters mastered`}>
+              {Array.from({ length: 36 }).map((_, index) => (
+                <span key={index} className={`aspect-square rounded-sm ${index < letters ? "bg-[#ff9a4f]" : "bg-steppe/10"}`} />
+              ))}
+            </div>
+            <Link href="/play/sound-it-out" className="mt-4 inline-flex items-center gap-1 text-sm font-black text-steppe underline">
+              Practise sounds
+            </Link>
           </Card>
         </div>
 
@@ -228,15 +240,9 @@ export default function ProfilePage() {
           )}
         </Card>
 
-        <Card>
-          <h2 className="mb-3 text-lg font-black text-steppe">Move to another device</h2>
-          <RecoveryCode />
-        </Card>
+        <PlayerAccountPanel />
 
-        <p className="pb-6 text-center text-xs text-wolf">
-          Parents can follow along too.{" "}
-          <Link href={`/profile/${p.id}/parent`} className="font-bold text-steppe underline">Add a parent email →</Link>
-        </p>
+        <div className="pb-6" />
       </main>
     </div>
   );

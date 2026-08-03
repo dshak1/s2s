@@ -21,6 +21,8 @@ The app has two populations and they are treated oppositely:
 | [telemetry.md](telemetry.md) | How an answer becomes a row, and how to add a game |
 | [labelling-guide.md](labelling-guide.md) | The rubric raters actually use |
 | [research.md](research.md) | The research questions and the benchmark |
+| [perplexity-game-research-prompt.md](perplexity-game-research-prompt.md) | Deep-research prompt for customizable language games |
+| [higgsfield-turkistan-runner-prompt.md](higgsfield-turkistan-runner-prompt.md) | Five consistent background plates for a Turkistan runner route |
 | [security.md](security.md) | The access model and its known gaps |
 | [photo-credits.md](photo-credits.md) | Where every place photo came from, and its licence |
 | [roadmap.md](roadmap.md) | What is built, what is next |

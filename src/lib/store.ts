@@ -27,7 +27,7 @@ const BADGE_IDS = BADGES.map((b) => b.id);
 
 export type Artifact = {
   id: string;
-  kind: "tanba" | "canva" | "story" | "background" | "homework";
+  kind: "tanba" | "canva" | "story" | "background" | "homework" | "runner";
   dataUrl: string;
   createdAt: number;
   // Optional labels — used by homework submissions ("what is it", date, title).
@@ -45,6 +45,16 @@ export type GameRun = {
 
 export type LetterStat = { level: number; correct: number };
 
+export type CustomGame = {
+  id: string;
+  title: string;
+  mechanic: "steppe-sprint";
+  vocabSlugs: string[];
+  backgroundArtifactId: string | null;
+  backgroundTemplateId: string | null;
+  createdAt: number;
+};
+
 export type Profile = {
   id: string;
   displayName: string;
@@ -53,6 +63,8 @@ export type Profile = {
   xp: number;
   streakWeeks: number;
   avatarArtifactId: string | null;
+  /** say-and-shift's runner character, kept separate from the profile avatar. */
+  runnerArtifactId: string | null;
   unlockedWeeks: number;
   weeklyCodes: Record<RegionId, string>;
   regionProgress: RegionId[];
@@ -65,6 +77,7 @@ export type Profile = {
   gameBackgrounds: Record<string, string>; // game slug -> uploaded background dataUrl
   homeCoverId: string | null; // KidCover id chosen as the home-page background
   baseLanguage: BaseLanguage; // language prompts are explained in; Kazakh is always what's taught
+  customGames: CustomGame[];
 };
 
 const KEY = "s2s_profile_v1";
@@ -78,6 +91,7 @@ function freshProfile(): Profile {
     xp: 0,
     streakWeeks: 1,
     avatarArtifactId: null,
+    runnerArtifactId: null,
     unlockedWeeks: 1,
     weeklyCodes: defaultWeekCodes(),
     regionProgress: ["almaty"], // first region starts unlocked
@@ -90,6 +104,7 @@ function freshProfile(): Profile {
     gameBackgrounds: {},
     homeCoverId: null,
     baseLanguage: "en",
+    customGames: [],
   };
 }
 
@@ -123,8 +138,20 @@ function normalizeProfile(profile: Profile): Profile {
     unlockedWeeks,
     weeklyCodes: { ...fallbackCodes, ...(profile.weeklyCodes ?? {}) },
     regionProgress: profile.regionProgress?.length ? profile.regionProgress : ["almaty"],
+    runnerArtifactId: profile.runnerArtifactId ?? null,
     gameBackgrounds: profile.gameBackgrounds ?? {},
     homeCoverId: profile.homeCoverId ?? null,
+    baseLanguage: profile.baseLanguage === "ru" ? "ru" : "en",
+    customGames: Array.isArray(profile.customGames)
+      ? profile.customGames.filter(
+          (game) =>
+            game &&
+            typeof game.id === "string" &&
+            typeof game.title === "string" &&
+            game.mechanic === "steppe-sprint" &&
+            Array.isArray(game.vocabSlugs),
+        )
+      : [],
   };
 }
 
@@ -199,6 +226,9 @@ export const store = {
         award(p, "storyteller");
         p.xp += 25;
       }
+      if (kind === "runner") {
+        p.runnerArtifactId = id;
+      }
     });
     const p = load();
     syncArtifact(p.id, p.avatarArtifactId, artifact).catch(() => {});
@@ -246,6 +276,38 @@ export const store = {
 
   clearGameBackground(slug: string) {
     update((p) => { delete p.gameBackgrounds[slug]; });
+  },
+
+  createCustomGame(input: {
+    title: string;
+    vocabSlugs: string[];
+    backgroundDataUrl?: string | null;
+    backgroundArtifactId?: string | null;
+    backgroundTemplateId?: string | null;
+  }): CustomGame {
+    const backgroundArtifactId = input.backgroundDataUrl
+      ? store.addArtifact("background", input.backgroundDataUrl)
+      : (input.backgroundArtifactId ?? null);
+    const game: CustomGame = {
+      id: crypto.randomUUID(),
+      title: input.title.trim().slice(0, 40) || "My Steppe Sprint",
+      mechanic: "steppe-sprint",
+      vocabSlugs: [...new Set(input.vocabSlugs)].slice(0, 24),
+      backgroundArtifactId,
+      backgroundTemplateId: input.backgroundTemplateId ?? null,
+      createdAt: Date.now(),
+    };
+    update((p) => {
+      p.customGames.unshift(game);
+      p.customGames = p.customGames.slice(0, 12);
+    });
+    return game;
+  },
+
+  deleteCustomGame(gameId: string) {
+    update((p) => {
+      p.customGames = p.customGames.filter((game) => game.id !== gameId);
+    });
   },
 
   setWeekCode(stopId: RegionId, code: string) {
@@ -395,6 +457,12 @@ export const store = {
         if (!profile.homeCoverId && remoteState.homeCoverId) {
           profile.homeCoverId = remoteState.homeCoverId;
         }
+        const localGames = new Map(profile.customGames.map((game) => [game.id, game]));
+        for (const game of remoteState.customGames) localGames.set(game.id, game);
+        profile.customGames = [...localGames.values()]
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 12);
+        profile.baseLanguage = remoteState.baseLanguage;
       }
     });
   },

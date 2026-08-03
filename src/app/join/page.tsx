@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { store } from "@/lib/store";
 import { sessions } from "@/lib/sessions";
 import { Button } from "@/components/ui/button";
-import { toastBus } from "@/lib/toast";
+import { ComingSoon } from "@/components/coming-soon";
+import { ONLINE_FEATURES_ENABLED } from "@/lib/online-features";
 
 function JoinForm() {
   const router = useRouter();
@@ -58,71 +59,24 @@ function JoinForm() {
         </select>
       </label>
       <Button type="submit" variant="gold" size="lg" disabled={!name.trim()}>
-        Join the steppe!
-      </Button>
-    </form>
-  );
-}
-
-// Been here before on a different phone or tablet? Six characters brings the
-// whole gallery across.
-function RecoverForm() {
-  const router = useRouter();
-  const [code, setCode] = useState("");
-  const [state, setState] = useState<"idle" | "busy" | "notfound">("idle");
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!code.trim()) return;
-    setState("busy");
-    const result = await store.adoptByCode(code.trim());
-    if (!result.ok) {
-      setState("notfound");
-      return;
-    }
-    toastBus.show({
-      title: `Welcome back, ${result.name || "friend"}!`,
-      body: "Your drawings and homework are here.",
-      icon: "✨",
-    });
-    router.push(`/profile/${store.get().id}`);
-  }
-
-  return (
-    <form onSubmit={submit} className="flex w-full max-w-sm flex-col gap-3 rounded-3xl border-2 border-warm/25 p-5">
-      <p className="text-sm font-bold text-warm">Used a different device before?</p>
-      <input
-        value={code}
-        onChange={(e) => {
-          setCode(e.target.value.toUpperCase());
-          setState("idle");
-        }}
-        placeholder="ABC123"
-        maxLength={6}
-        aria-label="Your code"
-        className="w-full rounded-2xl border-2 border-warm/30 bg-white/10 px-4 py-3 text-center font-mono text-2xl font-black uppercase tracking-[0.25em] text-warm outline-none placeholder:text-warm/40 focus:border-warm"
-      />
-      {state === "notfound" && (
-        <p className="text-center text-sm font-bold text-[#ffd0d0]">
-          No one has that code. Check it and try again.
-        </p>
-      )}
-      <Button type="submit" variant="outline" disabled={!code.trim() || state === "busy"}>
-        {state === "busy" ? "Looking…" : "Get my stuff back"}
+        Join live round
       </Button>
     </form>
   );
 }
 
 export default function JoinPage() {
+  if (!ONLINE_FEATURES_ENABLED) {
+    return <ComingSoon title="Live sessions" detail="Facilitator-led group play is on its way. For now, jump into any game solo from Play." />;
+  }
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-steppe px-6 py-10 text-warm">
-      <h1 className="text-3xl font-black">Join a Session</h1>
-      <p className="text-warm/80">Type the code on the projector to join your table.</p>
+      <p className="text-xs font-black uppercase tracking-wider text-gold">Live group game</p>
+      <h1 className="text-3xl font-black">Join a session</h1>
+      <p className="max-w-sm text-center text-warm/80">Enter the code on the projector. Your facilitator will start the round.</p>
       <Suspense fallback={<div className="text-warm/70">Loading…</div>}>
         <JoinForm />
       </Suspense>
-      <RecoverForm />
     </div>
   );
 }

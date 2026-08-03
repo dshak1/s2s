@@ -88,7 +88,7 @@ export function FeedbackButton() {
       <button
         onClick={() => setOpen((o) => !o)}
         title="Send feedback"
-        className={`fixed right-4 z-[99] flex items-center gap-2 rounded-full border border-white/80 bg-[linear-gradient(135deg,#ffd84f_0%,#ff9a4f_52%,#ff6f9f_100%)] px-4 py-3 text-sm font-black text-steppe-700 shadow-xl shadow-orange-200/70 transition hover:scale-105 ${
+        className={`fixed right-4 z-[99] flex items-center gap-2 rounded-2xl bg-gold px-4 py-3 text-sm font-black text-steppe-700 shadow-[3px_4px_0_0_#b8960a] transition hover:brightness-105 active:translate-y-[2px] active:shadow-none ${
           onProjector ? "top-[13rem]" : "top-20"
         }`}
       >

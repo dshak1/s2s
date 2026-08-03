@@ -1,7 +1,7 @@
 import { ChevronUp } from "lucide-react";
 import { requireTeam, STAFF_ROLES, type TeamMember } from "@/lib/auth";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { linearEnabled } from "@/lib/linear";
+import { ticketAiReadiness } from "@/lib/ai/ticket-agent";
 import { GAMES } from "@/content/games";
 import { AdminShell, Empty, Panel } from "@/components/admin/shell";
 import {
@@ -16,10 +16,12 @@ import {
 } from "@/lib/tickets";
 import { addComment, addLink, closeReview, toggleCommentLike, toggleVote } from "./actions";
 import {
+  ApproveAiRunForm,
+  AiInvestigateButton,
+  AiRunFeedbackForm,
   DecisionForm,
   EditTicketForm,
   NewTicketForm,
-  PushToLinearButton,
   RequestReviewForm,
 } from "./forms";
 
@@ -34,6 +36,32 @@ type Attachment = {
   storage_path: string | null;
   url: string | null;
   title: string | null;
+};
+type AiRun = {
+  id: string;
+  ticket_id: string;
+  status: "queued" | "running" | "ready" | "preview_pending" | "needs_human" | "failed";
+  branch_name: string | null;
+  branch_url: string | null;
+  commit_sha: string | null;
+  preview_url: string | null;
+  summary: string | null;
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+};
+type AiStep = {
+  run_id: string;
+  step_type: string;
+  summary: string;
+  created_at: string;
+};
+type AiArtifact = {
+  run_id: string;
+  kind: "case_file" | "screenshot" | "diff" | "deployment" | "branch" | "test_output" | "note";
+  title: string;
+  url: string | null;
+  body: string | null;
 };
 
 const GAME_TITLES = new Map(GAMES.map((g) => [g.slug, g.title]));
@@ -68,13 +96,136 @@ const input =
   "w-full rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[13px] outline-none transition focus:border-[#94a3b8]";
 const chip = "rounded border px-1.5 py-0.5 text-[11px] font-medium";
 
+const AI_STATUS_STYLE: Record<AiRun["status"], string> = {
+  queued: "bg-[#f1f5f9] text-[#475569]",
+  running: "bg-[#fefce8] text-[#a16207]",
+  preview_pending: "bg-[#eff6ff] text-[#1d4ed8]",
+  ready: "bg-[#f0fdf4] text-[#15803d]",
+  needs_human: "bg-[#fff7ed] text-[#c2410c]",
+  failed: "bg-[#fef2f2] text-[#b91c1c]",
+};
+
+function AiRunPanel({
+  run,
+  steps,
+  artifacts,
+  ticketId,
+  canContinue,
+  canApprove,
+}: {
+  run: AiRun;
+  steps: AiStep[];
+  artifacts: AiArtifact[];
+  ticketId: string;
+  canContinue: boolean;
+  canApprove: boolean;
+}) {
+  const links = artifacts.filter((artifact) => artifact.url);
+  const diff = artifacts.find((artifact) => artifact.kind === "diff" && artifact.body);
+  const notes = artifacts.filter((artifact) => artifact.kind === "note" && artifact.body);
+  const plan = notes.find((artifact) => artifact.title === "Plan");
+  const uncertainty = notes.find((artifact) => artifact.title === "Uncertainty and confidence");
+  const research = notes.find((artifact) => artifact.title === "Inspiration and research");
+  const followUps = notes.find((artifact) => artifact.title === "Follow-up opportunities");
+  const visibleNotes = [plan, uncertainty, research, followUps].filter(Boolean) as AiArtifact[];
+  return (
+    <div className="mt-2.5 rounded-md border border-[#dbe0e6] bg-[#f8fafc] px-3 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[#64748b]">
+            AI investigation
+          </span>
+          <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${AI_STATUS_STYLE[run.status]}`}>
+            {run.status.replaceAll("_", " ")}
+          </span>
+          <span className="text-[11px] text-[#94a3b8]">
+            {new Date(run.created_at).toLocaleString()}
+          </span>
+        </div>
+        <a
+          href={`/tickets/ai/${run.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md border border-[#cbd5e1] bg-white px-2 py-1 text-[12px] font-medium text-[#475569] hover:bg-[#f1f5f9]"
+        >
+          Open run
+        </a>
+      </div>
+      {run.summary && <p className="mt-1.5 text-[13px] leading-relaxed">{run.summary}</p>}
+      {run.error && <p className="mt-1.5 text-[13px] font-medium text-[#b91c1c]">{run.error}</p>}
+      {visibleNotes.length > 0 && (
+        <div className="mt-2 grid gap-2 md:grid-cols-2">
+          {visibleNotes.map((note) => (
+            <details key={note.title} className="rounded border border-[#e2e8f0] bg-white px-2 py-1.5">
+              <summary className="cursor-pointer text-[12px] font-medium text-[#0f172a]">
+                {note.title}
+              </summary>
+              <pre className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-[#475569]">
+                {note.body}
+              </pre>
+            </details>
+          ))}
+        </div>
+      )}
+      {steps.length > 0 && (
+        <ol className="mt-2 space-y-1 border-t border-[#e2e8f0] pt-2">
+          {steps.map((step) => (
+            <li key={`${step.created_at}-${step.step_type}`} className="text-[12px] text-[#475569]">
+              <span className="font-medium text-[#0f172a]">{step.step_type}</span>: {step.summary}
+            </li>
+          ))}
+        </ol>
+      )}
+      {links.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {links.map((artifact) => (
+            <a
+              key={`${artifact.kind}-${artifact.title}`}
+              href={artifact.url as string}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-md border border-[#cbd5e1] bg-white px-2 py-1 text-[12px] font-medium text-[#475569] hover:bg-[#f1f5f9]"
+            >
+              {artifact.title}
+            </a>
+          ))}
+        </div>
+      )}
+      {canApprove && run.status === "ready" && (
+        <div className="mt-2">
+          <ApproveAiRunForm ticketId={ticketId} runId={run.id} />
+        </div>
+      )}
+      {diff?.body && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-[12px] font-medium text-[#475569]">
+            Proposed diff
+          </summary>
+          <pre className="mt-1 max-h-64 overflow-auto rounded bg-[#0f172a] p-2 text-[11px] leading-relaxed text-[#e2e8f0]">
+            {diff.body}
+          </pre>
+        </details>
+      )}
+      {canContinue && run.status === "needs_human" && (
+        <AiRunFeedbackForm ticketId={ticketId} runId={run.id} />
+      )}
+    </div>
+  );
+}
+
 export default async function TicketsPage({
   searchParams,
 }: {
   searchParams: Promise<{ type?: string; status?: string }>;
 }) {
-  const member = await requireTeam(undefined, "/tickets");
   const { type: typeFilter = "all", status: statusFilter = "open" } = await searchParams;
+  const nextParams = new URLSearchParams();
+  if (typeFilter !== "all") nextParams.set("type", typeFilter);
+  if (statusFilter !== "open") nextParams.set("status", statusFilter);
+  const member = await requireTeam(
+    undefined,
+    nextParams.size ? `/tickets?${nextParams.toString()}` : "/tickets",
+  );
   const sb = await getSupabaseServer();
   const isStaff = STAFF_ROLES.includes(member.role);
 
@@ -86,7 +237,12 @@ export default async function TicketsPage({
     );
   }
 
-  const [ticketsRes, votesRes, commentsRes, attachmentsRes, teamRes, likesRes, reviewsRes] =
+  const readiness = ticketAiReadiness();
+  const aiDisabledReason = readiness.enabled
+    ? null
+    : `Missing ${readiness.missing.join(", ")}`;
+
+  const [ticketsRes, votesRes, commentsRes, attachmentsRes, teamRes, likesRes, reviewsRes, aiRunsRes] =
     await Promise.all([
     sb
       .from("tickets")
@@ -101,6 +257,11 @@ export default async function TicketsPage({
       .in("role", ["member", "admin"]),
     sb.from("comment_likes").select("comment_id, member_id"),
     sb.from("ticket_reviews").select("*").is("closed_at", null),
+    sb
+      .from("ticket_ai_runs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   const tickets = (ticketsRes.data ?? []) as Ticket[];
@@ -109,6 +270,32 @@ export default async function TicketsPage({
   );
   const comments = (commentsRes.data ?? []) as Comment[];
   const attachments = (attachmentsRes.data ?? []) as Attachment[];
+  const aiRuns = (aiRunsRes.data ?? []) as AiRun[];
+  const runIds = aiRuns.map((run) => run.id);
+  const [aiStepsRes, aiArtifactsRes] =
+    runIds.length > 0
+      ? await Promise.all([
+          sb
+            .from("ticket_ai_steps")
+            .select("run_id, step_type, summary, created_at")
+            .in("run_id", runIds)
+            .order("created_at", { ascending: true }),
+          sb
+            .from("ticket_ai_artifacts")
+            .select("run_id, kind, title, url, body")
+            .in("run_id", runIds)
+            .order("created_at", { ascending: true }),
+        ])
+      : [{ data: [] }, { data: [] }];
+  const aiSteps = (aiStepsRes.data ?? []) as AiStep[];
+  const aiArtifacts = (aiArtifactsRes.data ?? []) as AiArtifact[];
+  const latestAiRunByTicket = new Map<string, AiRun>();
+  for (const run of aiRuns) {
+    const current = latestAiRunByTicket.get(run.ticket_id);
+    if (!current || (current.status === "failed" && run.status !== "failed")) {
+      latestAiRunByTicket.set(run.ticket_id, run);
+    }
+  }
   const team = (teamRes.data ?? []) as Array<Pick<TeamMember, "id" | "display_name">>;
   const names = new Map(team.map((t) => [t.id, t.display_name]));
 
@@ -210,6 +397,11 @@ export default async function TicketsPage({
             const voted = myVotes.has(t.id);
             const mine = comments.filter((c) => c.ticket_id === t.id);
             const files = attachments.filter((a) => a.ticket_id === t.id);
+            const aiRun = latestAiRunByTicket.get(t.id);
+            const runSteps = aiRun ? aiSteps.filter((step) => step.run_id === aiRun.id) : [];
+            const runArtifacts = aiRun
+              ? aiArtifacts.filter((artifact) => artifact.run_id === aiRun.id)
+              : [];
 
             return (
               <article
@@ -290,7 +482,18 @@ export default async function TicketsPage({
                       </div>
                     )}
 
-                    {(t.status !== "inbox" || t.linear_issue_url || files.length > 0) && (
+                    {aiRun && (
+                      <AiRunPanel
+                        run={aiRun}
+                        steps={runSteps}
+                        artifacts={runArtifacts}
+                        ticketId={t.id}
+                        canContinue={isStaff && !aiDisabledReason}
+                        canApprove={isStaff}
+                      />
+                    )}
+
+                    {(t.status !== "inbox" || files.length > 0) && (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {validUrl(t.preview_url) ? (
                           <a
@@ -303,16 +506,6 @@ export default async function TicketsPage({
                           </a>
                         ) : (
                           <span className="text-[12px] text-[#94a3b8]">No draft link yet</span>
-                        )}
-                        {t.linear_issue_url && (
-                          <a
-                            href={t.linear_issue_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[12px] text-[#64748b] hover:text-[#0f172a]"
-                          >
-                            Linear ↗
-                          </a>
                         )}
                         {files.map((f) =>
                           f.kind === "image" && f.storage_path ? (
@@ -463,6 +656,12 @@ export default async function TicketsPage({
                       />
                       <RequestReviewForm ticketId={t.id} team={team} />
                       {isStaff && (
+                        <AiInvestigateButton
+                          ticketId={t.id}
+                          disabledReason={aiDisabledReason}
+                        />
+                      )}
+                      {isStaff && (
                         <DecisionForm
                           ticketId={t.id}
                           currentStatus={t.status}
@@ -470,9 +669,6 @@ export default async function TicketsPage({
                           currentResolution={t.resolution}
                           currentPreview={t.preview_url}
                         />
-                      )}
-                      {isStaff && linearEnabled() && !t.linear_issue_id && t.status !== "inbox" && (
-                        <PushToLinearButton ticketId={t.id} />
                       )}
                     </div>
                   </div>
@@ -487,10 +683,9 @@ export default async function TicketsPage({
         <p className="text-[12px] leading-relaxed text-[#64748b]">
           A ticket cannot leave the inbox without a written reason, that&apos;s a database
           constraint, not a team norm. Flagged questions carry the exact content id, so
-          they line up with the labelling queue and the item analytics.{" "}
-          {linearEnabled()
-            ? "Linear sync is on."
-            : "Set LINEAR_API_KEY to push decided tickets into Linear."}
+          they line up with the labelling queue and the item analytics. AI investigations
+          run on isolated branches and record their plan, assumptions, confidence, artifacts,
+          and preview deployment for review.
         </p>
       </Panel>
     </AdminShell>

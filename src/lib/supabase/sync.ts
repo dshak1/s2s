@@ -2,7 +2,8 @@
 
 import { getSupabaseBrowser } from "./client";
 import { captureError } from "@/lib/monitoring";
-import type { Profile, GameRun, Artifact, LetterStat } from "@/lib/store";
+import type { Profile, GameRun, Artifact, LetterStat, CustomGame } from "@/lib/store";
+import type { BaseLanguage } from "@/lib/lang";
 
 // Public URL for anything in the kid-art bucket. Hydrated artifacts render from
 // this rather than a stored data URL, so pulling a gallery back does not blow
@@ -87,6 +88,8 @@ export type RemoteProfileState = {
   vocabCorrect: Record<string, number>;
   letterStats: Record<string, LetterStat>;
   homeCoverId: string | null;
+  customGames: CustomGame[];
+  baseLanguage: BaseLanguage;
 };
 
 /**
@@ -109,6 +112,8 @@ export async function fetchProfileState(profileId: string): Promise<RemoteProfil
     vocab_correct: Record<string, number>;
     letter_stats: Record<string, LetterStat>;
     home_cover_id: string | null;
+    custom_games: CustomGame[];
+    base_language: BaseLanguage;
   };
   const row = ((data ?? []) as Row[])[0];
   if (!row) return null;
@@ -119,6 +124,8 @@ export async function fetchProfileState(profileId: string): Promise<RemoteProfil
     vocabCorrect: row.vocab_correct ?? {},
     letterStats: row.letter_stats ?? {},
     homeCoverId: row.home_cover_id ?? null,
+    customGames: Array.isArray(row.custom_games) ? row.custom_games : [],
+    baseLanguage: row.base_language === "ru" ? "ru" : "en",
   };
 }
 
@@ -163,7 +170,40 @@ export async function syncProfileState(profile: Profile) {
     p_vocab_correct: profile.vocabCorrect,
     p_letter_stats: profile.letterStats,
     p_home_cover_id: profile.homeCoverId,
+    p_custom_games: profile.customGames,
+    p_base_language: profile.baseLanguage,
   });
+}
+
+export type LinkedPlayerProfile = {
+  id: string;
+  displayName: string;
+  xp: number;
+  recoveryCode: string | null;
+};
+
+export async function linkPlayerProfile(profileId: string, recoveryCode: string): Promise<void> {
+  const sb = getSupabaseBrowser();
+  if (!sb) throw new Error("Player accounts are unavailable offline.");
+  const { error } = await sb.rpc("link_player_profile", {
+    p_profile_id: profileId,
+    p_recovery_code: recoveryCode,
+  });
+  if (error) throw error;
+}
+
+export async function fetchLinkedPlayerProfiles(): Promise<LinkedPlayerProfile[]> {
+  const sb = getSupabaseBrowser();
+  if (!sb) return [];
+  const { data, error } = await sb.rpc("my_player_profiles");
+  if (error) throw error;
+  type Row = { id: string; display_name: string; xp: number; recovery_code: string | null };
+  return ((data ?? []) as Row[]).map((row) => ({
+    id: row.id,
+    displayName: row.display_name,
+    xp: row.xp,
+    recoveryCode: row.recovery_code,
+  }));
 }
 
 export async function syncJoin(profile: Profile, sessionCode: string, table: string) {
@@ -470,6 +510,54 @@ export function openRoundChannel(code: string, handlers: RoundHandlers) {
   return {
     send<K extends RoundEventName>(event: K, payload: RoundPayloads[K]) {
       channel.send({ type: "broadcast", event, payload });
+    },
+    close() {
+      sb.removeChannel(channel);
+    },
+  };
+}
+
+// --- Live multi-table race (say-and-shift projector view) ------------------
+//
+// Same broadcast-only shape as the round channel above, one event instead of
+// four: a player's device sends its current wall/lives whenever they change,
+// the facilitator's race screen renders one runner per table from whatever
+// it has seen. Nothing persisted — a projector-only view, not a leaderboard
+// of record.
+
+export type RaceProgressPayload = {
+  profileId: string;
+  name: string;
+  table: string;
+  wallIndex: number;
+  totalWalls: number;
+  lives: number;
+  finished: boolean;
+};
+
+export function openRaceChannel(
+  code: string,
+  handlers: { progress?: (payload: RaceProgressPayload) => void } = {},
+) {
+  const sb = getSupabaseBrowser();
+  if (!sb) return { send: () => {}, close: () => {} };
+
+  const channel = sb.channel(`s2s:race:${code.toUpperCase()}`, {
+    config: { broadcast: { self: false } },
+  });
+
+  if (handlers.progress) {
+    const onProgress = handlers.progress;
+    channel.on("broadcast", { event: "progress" }, ({ payload }: { payload: unknown }) =>
+      onProgress(payload as RaceProgressPayload),
+    );
+  }
+
+  channel.subscribe();
+
+  return {
+    send(payload: RaceProgressPayload) {
+      channel.send({ type: "broadcast", event: "progress", payload });
     },
     close() {
       sb.removeChannel(channel);
