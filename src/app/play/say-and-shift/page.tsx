@@ -274,6 +274,7 @@ export default function SayAndShiftPage() {
   const [pendingRunner, setPendingRunner] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [themeMode, setThemeMode] = useState<"auto" | "day" | "night">("auto");
 
   const recordedRef = useRef(false);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -281,7 +282,9 @@ export default function SayAndShiftPage() {
   const wall = walls[Math.min(wallIndex, walls.length - 1)];
   const targetCandidate = wall.candidates.find((c) => c.item.slug === wall.target.slug) ?? wall.candidates[0];
   const distractorItems = wall.candidates.filter((c) => c.item.slug !== wall.target.slug).map((c) => c.item);
-  const sky = SKY_PALETTES[Math.min(wallIndex, SKY_PALETTES.length - 1)];
+  const skyIndex = themeMode === "day" ? 2 : themeMode === "night" ? 5 : Math.min(wallIndex, SKY_PALETTES.length - 1);
+  const sky = SKY_PALETTES[skyIndex];
+  const customBackground = profile.gameBackgrounds["say-and-shift"] ?? null;
   const themeWord = useMemo(() => themeWordFor(VOCAB, walls), [walls]);
   const themeLetters = useMemo(() => [...themeWord.kk].filter((ch) => ch !== " "), [themeWord]);
   // One new letter reveals per wall's run — always includes the current
@@ -473,14 +476,19 @@ export default function SayAndShiftPage() {
 
       <motion.div
         className="relative mx-auto min-h-[560px] max-w-4xl overflow-hidden rounded-lg border border-steppe/10 shadow-inner sm:min-h-[600px]"
-        animate={{ background: `linear-gradient(180deg, ${sky.top}, ${sky.mid} 55%, ${sky.bottom})` }}
+        animate={customBackground ? {} : { background: `linear-gradient(180deg, ${sky.top}, ${sky.mid} 55%, ${sky.bottom})` }}
         transition={{ duration: 1.4, ease: "easeInOut" }}
+        style={customBackground ? { backgroundImage: `url(${customBackground})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
       >
-        {sky.night && (
+        {customBackground && (
+          <div className="pointer-events-none absolute inset-0 bg-black/15" />
+        )}
+
+        {!customBackground && sky.night && (
           <div className="pointer-events-none absolute inset-0 opacity-70" style={{ backgroundImage: "radial-gradient(1.5px 1.5px at 15% 20%, white, transparent), radial-gradient(1.5px 1.5px at 35% 12%, white, transparent), radial-gradient(1px 1px at 55% 25%, white, transparent), radial-gradient(1.5px 1.5px at 75% 15%, white, transparent), radial-gradient(1px 1px at 90% 30%, white, transparent), radial-gradient(1px 1px at 25% 8%, white, transparent), radial-gradient(1.5px 1.5px at 65% 6%, white, transparent)" }} />
         )}
 
-        {!sky.night && (
+        {!customBackground && !sky.night && (
           <div
             className="mountain-clouds pointer-events-none opacity-80"
             style={{ "--scene-cloud": "rgba(255,255,255,.92)", "--mountain-speed": "26s" } as React.CSSProperties}
@@ -491,6 +499,7 @@ export default function SayAndShiftPage() {
           </div>
         )}
 
+        {!customBackground && (
         <motion.div
           className="pointer-events-none absolute z-0 h-16 w-16"
           animate={{ left: "82%", top: `${sky.sunY}%` }}
@@ -499,6 +508,7 @@ export default function SayAndShiftPage() {
         >
           <SkySun color={sky.sun} night={Boolean(sky.night)} />
         </motion.div>
+        )}
 
         <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 p-3">
           <div className="rounded-lg bg-white/92 px-3 py-2 text-xs font-black text-steppe shadow-sm backdrop-blur">
@@ -633,6 +643,30 @@ export default function SayAndShiftPage() {
                     <Ear size={20} className="mx-auto text-[#c99a1a]" />
                     <p className="mt-1 text-xs font-black text-steppe">Chatting is fine</p>
                     <p className="text-[10px] font-bold text-steppe/50">It only listens for the word</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-lg border border-steppe/10 p-3">
+                  <p className="text-xs font-black text-steppe">Sky</p>
+                  <p className="mt-1 text-xs font-bold text-steppe/55">
+                    {customBackground
+                      ? "You've set a custom background from the button in the corner — it's used instead of the sky below."
+                      : "Auto shifts from dawn to night as you play. Or pin it."}
+                  </p>
+                  <div className="mt-2 grid grid-cols-3 rounded-lg bg-[#edf2f5] p-1" aria-label="Sky theme">
+                    {(["auto", "day", "night"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-pressed={themeMode === mode}
+                        onClick={() => setThemeMode(mode)}
+                        className={`rounded-md px-2 py-1.5 text-xs font-black capitalize transition ${
+                          themeMode === mode ? "bg-white text-steppe shadow-sm" : "text-steppe/55"
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
