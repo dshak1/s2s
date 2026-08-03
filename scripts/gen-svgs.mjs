@@ -9,7 +9,10 @@ const { VOCAB } = await import("../src/content/vocab.ts").catch(() => ({}));
 // Fallback: parse not available in node for .ts, so we inline a tiny loader.
 import { readFileSync } from "node:fs";
 const src = readFileSync(new URL("../src/content/vocab.ts", import.meta.url), "utf8");
-const items = [...src.matchAll(/\{\s*slug:\s*"([^"]+)",\s*kk:\s*"([^"]+)",\s*latin:\s*"([^"]+)",\s*en:\s*"([^"]+)",\s*category:\s*"([^"]+)"\s*\}/g)]
+// `ru` sits between `en` and `category` in every entry now (it didn't when this
+// regex was first written), and newer entries also carry a trailing
+// `aiDrafted: true` — both optional here so this keeps matching either shape.
+const items = [...src.matchAll(/\{\s*slug:\s*"([^"]+)",\s*kk:\s*"([^"]+)",\s*latin:\s*"([^"]+)",\s*en:\s*"([^"]+)",\s*ru:\s*"[^"]+",\s*category:\s*"([^"]+)"(?:,\s*aiDrafted:\s*true)?\s*\}/g)]
   .map((m) => ({ slug: m[1], kk: m[2], latin: m[3], en: m[4], category: m[5] }));
 
 const BLUE = "#1E4D8C";
@@ -26,6 +29,9 @@ const EMBLEM = {
   food: `<circle cx="100" cy="92" r="30" fill="none"/><path d="M100 62 v60" fill="none"/>`,
   greetings: `<path d="M70 100 q30 35 60 0" fill="none"/><circle cx="84" cy="78" r="4"/><circle cx="116" cy="78" r="4"/>`,
   body: `<circle cx="100" cy="70" r="16" fill="none"/><path d="M100 86 v34 M80 100 h40" fill="none"/>`,
+  weather: `<circle cx="100" cy="80" r="18" fill="none"/><path d="M76 120 q24 -18 48 0" fill="none"/>`,
+  school: `<rect x="72" y="60" width="56" height="70" rx="4" fill="none"/><path d="M80 78 h40 M80 94 h40" fill="none"/>`,
+  nature: `<path d="M100 130 v-60" fill="none"/><path d="M70 90 q30 -40 60 0 q-30 20 -60 0" fill="none"/>`,
 };
 
 function svgFor(item) {

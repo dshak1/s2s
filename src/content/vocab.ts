@@ -12,7 +12,10 @@ export type VocabCategory =
   | "places"
   | "food"
   | "greetings"
-  | "body";
+  | "body"
+  | "weather"
+  | "school"
+  | "nature";
 
 export type VocabItem = {
   slug: string;
@@ -21,6 +24,10 @@ export type VocabItem = {
   en: string;
   ru: string;
   category: VocabCategory;
+  /** AI-drafted, not yet checked by a native speaker — see the note above
+   * the "weather"/"school"/"nature" blocks below. Never set on the original
+   * 72-word set. */
+  aiDrafted?: true;
 };
 
 export const VOCAB: VocabItem[] = [
@@ -111,10 +118,43 @@ export const VOCAB: VocabItem[] = [
   { slug: "auyz", kk: "Ауыз", latin: "Auyz", en: "Mouth", ru: "Рот", category: "body" },
   { slug: "shash", kk: "Шаш", latin: "Shash", en: "Hair", ru: "Волосы", category: "body" },
   { slug: "tis", kk: "Тіс", latin: "Tis", en: "Tooth", ru: "Зуб", category: "body" },
+
+  // ---------------------------------------------------------------------
+  // AI-drafted, 2026-08-03 — generated to widen vocab coverage, NOT checked
+  // by a native speaker yet. Flagged via aiDrafted: true on every entry
+  // below. Spot-check before a real workshop leans on these three categories.
+  // ---------------------------------------------------------------------
+
+  // weather — ауа-райы
+  { slug: "zhanbyr", kk: "Жаңбыр", latin: "Jańbyr", en: "Rain", ru: "Дождь", category: "weather", aiDrafted: true },
+  { slug: "qar", kk: "Қар", latin: "Qar", en: "Snow", ru: "Снег", category: "weather", aiDrafted: true },
+  { slug: "kun", kk: "Күн", latin: "Kún", en: "Sun", ru: "Солнце", category: "weather", aiDrafted: true },
+  { slug: "zhel", kk: "Жел", latin: "Jel", en: "Wind", ru: "Ветер", category: "weather", aiDrafted: true },
+  { slug: "bult", kk: "Бұлт", latin: "Bult", en: "Cloud", ru: "Облако", category: "weather", aiDrafted: true },
+  { slug: "ystyq", kk: "Ыстық", latin: "Ystyq", en: "Hot", ru: "Жарко", category: "weather", aiDrafted: true },
+  { slug: "suyq", kk: "Суық", latin: "Suyq", en: "Cold", ru: "Холодно", category: "weather", aiDrafted: true },
+
+  // school — мектеп
+  { slug: "kitap", kk: "Кітап", latin: "Kitap", en: "Book", ru: "Книга", category: "school", aiDrafted: true },
+  { slug: "qalam", kk: "Қалам", latin: "Qalam", en: "Pen", ru: "Ручка", category: "school", aiDrafted: true },
+  { slug: "qaryndash", kk: "Қарындаш", latin: "Qaryndash", en: "Pencil", ru: "Карандаш", category: "school", aiDrafted: true },
+  { slug: "ustel", kk: "Үстел", latin: "Ústel", en: "Table", ru: "Стол", category: "school", aiDrafted: true },
+  { slug: "oryndyq", kk: "Орындық", latin: "Oryndyq", en: "Chair", ru: "Стул", category: "school", aiDrafted: true },
+  { slug: "mugalim", kk: "Мұғалім", latin: "Muǵalim", en: "Teacher", ru: "Учитель", category: "school", aiDrafted: true },
+  { slug: "oqushy", kk: "Оқушы", latin: "Oqushy", en: "Student", ru: "Ученик", category: "school", aiDrafted: true },
+
+  // nature — табиғат
+  { slug: "agash", kk: "Ағаш", latin: "Aǵash", en: "Tree", ru: "Дерево", category: "nature", aiDrafted: true },
+  { slug: "gul", kk: "Гүл", latin: "Gúl", en: "Flower", ru: "Цветок", category: "nature", aiDrafted: true },
+  { slug: "aspan", kk: "Аспан", latin: "Aspan", en: "Sky", ru: "Небо", category: "nature", aiDrafted: true },
+  { slug: "zhuldyz", kk: "Жұлдыз", latin: "Juldyz", en: "Star", ru: "Звезда", category: "nature", aiDrafted: true },
+  { slug: "ai", kk: "Ай", latin: "Ai", en: "Moon", ru: "Луна", category: "nature", aiDrafted: true },
+  { slug: "tas", kk: "Тас", latin: "Tas", en: "Stone", ru: "Камень", category: "nature", aiDrafted: true },
 ];
 
 export const CATEGORIES: VocabCategory[] = [
   "family", "numbers", "animals", "colors", "places", "food", "greetings", "body",
+  "weather", "school", "nature",
 ];
 
 export const CATEGORY_LABELS: Record<VocabCategory, string> = {
@@ -126,6 +166,9 @@ export const CATEGORY_LABELS: Record<VocabCategory, string> = {
   food: "Food",
   greetings: "Greetings",
   body: "Body",
+  weather: "Weather",
+  school: "School",
+  nature: "Nature",
 };
 
 export function vocabByCategory(cat: VocabCategory): VocabItem[] {
@@ -149,6 +192,9 @@ export const VOCAB_CATEGORY_META: Array<{
   { key: "places", kk: "Жерлер", en: "Places", ru: "Места", emoji: "🏔️" },
   { key: "greetings", kk: "Сәлемдесу", en: "Greetings", ru: "Приветствия", emoji: "👋" },
   { key: "body", kk: "Дене", en: "Body", ru: "Тело", emoji: "🖐️" },
+  { key: "weather", kk: "Ауа-райы", en: "Weather", ru: "Погода", emoji: "🌦️" },
+  { key: "school", kk: "Мектеп", en: "School", ru: "Школа", emoji: "📚" },
+  { key: "nature", kk: "Табиғат", en: "Nature", ru: "Природа", emoji: "🌳" },
 ];
 
 export function imgFor(item: VocabItem): string {
