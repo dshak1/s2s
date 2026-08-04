@@ -156,9 +156,9 @@ export function DrawingBoard({
           title="Clear all"
           aria-label="Clear the whole drawing"
           onClick={clear}
-          className="grid h-9 w-9 place-items-center rounded-lg border border-steppe/15 bg-white text-[#b44736]"
+          className="flex h-9 items-center gap-1.5 rounded-lg border border-steppe/15 bg-white px-3 text-sm font-black text-[#b44736]"
         >
-          <Trash2 size={17} />
+          <Trash2 size={17} /> Clear all
         </button>
       </div>
     </div>

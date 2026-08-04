@@ -114,8 +114,19 @@ function themeWordFor(pool: VocabItem[], walls: Wall[]): VocabItem {
   return pool.find((item) => !targetSlugs.has(item.slug)) ?? pool[0];
 }
 
-type Phase = "ready" | "run" | "wall" | "rest" | "finished";
+type Phase = "ready" | "run" | "wall" | "rest" | "levelup" | "finished";
 type Outcome = "correct" | "wrong" | null;
+
+// Once the level's calibration walls (totalWallsForLevel — 4 at level 1) are
+// cleared, the run doesn't just end: it keeps going, forever, against a
+// shrinking per-wall timer instead of the untimed "listen whenever" pace —
+// the calibration walls exist to get a kid comfortable with the mic before
+// the clock starts. No rest-stop refill once the timer's live either; 3
+// lives and you're done, same as the calibration phase's forgiving refill
+// stops applying.
+const INFINITE_START_TIMER_MS = 5000;
+const INFINITE_MIN_TIMER_MS = 2200;
+const INFINITE_TIMER_STEP_MS = 150;
 type ListenerStatus = "idle" | "listening" | "checking";
 
 // Continuous mic listener for one wall. Back-to-back, non-overlapping chunks
@@ -286,11 +297,16 @@ export default function SayAndShiftPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [themeMode, setThemeMode] = useState<"auto" | "day" | "night">("auto");
+  const [seenSlugs, setSeenSlugs] = useState<string[]>([]);
+  const [timeLeftMs, setTimeLeftMs] = useState<number | null>(null);
 
   const recordedRef = useRef(false);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const wall = walls[Math.min(wallIndex, walls.length - 1)];
+  const infiniteMode = wallIndex >= totalWalls;
+  const infiniteWallNumber = infiniteMode ? wallIndex - totalWalls + 1 : 0;
+  const infiniteTimerMs = Math.max(INFINITE_MIN_TIMER_MS, INFINITE_START_TIMER_MS - infiniteWallNumber * INFINITE_TIMER_STEP_MS);
+  const wall = infiniteMode ? wallFor(pool, wallIndex) : walls[wallIndex];
   const targetCandidate = wall.candidates.find((c) => c.item.slug === wall.target.slug) ?? wall.candidates[0];
   const distractorItems = wall.candidates.filter((c) => c.item.slug !== wall.target.slug).map((c) => c.item);
   const skyIndex = themeMode === "day" ? 2 : themeMode === "night" ? 5 : Math.min(wallIndex, SKY_PALETTES.length - 1);
@@ -361,48 +377,10 @@ export default function SayAndShiftPage() {
     store.recordGameRun({
       game: "say-and-shift",
       score,
-      vocabSeen: walls.map((w) => w.target.slug),
+      vocabSeen: seenSlugs,
       vocabCorrect: correctSlugs,
     });
-  }, [correctSlugs, phase, score, walls]);
-
-  function resolveCandidate(candidate: WallCandidate) {
-    if (phase !== "wall") return;
-    const isTarget = candidate.item.slug === wall.target.slug;
-
-    if (isTarget) {
-      setOutcome("correct");
-      setScore((v) => v + 10 + streak * 2);
-      setStreak((v) => v + 1);
-      setCorrectSlugs((slugs) => [...slugs, wall.target.slug]);
-      playCorrect();
-      advanceTimerRef.current = setTimeout(goToNextWallOrFinish, 1300);
-    } else {
-      setOutcome("wrong");
-      setStreak(0);
-      playWrong();
-      playClip(`/audio/vocab/${wall.target.slug}.mp3`, wall.target.kk);
-      setMessage(`${baseText(wall.target, profile.baseLanguage)} = ${wall.target.kk}`);
-      const remaining = Math.max(0, lives - 1);
-      setLives(remaining);
-      advanceTimerRef.current = setTimeout(() => {
-        if (remaining === 0) {
-          setPhase("rest");
-        } else {
-          goToNextWallOrFinish();
-        }
-      }, 1700);
-    }
-  }
-
-  const listenerStatus = useWallListener({
-    stream: micStream,
-    active: listenActive,
-    target: wall.target,
-    distractors: distractorItems,
-    onMatch: () => resolveCandidate(targetCandidate),
-    onTimeout: () => setWallTimedOut(true),
-  });
+  }, [correctSlugs, phase, score, seenSlugs]);
 
   async function startRun() {
     recordedRef.current = false;
@@ -411,6 +389,7 @@ export default function SayAndShiftPage() {
     setScore(themeLetters.length > 0 ? 2 : 0);
     setStreak(0);
     setCorrectSlugs([]);
+    setSeenSlugs([]);
     setOutcome(null);
     setMessage(null);
     setWallTimedOut(false);
@@ -433,19 +412,112 @@ export default function SayAndShiftPage() {
 
   function goToNextWallOrFinish() {
     const next = wallIndex + 1;
-    if (next >= totalWalls) {
-      setPhase("finished");
-      return;
-    }
     setWallIndex(next);
     if (next < themeLetters.length) setScore((v) => v + 2);
     setOutcome(null);
     setMessage(null);
     setWallTimedOut(false);
     setManualFallback(false);
+
+    if (next === totalWalls) {
+      // Calibration walls just finished — infinite mode starts on the wall
+      // after this one. Show the transition, then run into it same as any
+      // other wall.
+      setPhase("levelup");
+      advanceTimerRef.current = setTimeout(() => {
+        setPhase("run");
+        advanceTimerRef.current = setTimeout(() => setPhase("wall"), RUN_MS);
+      }, 1800);
+      return;
+    }
     setPhase("run");
     advanceTimerRef.current = setTimeout(() => setPhase("wall"), RUN_MS);
   }
+
+  // Shared tail end for both a resolved answer and a timer running out: life
+  // loss, and whether that means "rest and refill" (calibration walls) or
+  // "run over" (infinite mode, no refill once the clock's live).
+  function afterLifeLoss(remaining: number) {
+    advanceTimerRef.current = setTimeout(() => {
+      if (remaining === 0) {
+        setPhase(infiniteMode ? "finished" : "rest");
+      } else {
+        goToNextWallOrFinish();
+      }
+    }, 1700);
+  }
+
+  function resolveCandidate(candidate: WallCandidate) {
+    if (phase !== "wall" || outcome !== null) return;
+    const isTarget = candidate.item.slug === wall.target.slug;
+    setSeenSlugs((s) => [...s, wall.target.slug]);
+
+    if (isTarget) {
+      setOutcome("correct");
+      setScore((v) => v + 10 + streak * 2 + (infiniteMode ? infiniteWallNumber : 0));
+      setStreak((v) => v + 1);
+      setCorrectSlugs((slugs) => [...slugs, wall.target.slug]);
+      playCorrect();
+      advanceTimerRef.current = setTimeout(goToNextWallOrFinish, 1300);
+    } else {
+      setOutcome("wrong");
+      setStreak(0);
+      playWrong();
+      playClip(`/audio/vocab/${wall.target.slug}.mp3`, wall.target.kk);
+      setMessage(`${baseText(wall.target, profile.baseLanguage)} = ${wall.target.kk}`);
+      const remaining = Math.max(0, lives - 1);
+      setLives(remaining);
+      afterLifeLoss(remaining);
+    }
+  }
+
+  // The infinite-mode timer ran out before the mic or a tap resolved
+  // anything — same as guessing wrong, just nobody guessed.
+  function resolveMiss() {
+    if (phase !== "wall" || outcome !== null) return;
+    setSeenSlugs((s) => [...s, wall.target.slug]);
+    setOutcome("wrong");
+    setStreak(0);
+    playWrong();
+    playClip(`/audio/vocab/${wall.target.slug}.mp3`, wall.target.kk);
+    setMessage(`Time's up! ${baseText(wall.target, profile.baseLanguage)} = ${wall.target.kk}`);
+    const remaining = Math.max(0, lives - 1);
+    setLives(remaining);
+    afterLifeLoss(remaining);
+  }
+
+  const listenerStatus = useWallListener({
+    stream: micStream,
+    active: listenActive,
+    target: wall.target,
+    distractors: distractorItems,
+    onMatch: () => resolveCandidate(targetCandidate),
+    onTimeout: () => setWallTimedOut(true),
+  });
+
+  // Infinite mode's per-wall countdown. Only ticks while a wall is actually
+  // waiting on an answer; resolveMiss handles what happens at zero.
+  useEffect(() => {
+    if (!infiniteMode || phase !== "wall" || outcome !== null) {
+      setTimeLeftMs(null);
+      return;
+    }
+    const startedAt = Date.now();
+    setTimeLeftMs(infiniteTimerMs);
+    const tick = setInterval(() => {
+      const left = infiniteTimerMs - (Date.now() - startedAt);
+      if (left <= 0) {
+        clearInterval(tick);
+        setTimeLeftMs(0);
+        resolveMiss();
+      } else {
+        setTimeLeftMs(left);
+      }
+    }, 100);
+    return () => clearInterval(tick);
+    // infiniteTimerMs is derived from wallIndex, already a dep via infiniteMode
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [infiniteMode, phase, outcome, wallIndex]);
 
   function tapCandidate(candidate: WallCandidate) {
     if (phase !== "wall") return;
@@ -523,7 +595,7 @@ export default function SayAndShiftPage() {
 
         <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 p-3">
           <div className="rounded-lg bg-white/92 px-3 py-2 text-xs font-black text-steppe shadow-sm backdrop-blur">
-            Wall {Math.min(wallIndex + 1, totalWalls)} of {totalWalls}
+            {infiniteMode ? `⚡ Infinite — wall ${infiniteWallNumber}` : `Wall ${wallIndex + 1} of ${totalWalls}`}
           </div>
           <div className="flex items-center gap-1 rounded-lg bg-white/92 px-3 py-2 shadow-sm backdrop-blur" aria-label={`${lives} lives remaining`}>
             {[0, 1, 2].map((heart) => (
@@ -638,7 +710,7 @@ export default function SayAndShiftPage() {
                       <span className="rounded-full bg-[#ffd84f] px-2.5 py-0.5 text-[10px] font-black uppercase text-steppe shadow-sm">Level {level}</span>
                     </div>
                     <h2 className="text-2xl font-black text-steppe">Just say the word out loud</h2>
-                    <p className="mt-1 text-sm font-bold text-steppe/60">The game is always listening — no button to hold. Say the Kazakh word out loud and your runner slips through the wall. {totalWalls} walls, {START_LIVES} lives.</p>
+                    <p className="mt-1 text-sm font-bold text-steppe/60">The game is always listening — no button to hold. Say the Kazakh word out loud and your runner slips through the wall. {totalWalls} untimed walls to warm up, then it&apos;s infinite — a shrinking clock, {START_LIVES} lives, no refills.</p>
                   </div>
                 </div>
 
@@ -779,6 +851,16 @@ export default function SayAndShiftPage() {
                 <p className="text-xs font-black uppercase text-[#e35f4c]">How do you say</p>
                 <h2 className="text-2xl font-black text-steppe sm:text-3xl">{baseText(wall.target, profile.baseLanguage)}?</h2>
 
+                {infiniteMode && timeLeftMs !== null && (
+                  <div className="mx-auto mt-3 h-2.5 w-full max-w-xs overflow-hidden rounded-full bg-steppe/10">
+                    <motion.div
+                      className={`h-full rounded-full ${timeLeftMs < 1500 ? "bg-[#c8513e]" : "bg-[#ffd84f]"}`}
+                      animate={{ width: `${Math.max(0, (timeLeftMs / infiniteTimerMs) * 100)}%` }}
+                      transition={{ duration: 0.1, ease: "linear" }}
+                    />
+                  </div>
+                )}
+
                 {outcome === null && (
                   <div className="mt-4 flex flex-col items-center gap-2">
                     {!showTapFallback ? (
@@ -866,6 +948,33 @@ export default function SayAndShiftPage() {
             </motion.div>
           )}
 
+          {phase === "levelup" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 grid place-items-center bg-[#133e5a]/82 p-4 backdrop-blur-[4px]"
+            >
+              <motion.div
+                initial={{ scale: 0.4, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 220, damping: 15 }}
+                className="text-center"
+              >
+                <motion.p
+                  className="text-6xl"
+                  animate={{ rotate: [0, -8, 8, -8, 0] }}
+                  transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut" }}
+                >
+                  ⚡
+                </motion.p>
+                <h2 className="mt-3 text-4xl font-black text-white">Test complete!</h2>
+                <p className="mt-2 text-lg font-black text-[#ffd84f]">Now: Infinite mode</p>
+                <p className="mt-1 text-sm font-bold text-white/70">Walls keep coming. Answer fast — the clock&apos;s live.</p>
+              </motion.div>
+            </motion.div>
+          )}
+
           {phase === "finished" && (
             <motion.div
               initial={{ opacity: 0, scale: 0.96 }}
@@ -875,9 +984,10 @@ export default function SayAndShiftPage() {
               <div className="w-full max-w-md rounded-lg bg-white p-6 text-center shadow-2xl">
                 <p className="text-xs font-black uppercase text-[#e35f4c]">Run complete</p>
                 <h2 className="mt-1 text-3xl font-black text-steppe">{score} points</h2>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-lg bg-[#eaf8ed] p-3"><p className="text-xl font-black text-steppe">{correctSlugs.length}/{totalWalls}</p><p className="text-[10px] font-black uppercase text-steppe/50">Words said</p></div>
-                  <div className="rounded-lg bg-[#fff8df] p-3"><p className="text-xl font-black text-steppe">{lives}</p><p className="text-[10px] font-black uppercase text-steppe/50">Lives left</p></div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="rounded-lg bg-[#eaf8ed] p-3"><p className="text-xl font-black text-steppe">{correctSlugs.length}</p><p className="text-[10px] font-black uppercase text-steppe/50">Words said</p></div>
+                  <div className="rounded-lg bg-[#fff8df] p-3"><p className="text-xl font-black text-steppe">{wallIndex + 1}</p><p className="text-[10px] font-black uppercase text-steppe/50">Furthest wall</p></div>
+                  <div className="rounded-lg bg-[#fff0ed] p-3"><p className="text-xl font-black text-steppe">{lives}</p><p className="text-[10px] font-black uppercase text-steppe/50">Lives left</p></div>
                 </div>
                 <Button variant="gold" size="lg" className="mt-5 w-full" onClick={startRun}><RotateCcw size={18} /> Run again</Button>
               </div>
@@ -885,9 +995,9 @@ export default function SayAndShiftPage() {
           )}
         </AnimatePresence>
 
-        {phase !== "ready" && phase !== "finished" && phase !== "rest" && (
+        {phase !== "ready" && phase !== "finished" && phase !== "rest" && phase !== "levelup" && (
           <div className="pointer-events-none absolute bottom-3 right-3 z-20 hidden items-center gap-1 rounded-lg bg-white/88 px-3 py-2 text-[10px] font-black text-steppe shadow-lg backdrop-blur sm:flex">
-            <Flag size={12} /> Wall {Math.min(wallIndex + 1, totalWalls)} / {totalWalls}
+            <Flag size={12} /> {infiniteMode ? `Infinite #${infiniteWallNumber}` : `Wall ${wallIndex + 1} / ${totalWalls}`}
           </div>
         )}
       </motion.div>
