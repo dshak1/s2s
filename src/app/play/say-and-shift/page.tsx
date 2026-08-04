@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Ear, Flag, Heart, Mic, MicOff, RotateCcw, Upload, Volume2, WifiOff, X } from "lucide-react";
 import { BandPuppet } from "@/components/game/band-puppet";
@@ -9,7 +9,7 @@ import { DrawingBoard } from "@/components/game/drawing-board";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { ReportQuestion } from "@/components/report-question";
 import { Button } from "@/components/ui/button";
-import { VOCAB, type VocabItem } from "@/content/vocab";
+import { type VocabItem } from "@/content/vocab";
 import { vocabItemId } from "@/lib/items";
 import { baseText } from "@/lib/lang";
 import { playClip, playCorrect, playWrong } from "@/lib/audio";
@@ -18,8 +18,9 @@ import { scanForTarget } from "@/lib/speech-match";
 import { store, useProfile } from "@/lib/store";
 import { openRaceChannel } from "@/lib/supabase/sync";
 import { logAnswer } from "@/lib/telemetry";
+import { currentLevel, poolForLevel, totalWallsForLevel } from "@/lib/vocab-levels";
+import { useVocab } from "@/lib/vocab-packs";
 
-const TOTAL_WALLS = 6;
 const START_LIVES = 3;
 // How long to keep listening for one wall before giving up and revealing the
 // tap fallback — a stand-in for "2 unclear retries" now that there is no
@@ -248,6 +249,7 @@ function useWallListener({
 
 export default function SayAndShiftPage() {
   const profile = useProfile();
+  const allVocab = useVocab();
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // State, not a ref: useWallListener needs this value during render, and a
@@ -255,7 +257,16 @@ export default function SayAndShiftPage() {
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
 
-  const walls = useMemo(() => Array.from({ length: TOTAL_WALLS }, (_, i) => wallFor(VOCAB, i)), []);
+  // Level, pool, and wall count are derived fresh each render from mastery in
+  // profile.vocabCorrect — never stored, so this stays consistent with the
+  // existing cross-device max-wins merge. Recomputing every render is cheap
+  // (small arrays) and sidesteps store.ts's Profile object never changing
+  // reference on mutation. Values only actually change between runs: mastery
+  // updates once, in the phase === "finished" effect below, not mid-run.
+  const level = currentLevel(profile, allVocab);
+  const pool = poolForLevel(profile, allVocab, level);
+  const totalWalls = totalWallsForLevel(level);
+  const walls = Array.from({ length: totalWalls }, (_, i) => wallFor(pool, i));
 
   const [phase, setPhase] = useState<Phase>("ready");
   const [wallIndex, setWallIndex] = useState(0);
@@ -285,8 +296,8 @@ export default function SayAndShiftPage() {
   const skyIndex = themeMode === "day" ? 2 : themeMode === "night" ? 5 : Math.min(wallIndex, SKY_PALETTES.length - 1);
   const sky = SKY_PALETTES[skyIndex];
   const customBackground = profile.gameBackgrounds["say-and-shift"] ?? null;
-  const themeWord = useMemo(() => themeWordFor(VOCAB, walls), [walls]);
-  const themeLetters = useMemo(() => [...themeWord.kk].filter((ch) => ch !== " "), [themeWord]);
+  const themeWord = themeWordFor(pool, walls);
+  const themeLetters = [...themeWord.kk].filter((ch) => ch !== " ");
   // One new letter reveals per wall's run — always includes the current
   // wall's own letter once its "run" segment has started.
   const revealedLetterCount = Math.min(wallIndex + (phase === "ready" ? 0 : 1), themeLetters.length);
@@ -328,7 +339,7 @@ export default function SayAndShiftPage() {
       name: profile.displayName,
       table: profile.table ?? "?",
       wallIndex,
-      totalWalls: TOTAL_WALLS,
+      totalWalls,
       lives,
       finished: phase === "finished",
     });
@@ -422,7 +433,7 @@ export default function SayAndShiftPage() {
 
   function goToNextWallOrFinish() {
     const next = wallIndex + 1;
-    if (next >= TOTAL_WALLS) {
+    if (next >= totalWalls) {
       setPhase("finished");
       return;
     }
@@ -512,7 +523,7 @@ export default function SayAndShiftPage() {
 
         <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 p-3">
           <div className="rounded-lg bg-white/92 px-3 py-2 text-xs font-black text-steppe shadow-sm backdrop-blur">
-            Wall {Math.min(wallIndex + 1, TOTAL_WALLS)} of {TOTAL_WALLS}
+            Wall {Math.min(wallIndex + 1, totalWalls)} of {totalWalls}
           </div>
           <div className="flex items-center gap-1 rounded-lg bg-white/92 px-3 py-2 shadow-sm backdrop-blur" aria-label={`${lives} lives remaining`}>
             {[0, 1, 2].map((heart) => (
@@ -622,9 +633,12 @@ export default function SayAndShiftPage() {
                     <Mic size={23} />
                   </div>
                   <div>
-                    <p className="text-xs font-black uppercase text-[#e35f4c]">How this run works</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs font-black uppercase text-[#e35f4c]">How this run works</p>
+                      <span className="rounded-full bg-[#ffd84f] px-2.5 py-0.5 text-[10px] font-black uppercase text-steppe shadow-sm">Level {level}</span>
+                    </div>
                     <h2 className="text-2xl font-black text-steppe">Just say the word out loud</h2>
-                    <p className="mt-1 text-sm font-bold text-steppe/60">The game is always listening — no button to hold. Say the Kazakh word out loud and your runner slips through the wall. {TOTAL_WALLS} walls, {START_LIVES} lives.</p>
+                    <p className="mt-1 text-sm font-bold text-steppe/60">The game is always listening — no button to hold. Say the Kazakh word out loud and your runner slips through the wall. {totalWalls} walls, {START_LIVES} lives.</p>
                   </div>
                 </div>
 
@@ -862,7 +876,7 @@ export default function SayAndShiftPage() {
                 <p className="text-xs font-black uppercase text-[#e35f4c]">Run complete</p>
                 <h2 className="mt-1 text-3xl font-black text-steppe">{score} points</h2>
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-lg bg-[#eaf8ed] p-3"><p className="text-xl font-black text-steppe">{correctSlugs.length}/{TOTAL_WALLS}</p><p className="text-[10px] font-black uppercase text-steppe/50">Words said</p></div>
+                  <div className="rounded-lg bg-[#eaf8ed] p-3"><p className="text-xl font-black text-steppe">{correctSlugs.length}/{totalWalls}</p><p className="text-[10px] font-black uppercase text-steppe/50">Words said</p></div>
                   <div className="rounded-lg bg-[#fff8df] p-3"><p className="text-xl font-black text-steppe">{lives}</p><p className="text-[10px] font-black uppercase text-steppe/50">Lives left</p></div>
                 </div>
                 <Button variant="gold" size="lg" className="mt-5 w-full" onClick={startRun}><RotateCcw size={18} /> Run again</Button>
@@ -873,7 +887,7 @@ export default function SayAndShiftPage() {
 
         {phase !== "ready" && phase !== "finished" && phase !== "rest" && (
           <div className="pointer-events-none absolute bottom-3 right-3 z-20 hidden items-center gap-1 rounded-lg bg-white/88 px-3 py-2 text-[10px] font-black text-steppe shadow-lg backdrop-blur sm:flex">
-            <Flag size={12} /> Wall {Math.min(wallIndex + 1, TOTAL_WALLS)} / {TOTAL_WALLS}
+            <Flag size={12} /> Wall {Math.min(wallIndex + 1, totalWalls)} / {totalWalls}
           </div>
         )}
       </motion.div>

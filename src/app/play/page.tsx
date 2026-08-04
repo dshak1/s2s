@@ -12,8 +12,8 @@ import {
   ChevronRight,
   CircleUserRound,
   Gamepad2,
-  Languages,
   Lock,
+  Mic,
   Palette,
   Play,
   Plus,
@@ -196,6 +196,7 @@ function FullHub() {
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <MakerCard href="/play/say-and-shift" image="/img/places-photos/almaty.webp" icon={<Mic size={22} />} title="Say it out loud" copy="Draw your runner, then race the wall with your voice." />
               {GAME_BUILDER_ENABLED && (
                 <MakerCard href="/play/create" image="/img/places-photos/charyn.jpg" icon={<Gamepad2 size={22} />} title="Build a game" copy="Choose the words, draw the world, then run it." />
               )}
@@ -246,20 +247,6 @@ function FullHub() {
                     {GROUP_STYLE[group.key].label}
                   </button>
                 ))}
-                <div className="ml-2 flex rounded-full border border-steppe/10 bg-white p-1 shadow-sm">
-                  <Languages size={16} className="ml-2 self-center text-steppe/45" />
-                  {(["en", "ru"] as const).map((language) => (
-                    <button
-                      key={language}
-                      type="button"
-                      onClick={() => store.setBaseLanguage(language)}
-                      aria-pressed={profile.baseLanguage === language}
-                      className={`rounded-full px-3 py-1 text-xs font-black ${profile.baseLanguage === language ? "bg-steppe text-white" : "text-steppe/50"}`}
-                    >
-                      {language === "en" ? "EN" : "RU"}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
 

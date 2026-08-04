@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Button } from "@/components/ui/button";
-import { VOCAB, VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
+import { VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
 import { shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord } from "@/lib/audio";
 import { store, useProfile } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { vocabItemId } from "@/lib/items";
 import { baseText } from "@/lib/lang";
+import { useVocab } from "@/lib/vocab-packs";
 import { Heart, Trophy } from "lucide-react";
 
 const FIELD = 380; // px fall distance before "ground"
@@ -44,6 +45,7 @@ type Phase = "pick" | "play" | "over" | "mastered";
 
 export default function FallingSozder() {
   const { baseLanguage } = useProfile();
+  const vocab = useVocab();
   const [phase, setPhase] = useState<Phase>("pick");
   const [category, setCategory] = useState<PackKey>("family");
   const [bests, setBests] = useState<Partial<Record<PackKey, number>>>({});
@@ -194,7 +196,7 @@ export default function FallingSozder() {
   }, [loop]);
 
   function start(cat: PackKey) {
-    const catDeck = cat === "random" ? VOCAB : VOCAB.filter((w) => w.category === cat);
+    const catDeck = cat === "random" ? vocab : vocab.filter((w) => w.category === cat);
     deck.current = shuffle(catDeck);
     pool.current = deck.current.slice(0, WORDS_AT_START);
     freshSlugs.current = new Set(pool.current.map((w) => w.slug));

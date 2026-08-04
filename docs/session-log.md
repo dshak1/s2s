@@ -159,3 +159,25 @@ Everything below shipped to `feat/pro-infra` and was deployed to
   workshop uses the weather/school/nature categories.
 - Per-game difficulty tiers, a visible skill-tree hub, and a real vocab
   expansion beyond the 20-word draft are scoped but not started.
+
+---
+
+## 2026-08-04 — English-only, Say & Shift in Make Your Own, real levels, instructor vocab packs
+
+| Area | Status | What actually happened |
+|---|---|---|
+| EN/RU toggle removed | Done | Every kid in this program is schooled in English and the Russian gloss was never translation-checked. Deleted the toggle UI on `/play`; `Profile.baseLanguage`, `baseText()`, and the ~10 call sites are untouched (they just never see anything but `"en"` now that nothing can set it to `"ru"`). |
+| Say & Shift moved into "Make Your Own" | Done | It already has a character-drawing step like the avatar/story makers — moved its `games.ts` group and gave it the first Maker-lab card, ahead of avatar/story. |
+| Real levels for Say & Shift | Done | Per-category tiers (`src/lib/vocab-levels.ts`) derived from existing mastery counts (`vocabCorrect`), no new profile field. Level 1 starts with numbers/family/greetings; each level widens the category set and the wall count (4 → 7). Falling Words and Spotlight Panic keep their own separate session-local leveling, untouched. |
+| Instructor vocab packs | Done | `/admin/vocab` (admin-only) writes to the existing `content_items` table (`source: "human"`, `status: "live"`) via a server action, live immediately, no deploy. Added a `content_items` RLS policy for anon read of live rows — the original design would have queried it straight from the browser, but `content_items` only had a team-only read policy, so an anonymous kid's client would've silently gotten zero rows. `useVocab()` merges instructor words into Say & Shift, Falling Words, and Spotlight Panic. |
+
+**Known gaps, next session:**
+- The new `content_items` public-read policy needs to actually run against a
+  live Supabase instance to confirm the anon key reads it as expected — not
+  verified end-to-end this session (no live DB access).
+- Instructor-added categories aren't supported yet — the admin form's
+  category field is a fixed `<select>` from the existing `VocabCategory`
+  list, so a genuinely new category wouldn't get a pack tile in Falling
+  Words/Spotlight Panic without also updating `VOCAB_CATEGORY_META`.
+- Rolling `useVocab()` out to the remaining vocab-driven games is future
+  work, not this pass.

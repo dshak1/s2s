@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Button } from "@/components/ui/button";
-import { VOCAB, VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
+import { VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
 import { shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, playWin, speakWord } from "@/lib/audio";
 import { store, useProfile } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { vocabItemId } from "@/lib/items";
 import { baseText } from "@/lib/lang";
+import { useVocab } from "@/lib/vocab-packs";
 import { Heart, Timer, Trophy, Volume2 } from "lucide-react";
 
 // Spotlight Panic — original game design by Almas Bekbolat (workshop design
@@ -57,6 +58,7 @@ function readBests(): Partial<Record<VocabCategory, number>> {
 
 export default function SpotlightPanic() {
   const { baseLanguage } = useProfile();
+  const vocab = useVocab();
   const [phase, setPhase] = useState<Phase>("pick");
   const [category, setCategory] = useState<VocabCategory>("animals");
   const [level, setLevel] = useState(1);
@@ -127,7 +129,7 @@ export default function SpotlightPanic() {
   // set stays put for the whole level — you hunt targets one by one until the
   // field is cleared.
   const scatter = useCallback((cat: VocabCategory) => {
-    const pool = shuffle(VOCAB.filter((w) => w.category === cat));
+    const pool = shuffle(vocab.filter((w) => w.category === cat));
     const count = Math.min(pool.length, WORDS_PER_LEVEL);
     const placed: FieldWord[] = pool.slice(0, count).map((item) => ({
       item,
@@ -142,7 +144,7 @@ export default function SpotlightPanic() {
     setTarget(first);
     seen.current.add(first.slug);
     speakWord(first.kk);
-  }, []);
+  }, [vocab]);
 
   const spawnGhosts = useCallback(
     (lvl: number) => {
