@@ -61,7 +61,7 @@ export const GAMES: GameMeta[] = [
   { slug: "steppe-sprint", title: "Steppe Sprint", kk: "Дала жарысы", blurb: "Run the trail and choose the right word at each fork.", href: "/play/steppe-sprint", accent: "bg-[#2f8d47]", group: "Get Up & Move", hidden: true },
   { slug: "snow-leopard", title: "Snow Leopard Patrol", kk: "Қар барысы", blurb: "Scan QR clues hidden around the room.", href: "/play/snow-leopard", accent: "bg-wolf", group: "Get Up & Move", hidden: true },
   { slug: "jaryq-hunter", title: "Spotlight Panic", kk: "Жарық", blurb: "Hunt words in the dark, dodge the ghosts!", href: "/play/jaryq-hunter", accent: "bg-[#1b1b1b]", group: "Get Up & Move", isNew: true },
-  { slug: "say-and-shift", title: "Say & Shift", kk: "Айт та өт", blurb: "Say the Kazakh word out loud to slip through the wall.", href: "/play/say-and-shift", accent: "bg-[#c8513e]", group: "Get Up & Move", isNew: true },
+  { slug: "say-and-shift", title: "Say & Shift", kk: "Айт та өт", blurb: "Say the Kazakh word out loud to slip through the wall.", href: "/play/say-and-shift", accent: "bg-[#c8513e]", group: "Make Your Own", isNew: true },
   // tanba-studio is not a game — it stays reachable from the profile gallery.
   { slug: "tanba-studio", title: "Design Your Avatar", kk: "Сурет салу", blurb: "Draw or import art to become your avatar.", href: "/play/tanba-studio", accent: "bg-gold", group: "Make Your Own", hidden: true },
   { slug: "story-maker", title: "Story Maker", kk: "Әңгіме", blurb: "Build a comic with your art.", href: "/play/story-maker", accent: "bg-steppe", group: "Make Your Own", hidden: true },
