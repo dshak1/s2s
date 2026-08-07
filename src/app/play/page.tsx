@@ -121,7 +121,7 @@ function FullHub() {
                 <Route size={16} /> Stop {currentStop.week} of {JOURNEY.length}
               </p>
               <h1 className="mt-3 max-w-xl text-4xl font-black leading-tight sm:text-5xl">
-                Your adventure continues in {currentStop.name}
+                Your <span className="text-[#ff0000]">adventure</span> continues in {currentStop.name}
               </h1>
               <p className="mt-3 max-w-xl text-sm font-bold leading-6 text-white/80 sm:text-base">
                 {currentStop.fact}
