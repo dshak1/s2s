@@ -4,7 +4,9 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // /api/say-check, etc.) that can't be statically exported, so the WebView
 // loads the live production deploy instead of bundling static assets. This
 // keeps the Android app byte-for-byte the same as the web app.
-const PROD_URL = 'https://s2s-ten.vercel.app';
+// Note: prod moved off s2s-ten.vercel.app onto the custom domain at some
+// point after this was first wired up (www is canonical; apex 308s to it).
+const PROD_URL = 'https://www.steppe2screen.com';
 
 const config: CapacitorConfig = {
   appId: 'com.steppetoscreen.app',
@@ -14,7 +16,8 @@ const config: CapacitorConfig = {
     url: PROD_URL,
     cleartext: false,
     allowNavigation: [
-      's2s-ten.vercel.app',
+      'steppe2screen.com',
+      'www.steppe2screen.com',
       '*.vercel.app',
       '*.supabase.co',
     ],
