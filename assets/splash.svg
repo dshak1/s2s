@@ -1,0 +1,18 @@
+<svg width="2732" height="2732" viewBox="0 0 2732 2732" xmlns="http://www.w3.org/2000/svg">
+  <rect width="2732" height="2732" fill="#faf6e9"/>
+  <g transform="translate(866, 866) scale(1)">
+    <circle cx="500" cy="330" r="130" fill="#ffd75f"/>
+    <path d="M 60 660
+             C 200 530, 320 500, 450 550
+             C 530 500, 630 500, 710 550
+             C 840 500, 960 530, 1100 660
+             L 1100 1000 L 60 1000 Z"
+          fill="#8bd452"/>
+    <path d="M 0 760
+             C 150 640, 280 610, 420 660
+             C 510 610, 630 610, 720 660
+             C 860 610, 990 640, 1140 760
+             L 1140 1000 L 0 1000 Z"
+          fill="#43a845"/>
+  </g>
+</svg>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useProfile } from "@/lib/store";
 import { IS_LITE } from "@/lib/lite";
 import { Avatar } from "@/components/avatar";
-import { BookOpenCheck, Flame, Star } from "lucide-react";
+import { BookOpenCheck, Flame, ShieldCheck, Star } from "lucide-react";
 
 export function TopNav() {
   const p = useProfile();
@@ -40,6 +40,18 @@ export function TopNav() {
         ) : (
           <Link href={`/profile/${p.id}`} aria-label="Open player profile" title="Player profile">
             <Avatar size={36} />
+          </Link>
+        )}
+        {!IS_LITE && (
+          // Team-only, not a kid-facing feature: no icon label, sign-in-gated
+          // on the dashboard itself. Just a way in without typing the URL.
+          <Link
+            href="/dashboard"
+            title="Team dashboard"
+            aria-label="Team dashboard"
+            className="flex items-center rounded-lg border border-steppe/10 bg-white/80 p-1.5 opacity-50 shadow-sm hover:opacity-100"
+          >
+            <ShieldCheck size={15} className="text-steppe" />
           </Link>
         )}
       </div>

@@ -6,6 +6,7 @@ import { DebugPanel } from "@/components/debug-panel";
 import { ToastProvider } from "@/components/toast-provider";
 import { FeedbackButton } from "@/components/feedback-button";
 import { LiveRoundOverlay } from "@/components/live-round-overlay";
+import { NativeShellBridge } from "@/components/native-shell-bridge";
 import { store } from "@/lib/store";
 
 // Pull down anything this profile made that is not on this device. Runs once
@@ -30,6 +31,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <FeedbackButton />
       <LiveRoundOverlay />
       <DebugPanel />
+      <NativeShellBridge />
     </QueryClientProvider>
   );
 }

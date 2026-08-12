@@ -10,6 +10,7 @@ import {
   syncGameRun,
   syncArtifact,
   syncHomework,
+  syncDeleteArtifact,
   syncProfileState,
   fetchProfileArt,
   fetchProfileState,
@@ -21,6 +22,7 @@ import { toastBus } from "@/lib/toast";
 import type { RegionId } from "@/content/regions";
 import { REGIONS } from "@/content/regions";
 import { JOURNEY, defaultWeekCodes, normalizeCode } from "@/content/journey";
+import { weeklyChallengeSlug, WEEKLY_XP_MULTIPLIER } from "@/lib/weekly-challenge";
 import type { BaseLanguage } from "@/lib/lang";
 
 const BADGE_IDS = BADGES.map((b) => b.id);
@@ -44,6 +46,11 @@ export type GameRun = {
 };
 
 export type LetterStat = { level: number; correct: number };
+
+// Per-game lifetime aggregate — plays/best/total score across every run of
+// that game slug, not just the rolling 20-entry gameRuns log (which is
+// shared across all games and would lose older per-game history fast).
+export type GameStat = { plays: number; bestScore: number; totalScore: number };
 
 export type CustomGame = {
   id: string;
@@ -70,9 +77,12 @@ export type Profile = {
   regionProgress: RegionId[];
   vocabCorrect: Record<string, number>; // slug -> times correct
   letterStats: Record<string, LetterStat>; // cyr letter -> Leitner
+  mistakes: Record<string, number>; // item id (see lib/items.ts) -> times missed, most recent attempt correct clears it
   badges: BadgeId[];
   artifacts: Artifact[];
   gameRuns: GameRun[];
+  gameStats: Record<string, GameStat>; // game slug -> lifetime plays/best/total (local device only, not synced)
+  vocabHints: Record<string, string>; // vocab slug -> kid-attached mnemonic image dataUrl
   pawPrints: string[]; // clue ids collected this session
   gameBackgrounds: Record<string, string>; // game slug -> uploaded background dataUrl
   homeCoverId: string | null; // KidCover id chosen as the home-page background
@@ -97,9 +107,12 @@ function freshProfile(): Profile {
     regionProgress: ["almaty"], // first region starts unlocked
     vocabCorrect: {},
     letterStats: {},
+    mistakes: {},
     badges: [],
     artifacts: [],
     gameRuns: [],
+    gameStats: {},
+    vocabHints: {},
     pawPrints: [],
     gameBackgrounds: {},
     homeCoverId: null,
@@ -139,9 +152,15 @@ function normalizeProfile(profile: Profile): Profile {
     weeklyCodes: { ...fallbackCodes, ...(profile.weeklyCodes ?? {}) },
     regionProgress: profile.regionProgress?.length ? profile.regionProgress : ["almaty"],
     runnerArtifactId: profile.runnerArtifactId ?? null,
+    gameStats: profile.gameStats ?? {},
+    vocabHints: profile.vocabHints ?? {},
+    mistakes: profile.mistakes ?? {},
     gameBackgrounds: profile.gameBackgrounds ?? {},
     homeCoverId: profile.homeCoverId ?? null,
-    baseLanguage: profile.baseLanguage === "ru" ? "ru" : "en",
+    // English is the only base language now — every kid here is schooled in
+    // English, and the toggle UI is gone. Force it regardless of any value
+    // (e.g. "ru") a profile may have picked up while the toggle still existed.
+    baseLanguage: "en",
     customGames: Array.isArray(profile.customGames)
       ? profile.customGames.filter(
           (game) =>
@@ -176,11 +195,44 @@ function scheduleServerSync() {
   }, 2000);
 }
 
-function persist() {
-  if (typeof window !== "undefined" && state) {
+// Artifacts and hint images are base64 photos living in the same localStorage
+// blob as the rest of the profile — a kid who draws/uploads a lot over a long
+// session can hit the ~5-10MB per-origin quota. localStorage.setItem throws
+// synchronously when that happens, and it was uncaught: the in-memory change
+// (e.g. a just-added vocab hint) looked like it worked for the rest of that
+// session, then silently never made it to disk, gone on next visit. Trim the
+// biggest thing profiles accumulate — artifacts — and retry once before
+// giving up, and always tell the kid if a save genuinely didn't stick.
+function writeToStorage(): boolean {
+  if (typeof window === "undefined" || !state) return true;
+  try {
     localStorage.setItem(KEY, JSON.stringify(state));
+    return true;
+  } catch {
+    if (state.artifacts.length > 20) {
+      state.artifacts = state.artifacts.slice(0, 20);
+      try {
+        localStorage.setItem(KEY, JSON.stringify(state));
+        return true;
+      } catch {
+        // fall through
+      }
+    }
+    return false;
   }
+}
+
+function persist() {
+  const saved = writeToStorage();
   listeners.forEach((l) => l());
+  if (!saved) {
+    toastBus.show({
+      title: "Couldn't save that",
+      body: "Storage is full — delete a few old drawings or homework photos from your gallery, then try again.",
+      icon: "⚠️",
+      duration: 6000,
+    });
+  }
   scheduleServerSync();
 }
 
@@ -217,6 +269,7 @@ export const store = {
     const artifact: Artifact = { id, kind, dataUrl, createdAt: Date.now() };
     update((p) => {
       p.artifacts.unshift(artifact);
+      p.artifacts = p.artifacts.slice(0, 60);
       if (kind === "tanba") {
         p.avatarArtifactId = id;
         award(p, "tanba_artist");
@@ -254,6 +307,7 @@ export const store = {
     const artifact: Artifact = { id, kind: "homework", dataUrl, createdAt: Date.now(), meta };
     update((p) => {
       p.artifacts.unshift(artifact);
+      p.artifacts = p.artifacts.slice(0, 60);
       p.xp += 20;
     });
     const p = load();
@@ -268,6 +322,7 @@ export const store = {
     const artifact: Artifact = { id, kind: "background", dataUrl, createdAt: Date.now() };
     update((p) => {
       p.artifacts.unshift(artifact);
+      p.artifacts = p.artifacts.slice(0, 60);
       p.gameBackgrounds[slug] = dataUrl;
     });
     const p = load();
@@ -314,11 +369,14 @@ export const store = {
   // runner reference too if that's what got deleted, so the profile doesn't
   // point at an artifact that no longer exists.
   deleteArtifact(artifactId: string) {
-    update((p) => {
-      p.artifacts = p.artifacts.filter((a) => a.id !== artifactId);
-      if (p.avatarArtifactId === artifactId) p.avatarArtifactId = null;
-      if (p.runnerArtifactId === artifactId) p.runnerArtifactId = null;
+    const p = load();
+    const artifact = p.artifacts.find((a) => a.id === artifactId);
+    update((profile) => {
+      profile.artifacts = profile.artifacts.filter((a) => a.id !== artifactId);
+      if (profile.avatarArtifactId === artifactId) profile.avatarArtifactId = null;
+      if (profile.runnerArtifactId === artifactId) profile.runnerArtifactId = null;
     });
+    if (artifact) syncDeleteArtifact(p.id, artifactId, artifact.kind).catch(() => {});
   },
 
   setWeekCode(stopId: RegionId, code: string) {
@@ -359,21 +417,51 @@ export const store = {
     });
   },
 
+  /** Kid attaches a memory-hint image to a word — "sister looks like a monkey" — so it appears as the background whenever that word comes up. */
+  setVocabHint(slug: string, dataUrl: string) {
+    update((p) => { p.vocabHints[slug] = dataUrl; });
+  },
+
+  clearVocabHint(slug: string) {
+    update((p) => { delete p.vocabHints[slug]; });
+  },
+
   recordGameRun(run: Omit<GameRun, "id" | "at">) {
     const newRun: GameRun = { ...run, id: crypto.randomUUID(), at: Date.now() };
     update((p) => {
       p.gameRuns.unshift(newRun);
       p.gameRuns = p.gameRuns.slice(0, 20);
+      const stat = p.gameStats[run.game] ?? { plays: 0, bestScore: 0, totalScore: 0 };
+      p.gameStats[run.game] = {
+        plays: stat.plays + 1,
+        bestScore: Math.max(stat.bestScore, run.score),
+        totalScore: stat.totalScore + run.score,
+      };
       for (const slug of run.vocabCorrect) {
         p.vocabCorrect[slug] = (p.vocabCorrect[slug] ?? 0) + 1;
       }
-      p.xp += run.score;
+      // Weekly challenge doubles the XP a run banks, not the run's own score
+      // (gameStats/bestScore stay the game's real number — only the profile's
+      // XP total gets the bonus).
+      p.xp += run.game === weeklyChallengeSlug() ? run.score * WEEKLY_XP_MULTIPLIER : run.score;
       if (run.game === "sozdik-match") award(p, "first_match");
       if (run.game === "memory-match") award(p, "memory_master");
     });
     const p = load();
     syncGameRun(p.id, p.sessionCode, newRun).catch(() => {});
     maybeShowRecoveryHint();
+  },
+
+  /** Feeds Learn's "practice your mistakes" mode — miss an item and it's
+   * added to the pool; get it right again (in any mode) and it drops out. */
+  trackMistake(itemId: string, correct: boolean) {
+    update((p) => {
+      if (correct) {
+        delete p.mistakes[itemId];
+      } else {
+        p.mistakes[itemId] = (p.mistakes[itemId] ?? 0) + 1;
+      }
+    });
   },
 
   answerLetter(cyr: string, correct: boolean) {
@@ -473,7 +561,7 @@ export const store = {
         profile.customGames = [...localGames.values()]
           .sort((a, b) => b.createdAt - a.createdAt)
           .slice(0, 12);
-        profile.baseLanguage = remoteState.baseLanguage;
+        // baseLanguage stays "en" — never adopt a remote "ru" value.
       }
     });
   },
@@ -581,6 +669,13 @@ export function masteredLetterCount(p: Profile): number {
 
 export function isVocabMastered(p: Profile, slug: string): boolean {
   return (p.vocabCorrect[slug] ?? 0) >= 2;
+}
+
+/** Plays/best/average for one game slug, for a results-screen progress line. */
+export function gameStatsFor(p: Profile, slug: string): { plays: number; best: number; average: number } {
+  const stat = p.gameStats[slug];
+  if (!stat || stat.plays === 0) return { plays: 0, best: 0, average: 0 };
+  return { plays: stat.plays, best: stat.bestScore, average: Math.round(stat.totalScore / stat.plays) };
 }
 
 // React hook

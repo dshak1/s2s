@@ -15,7 +15,7 @@ import { VISIBLE_GAMES } from "@/content/games";
 import { KID_COVERS } from "@/content/kid-covers";
 import { store, useProfile, masteredLetterCount, isVocabMastered } from "@/lib/store";
 import { toastBus } from "@/lib/toast";
-import { BookOpenCheck, Gamepad2, RotateCcw, Snowflake, Trash2, TriangleAlert, Volume2 } from "lucide-react";
+import { BookOpenCheck, Check, Gamepad2, Pencil, RotateCcw, Snowflake, Trash2, TriangleAlert, Volume2, X } from "lucide-react";
 import type { Artifact } from "@/lib/store";
 
 const ARTIFACT_LABELS: Record<Artifact["kind"], string> = {
@@ -32,6 +32,8 @@ export default function ProfilePage() {
   const p = useProfile();
   const [adopting, setAdopting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(p.displayName);
   const masteredVocab = VOCAB.filter((v) => isVocabMastered(p, v.slug)).length;
   const letters = masteredLetterCount(p);
   const earned = new Set(p.badges);
@@ -62,6 +64,20 @@ export default function ProfilePage() {
     }
   }
 
+  function startEditingName() {
+    setNameInput(p.displayName);
+    setEditingName(true);
+  }
+
+  function saveName() {
+    const trimmed = nameInput.trim().slice(0, 24);
+    if (trimmed) {
+      store.setDisplayName(trimmed);
+      toastBus.show({ title: "Name updated!", body: `You're now ${trimmed}.`, icon: "✏️" });
+    }
+    setEditingName(false);
+  }
+
   return (
     <div className="min-h-dvh bg-warm">
       <TopNav />
@@ -85,9 +101,47 @@ export default function ProfilePage() {
 
         {/* header */}
         <div className="flex flex-col items-center gap-4 rounded-3xl bg-steppe p-6 text-warm sm:flex-row sm:items-center">
-          <Avatar size={88} />
+          <div className="relative">
+            <Avatar size={88} />
+            <Link
+              href="/play/tanba-studio"
+              title="Change avatar"
+              aria-label="Change avatar"
+              className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full border-2 border-steppe bg-gold text-steppe-700 shadow-sm transition hover:scale-105"
+            >
+              <Pencil size={14} />
+            </Link>
+          </div>
           <div className="flex-1 text-center sm:text-left">
-            <h1 className="text-3xl font-black">{p.displayName}</h1>
+            {editingName ? (
+              <div className="flex items-center justify-center gap-1.5 sm:justify-start">
+                <input
+                  autoFocus
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveName();
+                    if (e.key === "Escape") setEditingName(false);
+                  }}
+                  maxLength={24}
+                  aria-label="Your name"
+                  className="w-48 rounded-lg bg-white/20 px-2 py-1 text-2xl font-black text-warm placeholder:text-warm/50 focus:bg-white/30 focus:outline-none"
+                />
+                <button type="button" title="Save name" aria-label="Save name" onClick={saveName} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gold text-steppe-700">
+                  <Check size={16} />
+                </button>
+                <button type="button" title="Cancel" aria-label="Cancel" onClick={() => setEditingName(false)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/20 text-warm">
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <h1 className="flex items-center justify-center gap-2 text-3xl font-black sm:justify-start">
+                {p.displayName}
+                <button type="button" title="Change name" aria-label="Change name" onClick={startEditingName} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/20 text-warm transition hover:bg-white/30">
+                  <Pencil size={13} />
+                </button>
+              </h1>
+            )}
             <div className="mt-1 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
               <span className="rounded-full bg-gold px-3 py-1 font-black text-steppe-700">{p.xp} XP</span>
               <span className="flex items-center gap-1 font-bold">
@@ -145,7 +199,7 @@ export default function ProfilePage() {
                 <span key={index} className={`aspect-square rounded-sm ${index < letters ? "bg-[#ff9a4f]" : "bg-steppe/10"}`} />
               ))}
             </div>
-            <Link href="/play/sound-it-out" className="mt-4 inline-flex items-center gap-1 text-sm font-black text-steppe underline">
+            <Link href="/play/learn" className="mt-4 inline-flex items-center gap-1 text-sm font-black text-steppe underline">
               Practise sounds
             </Link>
           </Card>
@@ -267,7 +321,7 @@ export default function ProfilePage() {
 
         <Card className="border-2 border-terra/20">
           <h2 className="mb-1 flex items-center gap-2 text-lg font-black text-steppe"><TriangleAlert size={18} className="text-terra" /> Reset profile</h2>
-          <p className="mb-3 text-sm text-wolf">Starts you over from zero on this device — points, badges, drawings, everything. Can&apos;t be undone.</p>
+          <p className="mb-3 text-sm text-wolf">Starts you over from zero on this device: points, badges, drawings, everything. Can&apos;t be undone.</p>
           {!confirmReset ? (
             <Button variant="outline" size="sm" onClick={() => setConfirmReset(true)}>
               <RotateCcw size={15} /> Reset my profile

@@ -60,6 +60,11 @@ export const viewport: Viewport = {
   themeColor: "#1e4d8c",
   width: "device-width",
   initialScale: 1,
+  // Capacitor's Android shell draws the WebView edge-to-edge (behind the
+  // gesture/nav bar), so without this the safe-area env() vars below stay
+  // zeroed and the bottom of every page sits under the nav bar — you have
+  // to scroll to see content that's already "on screen" but hidden behind it.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
