@@ -4,13 +4,7 @@ import { getSupabaseBrowser } from "./client";
 import { captureError } from "@/lib/monitoring";
 import type { Profile, GameRun, Artifact, LetterStat, CustomGame } from "@/lib/store";
 import type { BaseLanguage } from "@/lib/lang";
-
-// Public URL for anything in the kid-art bucket. Hydrated artifacts render from
-// this rather than a stored data URL, so pulling a gallery back does not blow
-// up the localStorage quota.
-export function kidArtUrl(storagePath: string): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/kid-art/${storagePath}`;
-}
+import { kidArtUrl } from "@/lib/kid-art-url";
 
 /**
  * Everything this profile has made, from the server.
@@ -125,7 +119,7 @@ export async function fetchProfileState(profileId: string): Promise<RemoteProfil
     letterStats: row.letter_stats ?? {},
     homeCoverId: row.home_cover_id ?? null,
     customGames: Array.isArray(row.custom_games) ? row.custom_games : [],
-    baseLanguage: row.base_language === "ru" ? "ru" : "en",
+    baseLanguage: "en", // English-only now, regardless of any stored value
   };
 }
 
@@ -339,6 +333,18 @@ export async function syncHomework(
     p_storage_path: path,
   });
   if (rowError) captureError(rowError, { where: "syncHomework/row", profileId });
+}
+
+// Deleting locally used to leave the server row in place, so the next
+// hydrateFromServer() saw it as "missing" and added it right back. This
+// removes the server-side row too — storage object is left orphaned (no
+// public listing exposes it, and cleanup can be a later pass).
+export async function syncDeleteArtifact(profileId: string, artifactId: string, kind: Artifact["kind"]) {
+  const sb = getSupabaseBrowser();
+  if (!sb) return;
+  const rpc = kind === "homework" ? "delete_homework_item" : "delete_kid_artifact";
+  const { error } = await sb.rpc(rpc, { p_id: artifactId, p_profile_id: profileId });
+  if (error) captureError(error, { where: "syncDeleteArtifact", profileId, artifactId });
 }
 
 export async function syncSessionCreate(code: string) {

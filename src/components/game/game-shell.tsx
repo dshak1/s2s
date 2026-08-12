@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ImagePlus, X } from "lucide-react";
+import { ArrowLeft, ImagePlus, Maximize, Minimize, X } from "lucide-react";
 import { MountainBackdrop, type MountainScene, sceneForPath } from "@/components/game/mountain-backdrop";
 import { store, useProfile } from "@/lib/store";
 
@@ -13,38 +13,66 @@ export function GameShell({
   children,
   right,
   scene,
+  showBackgroundControl = false,
 }: {
   title: string;
   kk?: string;
   children: React.ReactNode;
   right?: React.ReactNode;
   scene?: MountainScene;
+  /** The "set a custom background" button — only Nomad Run's Sky panel
+   * actually uses this (it's the only upload entry point for that photo).
+   * Every other game leaves it off; a whole-window backdrop swap didn't fit
+   * a word-quiz screen and was never asked for there. */
+  showBackgroundControl?: boolean;
 }) {
   const pathname = usePathname();
   const activeScene = scene ?? sceneForPath(pathname);
   const slug = pathname?.split("/")[2] ?? "";
   const profile = useProfile();
   const customBg = slug ? profile.gameBackgrounds[slug] : undefined;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      rootRef.current?.requestFullscreen().catch(() => {});
+    }
+  }
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
-      {customBg ? (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={customBg} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.66)_44%,rgba(255,255,255,.78))]" />
-        </>
-      ) : (
-        <>
-          <MountainBackdrop scene={activeScene} />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.32)_44%,rgba(255,246,206,.18))]" />
-        </>
-      )}
+    <div ref={rootRef} className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
+      {/* The page chrome behind the header/card never follows a custom
+          background — only the game window itself does (say-and-shift reads
+          the same gameBackgrounds[slug] value independently, for just its
+          own play field). Two different layers reacting to one upload made
+          the whole page reskin, which was never the point of that button. */}
+      <MountainBackdrop scene={activeScene} />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.32)_44%,rgba(255,246,206,.18))]" />
 
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/70 bg-white/75 px-4 py-3 text-steppe shadow-[0_10px_26px_rgba(30,77,140,.12)] backdrop-blur-md">
-        <Link href="/play" className="flex items-center gap-2 rounded-lg border border-steppe/10 bg-white/85 px-3 py-1.5 font-bold shadow-sm hover:bg-[#fff3cf]">
-          <ArrowLeft size={18} /> Games
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/play" className="flex items-center gap-2 rounded-lg border border-steppe/10 bg-white/85 px-3 py-1.5 font-bold shadow-sm hover:bg-[#fff3cf]">
+            <ArrowLeft size={18} /> Games
+          </Link>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title={fullscreen ? "Exit full screen" : "Full screen"}
+            aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+            className="grid h-9 w-9 place-items-center rounded-lg border border-steppe/10 bg-white/85 shadow-sm transition hover:bg-[#fff3cf]"
+          >
+            {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+          </button>
+        </div>
         <div className="text-center leading-tight">
           <div className="text-lg font-extrabold sm:text-xl">{title}</div>
           {kk && <div className="text-xs text-[#e35f4c] sm:text-sm">{kk}</div>}
@@ -58,7 +86,7 @@ export function GameShell({
         </div>
       </main>
 
-      {slug && <BackgroundControl slug={slug} hasBackground={Boolean(customBg)} />}
+      {showBackgroundControl && slug && <BackgroundControl slug={slug} hasBackground={Boolean(customBg)} />}
     </div>
   );
 }
