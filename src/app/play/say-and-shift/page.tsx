@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Ear, Flag, Heart, Mic, MicOff, RotateCcw, Upload, Volume2, WifiOff, X } from "lucide-react";
+import { Check, Ear, Flag, Heart, Mic, MicOff, RotateCcw, Share2, SkipForward, Trash2, Upload, Volume2, WifiOff, X } from "lucide-react";
 import { BandPuppet } from "@/components/game/band-puppet";
 import { Confetti } from "@/components/game/confetti";
 import { DrawingBoard } from "@/components/game/drawing-board";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { ReportQuestion } from "@/components/report-question";
+import { Waves } from "@/components/reactbits/waves";
 import { Button } from "@/components/ui/button";
 import { type VocabItem } from "@/content/vocab";
 import { vocabItemId } from "@/lib/items";
 import { baseText } from "@/lib/lang";
 import { playClip, playCorrect, playWrong } from "@/lib/audio";
+import { deleteSharedCharacter, fetchGalleryCharacters, shareCharacterToGallery, toggleCharacterLike, type GalleryCharacter } from "@/lib/character-gallery";
 import { resizeImageFile } from "@/lib/client-image";
 import { scanForTarget } from "@/lib/speech-match";
 import { store, useProfile } from "@/lib/store";
@@ -22,10 +24,6 @@ import { currentLevel, poolForLevel, totalWallsForLevel } from "@/lib/vocab-leve
 import { useVocab } from "@/lib/vocab-packs";
 
 const START_LIVES = 3;
-// How long to keep listening for one wall before giving up and revealing the
-// tap fallback — a stand-in for "2 unclear retries" now that there is no
-// discrete retry, just continuous listening.
-const MAX_LISTEN_MS = 15000;
 
 type WallCandidate = { item: VocabItem };
 type Wall = { target: VocabItem; candidates: WallCandidate[] };
@@ -101,6 +99,53 @@ function HorseSilhouette({ className }: { className?: string }) {
   );
 }
 
+// The wall itself, redrawn as a steppe shrub — three overlapping leaf-clumps
+// on one woody stem, same hand-drawn line language as the horse. The runner
+// hops it on a correct answer instead of just sliding through empty air.
+function Bush({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 80 60" className={className} aria-hidden="true">
+      <path d="M38 58 V38" stroke="#5b3a22" strokeWidth="4" strokeLinecap="round" />
+      <ellipse cx="24" cy="30" rx="17" ry="15" fill="currentColor" />
+      <ellipse cx="56" cy="30" rx="17" ry="15" fill="currentColor" />
+      <ellipse cx="40" cy="18" rx="19" ry="16" fill="currentColor" />
+    </svg>
+  );
+}
+
+// A handful of little fragments bursting off the runner on a wrong answer —
+// "crumbles into pieces" — instead of just the shake. Pure CSS/motion, no
+// image slicing; purely decorative so it can use Math.random freely (only
+// ever mounts after a client interaction, never during the initial render).
+function CrumblePieces() {
+  const pieces = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => ({
+        id: i,
+        dx: (Math.random() - 0.5) * 90,
+        dy: 20 + Math.random() * 50,
+        rot: (Math.random() - 0.5) * 300,
+        delay: Math.random() * 0.06,
+        size: 5 + Math.random() * 6,
+      })),
+    [],
+  );
+  return (
+    <>
+      {pieces.map((p) => (
+        <motion.span
+          key={p.id}
+          className="absolute left-1/2 top-1/2 rounded-sm bg-[#8a97a3]"
+          style={{ width: p.size, height: p.size }}
+          initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
+          animate={{ x: p.dx, y: p.dy, opacity: 0, rotate: p.rot }}
+          transition={{ duration: 0.65, delay: p.delay, ease: "easeOut" }}
+        />
+      ))}
+    </>
+  );
+}
+
 // How long the runner spends crossing open ground toward each wall — this is
 // the "Subway Surfer" stretch: scrolling scenery, an occasional horse, and
 // the bonus word's letters revealing one at a time.
@@ -154,25 +199,21 @@ function useWallListener({
   target,
   distractors,
   onMatch,
-  onTimeout,
 }: {
   stream: MediaStream | null;
   active: boolean;
   target: VocabItem;
   distractors: VocabItem[];
   onMatch: (transcript: string) => void;
-  onTimeout: () => void;
 }): ListenerStatus {
   const [status, setStatus] = useState<ListenerStatus>("idle");
   const targetRef = useRef(target);
   const distractorsRef = useRef(distractors);
   const onMatchRef = useRef(onMatch);
-  const onTimeoutRef = useRef(onTimeout);
 
   useEffect(() => { targetRef.current = target; }, [target]);
   useEffect(() => { distractorsRef.current = distractors; }, [distractors]);
   useEffect(() => { onMatchRef.current = onMatch; }, [onMatch]);
-  useEffect(() => { onTimeoutRef.current = onTimeout; }, [onTimeout]);
 
   useEffect(() => {
     if (!active || !stream) {
@@ -241,18 +282,14 @@ function useWallListener({
     const spawnTimer = setInterval(() => {
       if (live) startWindow();
     }, SEND_INTERVAL_MS);
-    const timeoutTimer = setTimeout(() => {
-      if (live) onTimeoutRef.current();
-    }, MAX_LISTEN_MS);
 
     return () => {
       live = false;
       clearInterval(spawnTimer);
-      clearTimeout(timeoutTimer);
       setStatus("idle");
     };
-    // target/distractors/onMatch/onTimeout are read through refs above —
-    // only target.slug controls whether this restarts for a new wall.
+    // target/distractors/onMatch are read through refs above — only
+    // target.slug controls whether this restarts for a new wall.
   }, [active, stream, target.slug]);
 
   return status;
@@ -277,7 +314,18 @@ export default function SayAndShiftPage() {
   const level = currentLevel(profile, allVocab);
   const pool = poolForLevel(profile, allVocab, level);
   const totalWalls = totalWallsForLevel(level);
-  const walls = Array.from({ length: totalWalls }, (_, i) => wallFor(pool, i));
+  // wallFor's own index math is deterministic on purpose (hydration-safe),
+  // which meant wall 0 always landed on the same pool entry every single
+  // playthrough — the first walls never varied. wallSeed shifts every
+  // index by a per-session random offset; it starts at 0 (matches the
+  // server-rendered pass) and only randomizes after mount, so there's no
+  // hydration mismatch — just a same-frame reshuffle before "ready" phase
+  // is ever interactive.
+  const [wallSeed, setWallSeed] = useState(0);
+  useEffect(() => {
+    setWallSeed(Math.floor(Math.random() * 10_000));
+  }, []);
+  const walls = Array.from({ length: totalWalls }, (_, i) => wallFor(pool, i + wallSeed));
 
   const [phase, setPhase] = useState<Phase>("ready");
   const [wallIndex, setWallIndex] = useState(0);
@@ -290,12 +338,12 @@ export default function SayAndShiftPage() {
   const [online, setOnline] = useState(true);
   const [micPermission, setMicPermission] = useState<"unknown" | "granted" | "denied">("unknown");
   const [startingMic, setStartingMic] = useState(false);
-  const [wallTimedOut, setWallTimedOut] = useState(false);
-  const [manualFallback, setManualFallback] = useState(false);
-  const [drawMode, setDrawMode] = useState<"draw" | "upload">("draw");
+  const [drawMode, setDrawMode] = useState<"draw" | "upload" | "gallery">("draw");
   const [pendingRunner, setPendingRunner] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [galleryCharacters, setGalleryCharacters] = useState<GalleryCharacter[] | null>(null);
+  const [shareState, setShareState] = useState<"idle" | "sharing" | "shared" | "error">("idle");
   const [themeMode, setThemeMode] = useState<"auto" | "day" | "night">("auto");
   const [seenSlugs, setSeenSlugs] = useState<string[]>([]);
   const [timeLeftMs, setTimeLeftMs] = useState<number | null>(null);
@@ -306,7 +354,7 @@ export default function SayAndShiftPage() {
   const infiniteMode = wallIndex >= totalWalls;
   const infiniteWallNumber = infiniteMode ? wallIndex - totalWalls + 1 : 0;
   const infiniteTimerMs = Math.max(INFINITE_MIN_TIMER_MS, INFINITE_START_TIMER_MS - infiniteWallNumber * INFINITE_TIMER_STEP_MS);
-  const wall = infiniteMode ? wallFor(pool, wallIndex) : walls[wallIndex];
+  const wall = infiniteMode ? wallFor(pool, wallIndex + wallSeed) : walls[wallIndex];
   const targetCandidate = wall.candidates.find((c) => c.item.slug === wall.target.slug) ?? wall.candidates[0];
   const distractorItems = wall.candidates.filter((c) => c.item.slug !== wall.target.slug).map((c) => c.item);
   const skyIndex = themeMode === "day" ? 2 : themeMode === "night" ? 5 : Math.min(wallIndex, SKY_PALETTES.length - 1);
@@ -317,12 +365,12 @@ export default function SayAndShiftPage() {
   // One new letter reveals per wall's run — always includes the current
   // wall's own letter once its "run" segment has started.
   const revealedLetterCount = Math.min(wallIndex + (phase === "ready" ? 0 : 1), themeLetters.length);
+  const popularCharacters = useMemo(
+    () => (galleryCharacters ?? []).filter((c) => c.likeCount > 0).sort((a, b) => b.likeCount - a.likeCount).slice(0, 5),
+    [galleryCharacters],
+  );
   const savedRunner = profile.artifacts.find((a) => a.id === profile.runnerArtifactId)?.dataUrl ?? null;
   const runnerImage = pendingRunner ?? savedRunner;
-  const showTapFallback = !online || micPermission === "denied" || wallTimedOut || manualFallback;
-  // Keeps listening even once the tap-fallback grid is showing (after a
-  // timeout, or the kid tapped "Tap instead" themselves) — saying the word
-  // out loud should still resolve it, not require abandoning the mic entirely.
   const listenActive = phase === "wall" && outcome === null && online && micPermission === "granted";
 
   useEffect(() => {
@@ -366,6 +414,26 @@ export default function SayAndShiftPage() {
 
   useEffect(() => { micStreamRef.current = micStream; }, [micStream]);
 
+  useEffect(() => {
+    if (drawMode !== "gallery" || galleryCharacters !== null) return;
+    fetchGalleryCharacters(profile.id).then(setGalleryCharacters);
+  }, [drawMode, galleryCharacters, profile.id]);
+
+  async function toggleLike(characterId: string) {
+    const liked = await toggleCharacterLike(characterId, profile.id);
+    if (liked === null) return;
+    setGalleryCharacters((current) =>
+      current?.map((c) => (c.id === characterId ? { ...c, liked, likeCount: c.likeCount + (liked ? 1 : -1) } : c)) ?? current,
+    );
+  }
+
+  // A new drawing/upload/gallery-pick means "Sent for review!" no longer
+  // describes what's on screen — drop it back to idle so sharing this one
+  // isn't blocked by a stale success state from a previous character.
+  useEffect(() => {
+    setShareState("idle");
+  }, [pendingRunner]);
+
   useEffect(() => () => {
     if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -392,8 +460,6 @@ export default function SayAndShiftPage() {
     setSeenSlugs([]);
     setOutcome(null);
     setMessage(null);
-    setWallTimedOut(false);
-    setManualFallback(false);
 
     if (micPermission === "unknown") {
       setStartingMic(true);
@@ -416,8 +482,6 @@ export default function SayAndShiftPage() {
     if (next < themeLetters.length) setScore((v) => v + 2);
     setOutcome(null);
     setMessage(null);
-    setWallTimedOut(false);
-    setManualFallback(false);
 
     if (next === totalWalls) {
       // Calibration walls just finished — infinite mode starts on the wall
@@ -492,7 +556,6 @@ export default function SayAndShiftPage() {
     target: wall.target,
     distractors: distractorItems,
     onMatch: () => resolveCandidate(targetCandidate),
-    onTimeout: () => setWallTimedOut(true),
   });
 
   // Infinite mode's per-wall countdown. Only ticks while a wall is actually
@@ -518,11 +581,6 @@ export default function SayAndShiftPage() {
     // infiniteTimerMs is derived from wallIndex, already a dep via infiniteMode
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [infiniteMode, phase, outcome, wallIndex]);
-
-  function tapCandidate(candidate: WallCandidate) {
-    if (phase !== "wall") return;
-    resolveCandidate(candidate);
-  }
 
   function continueAfterRest() {
     setLives(START_LIVES);
@@ -551,10 +609,22 @@ export default function SayAndShiftPage() {
     setPendingRunner(null);
   }
 
+  async function shareRunner() {
+    if (!runnerImage || shareState === "sharing") return;
+    setShareState("sharing");
+    const ok = await shareCharacterToGallery(profile.id, profile.displayName, runnerImage);
+    setShareState(ok ? "shared" : "error");
+  }
+
+  async function removeFromGallery(characterId: string) {
+    setGalleryCharacters((current) => current?.filter((c) => c.id !== characterId) ?? current);
+    await deleteSharedCharacter(characterId, profile.id);
+  }
+
   const passingThrough = outcome === "correct" && phase === "wall";
 
   return (
-    <GameShell title="Say & Shift" kk="Айт та өт" right={<Scoreboard label="Score" value={score} />}>
+    <GameShell title="Nomad Run" kk="Айт та өт" right={<Scoreboard label="Score" value={score} />} showBackgroundControl>
       {phase === "finished" && <Confetti count={70} />}
 
       <motion.div
@@ -593,9 +663,22 @@ export default function SayAndShiftPage() {
         </motion.div>
         )}
 
+        {!customBackground && (
+          <Waves
+            className="z-0"
+            lineColor={sky.night ? "rgba(255, 216, 79, 0.12)" : "rgba(255, 255, 255, 0.28)"}
+            waveAmpX={22}
+            waveAmpY={10}
+            xGap={16}
+            yGap={40}
+            waveSpeedX={0.008}
+            waveSpeedY={0.003}
+          />
+        )}
+
         <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 p-3">
           <div className="rounded-lg bg-white/92 px-3 py-2 text-xs font-black text-steppe shadow-sm backdrop-blur">
-            {infiniteMode ? `⚡ Infinite — wall ${infiniteWallNumber}` : `Wall ${wallIndex + 1} of ${totalWalls}`}
+            {infiniteMode ? `⚡ Infinite · wall ${infiniteWallNumber}` : `Wall ${wallIndex + 1} of ${totalWalls}`}
           </div>
           <div className="flex items-center gap-1 rounded-lg bg-white/92 px-3 py-2 shadow-sm backdrop-blur" aria-label={`${lives} lives remaining`}>
             {[0, 1, 2].map((heart) => (
@@ -634,8 +717,6 @@ export default function SayAndShiftPage() {
 
         {/* Ground + runner */}
         <div className="absolute inset-x-0 bottom-0 top-[15%] overflow-hidden">
-          <div className="runner-hills-far absolute inset-x-0 bottom-16 top-0 opacity-70" />
-          <div className="runner-hills-near absolute inset-x-0 bottom-16 h-16 opacity-90" />
           <div className="runner-ground absolute inset-x-0 bottom-0 h-16" />
 
           {phase === "run" && wallIndex % 2 === 0 && (
@@ -649,19 +730,36 @@ export default function SayAndShiftPage() {
             </motion.div>
           )}
 
+          {(phase === "run" || phase === "wall") && (
+            <div key={`bush-${wallIndex}`} className="absolute bottom-14 z-10 w-14 text-[#2f8d47] sm:w-16" style={{ left: "58%" }}>
+              <Bush className="w-full" />
+            </div>
+          )}
+
           <motion.div
             key={`runner-${wallIndex}`}
             className="absolute bottom-14 z-20 flex flex-col items-center"
             initial={{ left: "6%" }}
-            animate={{ left: phase === "ready" ? "6%" : passingThrough ? "94%" : "58%" }}
+            animate={{ left: phase === "ready" ? "6%" : passingThrough ? "94%" : "48%" }}
             transition={{ duration: passingThrough ? 0.7 : phase === "run" ? RUN_MS / 1000 : 0.4, ease: "easeOut" }}
           >
             <motion.div
-              animate={phase === "wall" ? { y: [0, -5, 0] } : { y: 0 }}
-              transition={phase === "wall" ? { repeat: Infinity, duration: 0.42, ease: "easeInOut" } : undefined}
+              // The bush sits at 58%, the runner starts this leg at 48% and
+              // ends at 94% — it's over the bush about a fifth of the way
+              // through, so the jump's peak is timed to land there (`times`)
+              // instead of the animation's natural midpoint.
+              animate={passingThrough ? { y: [0, -46, 0] } : phase === "wall" ? { y: [0, -5, 0] } : { y: 0 }}
+              transition={
+                passingThrough
+                  ? { duration: 0.7, times: [0, 0.25, 1], ease: "easeOut" }
+                  : phase === "wall"
+                    ? { repeat: Infinity, duration: 0.42, ease: "easeInOut" }
+                    : undefined
+              }
               className={outcome === "wrong" ? "sprint-impact" : ""}
             >
               <div className="relative">
+                <AnimatePresence>{outcome === "wrong" && <CrumblePieces />}</AnimatePresence>
                 {phase === "wall" && (
                   <div className="absolute -top-9 left-1/2 -translate-x-1/2">
                     {outcome === "correct" ? (
@@ -710,7 +808,7 @@ export default function SayAndShiftPage() {
                       <span className="rounded-full bg-[#ffd84f] px-2.5 py-0.5 text-[10px] font-black uppercase text-steppe shadow-sm">Level {level}</span>
                     </div>
                     <h2 className="text-2xl font-black text-steppe">Just say the word out loud</h2>
-                    <p className="mt-1 text-sm font-bold text-steppe/60">The game is always listening — no button to hold. Say the Kazakh word out loud and your runner slips through the wall. {totalWalls} untimed walls to warm up, then it&apos;s infinite — a shrinking clock, {START_LIVES} lives, no refills.</p>
+                    <p className="mt-1 text-sm font-bold text-steppe/60">The game is always listening, no button to hold. Say the Kazakh word out loud and your runner slips through the wall. {totalWalls} untimed walls to warm up, then it&apos;s infinite: a shrinking clock, {START_LIVES} lives, no refills.</p>
                   </div>
                 </div>
 
@@ -736,7 +834,7 @@ export default function SayAndShiftPage() {
                   <p className="text-xs font-black text-steppe">Sky</p>
                   <p className="mt-1 text-xs font-bold text-steppe/55">
                     {customBackground
-                      ? "You've set a custom background from the button in the corner — it's used instead of the sky below."
+                      ? "You've set a custom background from the button in the corner. It's used instead of the sky below."
                       : "Auto shifts from dawn to night as you play. Or pin it."}
                   </p>
                   <div className="mt-2 grid grid-cols-3 rounded-lg bg-[#edf2f5] p-1" aria-label="Sky theme">
@@ -758,14 +856,27 @@ export default function SayAndShiftPage() {
 
                 <div className="mt-5 rounded-lg border border-steppe/10 p-3">
                   <p className="text-xs font-black text-steppe">Your runner (optional)</p>
-                  <p className="mt-1 text-xs font-bold text-steppe/55">Draw or upload a character. Skip it and a default runner plays instead.</p>
+                  <p className="mt-1 text-xs font-bold text-steppe/55">Draw, upload, or pick one from the gallery. Skip it and a default runner plays instead.</p>
                   <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                    <div className="shrink-0 self-center rounded-lg bg-[#f4f8fb] p-2">
-                      <BandPuppet src={runnerImage} size={64} running={false} />
+                    <div className="flex shrink-0 flex-col items-center gap-1.5 self-center">
+                      <div className="rounded-lg bg-[#f4f8fb] p-2">
+                        <BandPuppet src={runnerImage} size={64} running={false} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={shareRunner}
+                        disabled={!runnerImage || shareState === "sharing"}
+                        title="Share this runner to the gallery for other kids to use"
+                        className="flex items-center gap-1 text-[10px] font-black text-steppe/55 underline decoration-dotted disabled:opacity-40"
+                      >
+                        <Share2 size={11} />
+                        {shareState === "shared" ? "Sent for review!" : shareState === "sharing" ? "Sharing…" : "Share to gallery"}
+                      </button>
+                      {shareState === "error" && <p className="text-[10px] font-bold text-[#b44736]">Could not share. Try again.</p>}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="grid grid-cols-2 rounded-lg bg-[#edf2f5] p-1" aria-label="Runner art source">
-                        {(["draw", "upload"] as const).map((mode) => (
+                      <div className="grid grid-cols-3 rounded-lg bg-[#edf2f5] p-1" aria-label="Runner art source">
+                        {(["draw", "upload", "gallery"] as const).map((mode) => (
                           <button
                             key={mode}
                             type="button"
@@ -782,7 +893,7 @@ export default function SayAndShiftPage() {
                       <div className="mt-2">
                         {drawMode === "draw" ? (
                           <DrawingBoard canvasRef={canvasRef} onChange={setPendingRunner} transparent aspect="portrait" />
-                        ) : (
+                        ) : drawMode === "upload" ? (
                           <div
                             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                             onDragLeave={() => setDragOver(false)}
@@ -815,6 +926,28 @@ export default function SayAndShiftPage() {
                             </button>
                             {uploadError && <p role="alert" className="mt-2 text-xs font-bold text-[#b44736]">{uploadError}</p>}
                           </div>
+                        ) : galleryCharacters === null ? (
+                          <p className="py-3 text-center text-xs font-bold text-steppe/50">Loading…</p>
+                        ) : galleryCharacters.length === 0 ? (
+                          <p className="py-3 text-center text-xs font-bold text-steppe/50">No shared characters yet. Be the first!</p>
+                        ) : (
+                          <>
+                            {popularCharacters.length > 0 && (
+                              <div className="mb-2">
+                                <p className="text-[10px] font-black uppercase text-steppe/45">🔥 Popular</p>
+                                <div className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-5">
+                                  {popularCharacters.map((c) => (
+                                    <GalleryTile key={c.id} character={c} selected={pendingRunner === c.url} onSelect={setPendingRunner} onToggleLike={toggleLike} onRemove={c.ownerId === profile.id ? removeFromGallery : undefined} />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div className="grid max-h-40 grid-cols-4 gap-1.5 overflow-y-auto sm:grid-cols-5">
+                              {galleryCharacters.map((c) => (
+                                <GalleryTile key={c.id} character={c} selected={pendingRunner === c.url} onSelect={setPendingRunner} onToggleLike={toggleLike} onRemove={c.ownerId === profile.id ? removeFromGallery : undefined} />
+                              ))}
+                            </div>
+                          </>
                         )}
                       </div>
                       <Button
@@ -834,7 +967,7 @@ export default function SayAndShiftPage() {
                   {startingMic ? "One sec…" : "Start"}
                 </Button>
                 {micPermission === "denied" && (
-                  <p className="mt-2 text-center text-xs font-bold text-steppe/50">Mic access is off — you can still play by tapping the right word.</p>
+                  <p className="mt-2 text-center text-xs font-bold text-steppe/50">Mic access is off. You can still play by tapping the right word.</p>
                 )}
               </div>
             </motion.div>
@@ -863,59 +996,32 @@ export default function SayAndShiftPage() {
 
                 {outcome === null && (
                   <div className="mt-4 flex flex-col items-center gap-2">
-                    {!showTapFallback ? (
-                      <>
-                        <div className="flex items-center gap-2 rounded-full bg-[#fff0ed] px-4 py-2 text-sm font-black text-[#c8513e]">
-                          <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
-                            {[0, 1, 2].map((bar) => (
-                              <motion.span
-                                key={bar}
-                                className="w-1 rounded-full bg-[#c8513e]"
-                                animate={{ height: [4, 15, 4] }}
-                                transition={{ repeat: Infinity, duration: 0.7, delay: bar * 0.15, ease: "easeInOut" }}
-                              />
-                            ))}
-                          </span>
-                          <span className="inline-block h-3.5">{listenerStatus === "checking" ? "Checking…" : "Listening… say it whenever"}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setManualFallback(true)}
-                          className="text-xs font-bold text-steppe/45 underline decoration-dotted"
-                        >
-                          Tap instead
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="flex items-center gap-1.5 text-xs font-bold text-steppe/55">
-                          {!online ? <WifiOff size={14} /> : micPermission === "denied" ? <MicOff size={14} /> : <Ear size={14} />}
-                          {!online
-                            ? "No connection — tap the right word instead."
-                            : micPermission === "denied"
-                              ? "Mic is off — tap the right word instead."
-                              : "Still listening for it — tap the right word instead."}
-                        </p>
-                        <div className="grid grid-cols-3 gap-2">
-                          {wall.candidates.map((candidate) => (
-                            <button
-                              key={candidate.item.slug}
-                              type="button"
-                              onClick={() => tapCandidate(candidate)}
-                              className="rounded-lg border-2 border-steppe/10 bg-[#f4f8fb] px-2 py-4 text-center transition hover:-translate-y-0.5 hover:border-[#ff9a4f] hover:bg-[#fff8df]"
-                            >
-                              <span className="block text-base font-black text-steppe">{candidate.item.kk}</span>
-                            </button>
+                    {online && micPermission !== "denied" ? (
+                      <div className="flex items-center gap-2 rounded-full bg-[#fff0ed] px-4 py-2 text-sm font-black text-[#c8513e]">
+                        <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
+                          {[0, 1, 2].map((bar) => (
+                            <motion.span
+                              key={bar}
+                              className="w-1 rounded-full bg-[#c8513e]"
+                              animate={{ height: [4, 15, 4] }}
+                              transition={{ repeat: Infinity, duration: 0.7, delay: bar * 0.15, ease: "easeInOut" }}
+                            />
                           ))}
-                        </div>
-                      </>
+                        </span>
+                        <span className="inline-block h-3.5">{listenerStatus === "checking" ? "Checking…" : "Listening… say it whenever"}</span>
+                      </div>
+                    ) : (
+                      <p className="flex items-center gap-1.5 text-xs font-bold text-steppe/55">
+                        {!online ? <WifiOff size={14} /> : <MicOff size={14} />}
+                        {!online ? "No connection. Reconnect to keep playing." : "Mic access is off. Turn it on to keep playing."}
+                      </p>
                     )}
                   </div>
                 )}
 
                 {outcome === "correct" && (
                   <p className="mt-4 text-sm font-black text-[#236d37]">
-                    {wall.target.kk} — through the wall! +{10 + Math.max(0, streak - 1) * 2}
+                    {wall.target.kk} · through the wall! +{10 + Math.max(0, streak - 1) * 2}
                   </p>
                 )}
                 {outcome === "wrong" && (
@@ -924,7 +1030,16 @@ export default function SayAndShiftPage() {
                   </p>
                 )}
 
-                <div className="mt-3 flex items-center justify-center">
+                <div className="mt-3 flex items-center justify-center gap-3">
+                  {outcome === null && (
+                    <button
+                      type="button"
+                      onClick={resolveMiss}
+                      className="flex items-center gap-1 text-xs font-black text-steppe/55 underline decoration-dotted"
+                    >
+                      <SkipForward size={13} /> Skip
+                    </button>
+                  )}
                   <ReportQuestion itemId={vocabItemId(wall.target)} gameSlug="say-and-shift" />
                 </div>
               </div>
@@ -970,7 +1085,7 @@ export default function SayAndShiftPage() {
                 </motion.p>
                 <h2 className="mt-3 text-4xl font-black text-white">Test complete!</h2>
                 <p className="mt-2 text-lg font-black text-[#ffd84f]">Now: Infinite mode</p>
-                <p className="mt-1 text-sm font-bold text-white/70">Walls keep coming. Answer fast — the clock&apos;s live.</p>
+                <p className="mt-1 text-sm font-bold text-white/70">Walls keep coming. Answer fast, the clock&apos;s live.</p>
               </motion.div>
             </motion.div>
           )}
@@ -1002,5 +1117,60 @@ export default function SayAndShiftPage() {
         )}
       </motion.div>
     </GameShell>
+  );
+}
+
+function GalleryTile({
+  character,
+  selected,
+  onSelect,
+  onToggleLike,
+  onRemove,
+}: {
+  character: GalleryCharacter;
+  selected: boolean;
+  onSelect: (url: string) => void;
+  onToggleLike: (id: string) => void;
+  onRemove?: (id: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        title={character.displayName}
+        onClick={() => onSelect(character.url)}
+        className={`grid aspect-square w-full place-items-center rounded-lg border-2 bg-[#f4f8fb] p-1 transition ${
+          selected ? "border-gold" : "border-transparent hover:border-steppe/20"
+        }`}
+      >
+        <BandPuppet src={character.url} size={40} running={false} />
+      </button>
+      <button
+        type="button"
+        title={character.liked ? "Unlike" : "Like"}
+        aria-label={character.liked ? "Unlike this character" : "Like this character"}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleLike(character.id);
+        }}
+        className="absolute -bottom-1 -left-1 flex items-center gap-0.5 rounded-full bg-white px-1.5 py-0.5 text-[9px] font-black text-[#c8513e] shadow"
+      >
+        <Heart size={9} className={character.liked ? "fill-[#c8513e]" : ""} /> {character.likeCount}
+      </button>
+      {onRemove && (
+        <button
+          type="button"
+          title="Remove from gallery"
+          aria-label="Remove from gallery"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove(character.id);
+          }}
+          className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-[#b44736] text-white shadow"
+        >
+          <Trash2 size={11} />
+        </button>
+      )}
+    </div>
   );
 }
