@@ -10,8 +10,10 @@ if (!KEY) {
   process.exit(1);
 }
 
-const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLABS_KAZAKH_VOICE_ID || "21m00Tcm4TlvDq8ikWAM";
-const MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
+// Jessica / eleven_v3 — same voice+model the original 72 clips used
+// (2026-07-18 session), so the new 20 don't sound like a different narrator.
+const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLABS_KAZAKH_VOICE_ID || "cgSgspJ2msm6clMCkdW9";
+const MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_v3";
 
 const WORDS = [
   ["zhanbyr", "Жаңбыр"], ["qar", "Қар"], ["kun", "Күн"], ["zhel", "Жел"],

@@ -95,12 +95,23 @@ function levenshtein(a: string, b: string): number {
 }
 
 // 1 = identical after folding, 0 = maximally different.
+//
+// The denominator is padded rather than the raw length: plain
+// dist/maxLen makes one ASR-mangled phoneme cost 33-50% of the score on a
+// 2-3 letter word (numbers: "екі"/"үш"/"бір"), while the exact same
+// single-phoneme miss barely dents a long word. That's not the word being
+// mispronounced, it's the ratio math punishing short words harder for the
+// same error. Padding by SHORT_WORD_PAD flattens that gap — a one-edit miss
+// stays forgivable at any length, while a genuinely different short word
+// (2+ edits) still fails to match.
+const SHORT_WORD_PAD = 2;
+
 function similarity(a: string, b: string): number {
   const na = normalize(a);
   const nb = normalize(b);
   if (!na && !nb) return 1;
   const maxLen = Math.max(na.length, nb.length, 1);
-  return 1 - levenshtein(na, nb) / maxLen;
+  return 1 - levenshtein(na, nb) / (maxLen + SHORT_WORD_PAD);
 }
 
 // Score one word (or word pair) against both scripts a candidate carries

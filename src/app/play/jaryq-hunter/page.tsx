@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
+import { GameStatsLine } from "@/components/game/game-stats-line";
 import { Button } from "@/components/ui/button";
 import { VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
 import { shuffle } from "@/lib/utils";
@@ -359,7 +360,7 @@ export default function SpotlightPanic() {
   const found = words.filter((w) => w.caught).length;
 
   return (
-    <GameShell title="Spotlight Panic" kk="Жарық" right={<Scoreboard label="Lvl" value={level} />}>
+    <GameShell title="Spotlight Rush" kk="Жарық" right={<Scoreboard label="Lvl" value={level} />}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           {Array.from({ length: MAX_MISS }).map((_, i) => (
@@ -476,7 +477,7 @@ export default function SpotlightPanic() {
 
         {phase === "pick" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4 text-center text-warm">
-            <p className="text-2xl font-black">Spotlight Panic</p>
+            <p className="text-2xl font-black">Spotlight Rush</p>
             <p className="max-w-sm text-sm text-warm/80">
               The steppe is dark. Find every hidden word before the clock runs out, each level gives you less time, and
               the ghosts hunt your light!
@@ -488,9 +489,8 @@ export default function SpotlightPanic() {
                   onClick={() => start(c.key)}
                   className="rounded-2xl bg-warm/95 p-3 text-steppe shadow-md transition hover:-translate-y-0.5 active:scale-95"
                 >
-                  <div className="text-2xl">{c.emoji}</div>
-                  <div className="text-sm font-black">{c.kk}</div>
-                  <div className="text-[11px] font-bold text-steppe/60">{baseText(c, baseLanguage)}</div>
+                  <div className="text-sm font-black leading-tight break-words sm:text-base">{c.kk}</div>
+                  <div className="mt-0.5 text-[11px] font-bold text-steppe/60">{baseText(c, baseLanguage)}</div>
                   {(bests[c.key] ?? 0) > 0 && (
                     <div className="mt-1 text-[11px] font-black text-terra">Best: {bests[c.key]}</div>
                   )}
@@ -515,17 +515,18 @@ export default function SpotlightPanic() {
                   {overReason.current === "time" ? "Time's up!" : "The ghosts got you!"}
                 </p>
                 <p>
-                  {meta.emoji} {baseText(meta, baseLanguage)}, score {score}, reached level {level}.
+                  {baseText(meta, baseLanguage)}, score {score}, reached level {level}.
                 </p>
               </>
             )}
             {newBest ? (
-              <p className="rounded-full bg-gold px-4 py-1 font-black text-steppe-700">🏆 New personal best!</p>
+              <p className="rounded-full bg-gold px-4 py-1 font-black text-steppe-700">New personal best!</p>
             ) : (
               (bests[category] ?? 0) > 0 && (
                 <p className="text-sm font-bold text-warm/70">Personal best: {bests[category]}</p>
               )
             )}
+            <GameStatsLine slug="jaryq-hunter" />
             <div className="flex gap-2">
               <Button variant="gold" size="lg" onClick={() => start(category)}>
                 Play again

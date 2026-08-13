@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cap:sync": "cap sync",
+    "cap:ios": "cap sync ios && cap open ios",
+    "cap:android": "cap sync android && cap open android",
+    "cap:assets": "capacitor-assets generate"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -37,6 +41,7 @@
     "@capacitor/android": "^8.5.0",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",

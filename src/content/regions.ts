@@ -64,8 +64,11 @@ export const REGIONS: Region[] = [
     name: "Mangystau",
     kk: "Маңғыстау",
     category: "places",
-    x: 133,
-    y: 423,
+    // The region centroid, not the city — Aktau in places.ts is the city on the
+    // coast, and the two used to share this exact pin, so the reveal drew two
+    // labels on top of each other.
+    x: 142,
+    y: 412,
     fact: "Mangystau on the Caspian Sea has chalk-white cliffs, deserts and underground mosques carved from stone.",
   },
   {

@@ -79,6 +79,35 @@ export async function saveLabel(
   return { ok: true, itemId };
 }
 
+export type LabelQueueRow = {
+  item_id: string;
+  kind: string;
+  ref_slug: string;
+  game_slug: string | null;
+  payload: Record<string, unknown>;
+  attempts: number;
+  p_value: number | null;
+  task_id: string | null;
+  origin: string | null;
+  uncertainty_reason: string | null;
+};
+
+/** Next chunk of the labelling queue. Call again whenever a rater empties
+ *  their local deck — there is no session cap; more labels is always better. */
+export async function fetchLabelBatch(
+  excludeIds: string[] = [],
+  limit = 200,
+): Promise<LabelQueueRow[]> {
+  await requireTeam(undefined, "/label");
+  const sb = await getSupabaseServer();
+  if (!sb) return [];
+
+  const capped = Math.min(Math.max(limit, 1), 500);
+  const { data } = await sb.rpc("label_queue", { p_limit: capped });
+  const exclude = new Set(excludeIds);
+  return ((data ?? []) as LabelQueueRow[]).filter((row) => !exclude.has(row.item_id));
+}
+
 /** Let the learner data nominate its own bad questions. */
 export async function refreshAnalyticsTasks(): Promise<void> {
   await requireTeam(undefined, "/label");

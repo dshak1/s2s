@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { MapPin } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MapPin, Send } from "lucide-react";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { playCorrect, playWrong, playWin } from "@/lib/audio";
 import { shuffle } from "@/lib/utils";
 import { store } from "@/lib/store";
+import { toastBus } from "@/lib/toast";
 import { logAnswer } from "@/lib/telemetry";
 import { placeItemId } from "@/lib/items";
 import { ReportQuestion } from "@/components/report-question";
@@ -52,8 +53,66 @@ function PlacePhoto({ place }: { place: Place }) {
   );
 }
 
+// Kids keep naming places the game has never heard of. Filing those as ideas
+// puts them in the same /admin/feedback + /tickets queue the team already reads
+// every week, and a new place is four lines in places.ts once someone answers.
+function SuggestPlace() {
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const suggestion = text.trim();
+    if (!suggestion) return;
+    setSending(true);
+
+    const profile = store.get();
+    const body = new FormData();
+    body.set("kind", "idea");
+    body.set("message", `Place suggestion: ${suggestion}`);
+    body.set("page_url", "/play/where-kz");
+    if (profile.id !== "server-profile") body.set("profile_id", profile.id);
+
+    try {
+      const res = await fetch("/api/feedback", { method: "POST", body });
+      if (!res.ok) throw new Error();
+      toastBus.show({ title: "Rahmet!", body: "We'll try to add your place." });
+      setText("");
+    } catch {
+      toastBus.show({ title: "Could not send that", body: "Try again in a moment." });
+    }
+    setSending(false);
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-6 text-left">
+      <label htmlFor="place-suggestion" className="text-sm font-bold text-warm/80">
+        Know a place we should add? Tell us!
+      </label>
+      <div className="mt-2 flex gap-2">
+        <input
+          id="place-suggestion"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Kölsay, my grandma's village…"
+          maxLength={120}
+          className="min-w-0 flex-1 rounded-xl border-2 border-warm/25 bg-warm/10 px-3 py-2 text-sm font-bold text-warm outline-none placeholder:text-warm/45 focus:border-gold"
+        />
+        <Button variant="gold" type="submit" disabled={sending || !text.trim()}>
+          <Send size={14} /> {sending ? "…" : "Send"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export default function WhereKz() {
+  // Shuffled on mount rather than in the initial state: this renders on the
+  // server too, and a random first order there would not match the client's.
+  // Without it every first run showed the same five places and nobody ever met
+  // the ones further down the list.
   const [order, setOrder] = useState(() => PLACES.slice(0, TOTAL));
+  useEffect(() => setOrder(shuffle(PLACES).slice(0, TOTAL)), []);
   const [index, setIndex] = useState(0);
   const [pin, setPin] = useState<{ x: number; y: number } | null>(null);
   const [phase, setPhase] = useState<"guess" | "revealed" | "done">("guess");
@@ -147,6 +206,7 @@ export default function WhereKz() {
             {found} / {TOTAL} places close · +{Math.round(closenessTotal / 10)} points
           </p>
           <Button variant="gold" size="lg" className="mt-5" onClick={replay}>Replay</Button>
+          <SuggestPlace />
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">

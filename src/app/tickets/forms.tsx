@@ -34,6 +34,32 @@ export const btnGhost = `${btn} border border-[#dbe0e6] bg-white text-[#475569] 
 
 type Member = { id: string; display_name: string };
 
+/** Everything past the comment box — edit, review, AI investigate, the
+ * status/decision form, "link to something similar" — collapsed behind one
+ * toggle so a ticket's default view is just its comment box, not five forms
+ * at once. */
+export function MoreActions({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-2.5 text-[12px] font-medium text-[#94a3b8] underline decoration-dotted hover:text-[#64748b]"
+      >
+        More actions…
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-[#eef1f5] pt-2.5">
+      {children}
+    </div>
+  );
+}
+
 function UrgentToggle({ defaultChecked = false }: { defaultChecked?: boolean }) {
   return (
     <label className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-medium text-[#475569]">

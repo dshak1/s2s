@@ -298,6 +298,7 @@ const SCENES: Record<MountainScene, SceneConfig> = {
 
 const GAME_SCENES: Record<string, MountainScene> = {
   "sound-it-out": "sound",
+  learn: "sound",
   "sozdik-match": "words",
   "memory-match": "memory",
   "falling-sozder": "falling",

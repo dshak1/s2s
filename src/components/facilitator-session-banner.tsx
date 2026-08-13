@@ -54,7 +54,7 @@ export function FacilitatorSessionBanner() {
       className="fixed bottom-4 left-1/2 z-[90] flex -translate-x-1/2 items-center gap-2 rounded-2xl bg-terra px-4 py-2.5 text-sm font-black text-white shadow-[3px_4px_0_0_#7c0a1f] transition hover:brightness-110"
     >
       <Radio size={16} className="animate-pulse" />
-      Live: {active.code} · {active.count} joined — return to session
+      Live: {active.code} · {active.count} joined · return to session
     </Link>
   );
 }

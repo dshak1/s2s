@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { Check, ChevronRight, Loader2, Volume2 } from "lucide-react";
 import { VoiceNote, type VoiceNoteResult } from "@/components/voice-note";
-import { saveLabel, type LabelResult } from "./actions";
+import { fetchLabelBatch, saveLabel, type LabelResult } from "./actions";
 
 export type QueueItem = {
   item_id: string;
@@ -113,32 +113,74 @@ function AxisRow({ axis }: { axis: (typeof AXES)[number] }) {
 }
 
 export function LabelQueue({ items }: { items: QueueItem[] }) {
+  const [deck, setDeck] = useState(items);
   const [index, setIndex] = useState(0);
+  const [sessionCount, setSessionCount] = useState(0);
   const [verdict, setVerdict] = useState<"good" | "bad" | "unsure">("good");
   const [reason, setReason] = useState("");
   const [voicePath, setVoicePath] = useState<string>("");
   const [transcript, setTranscript] = useState<string>("");
   const [state, action, pending] = useActionState(saveLabel, EMPTY);
+  const [refilling, startRefill] = useTransition();
+  const [exhausted, setExhausted] = useState(false);
   // Time-to-judge, measured from the rater's first interaction with this item
   // rather than from render, so a tab left open overnight doesn't report a
   // twelve-hour label. Both refs are written in event handlers, never in render.
   const startedAt = useRef(0);
   const msField = useRef<HTMLInputElement>(null);
+  const seenIds = useRef(new Set(items.map((item) => item.item_id)));
+  const lastSavedId = useRef<string | null>(null);
 
-  const item = items[index];
+  const item = deck[index];
   const done = !item;
   // True only for the item the last successful save was about, so advancing
   // clears it without any state write.
   const saved = Boolean(state.ok && item && state.itemId === item.item_id);
 
-  function advance() {
-    setIndex((i) => i + 1);
+  function resetFields() {
     setVerdict("good");
     setReason("");
     setVoicePath("");
     setTranscript("");
     startedAt.current = 0;
   }
+
+  function advance() {
+    setIndex((i) => i + 1);
+    resetFields();
+  }
+
+  function refill() {
+    startRefill(async () => {
+      const next = await fetchLabelBatch([...seenIds.current], 200);
+      if (next.length === 0) {
+        setExhausted(true);
+        return;
+      }
+      for (const row of next) seenIds.current.add(row.item_id);
+      setDeck((prev) => [...prev, ...next]);
+      setExhausted(false);
+    });
+  }
+
+  // Keep the pile topped up — empty deck → pull another batch; nearing the
+  // end of a chunk → prefetch so the rater never hits a wall mid-flow.
+  useEffect(() => {
+    if (refilling || exhausted) return;
+    const left = deck.length - index;
+    if (left <= 3) refill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refill on deck position only
+  }, [index, deck.length, refilling, exhausted]);
+
+  // Auto-advance after a save so the next question is waiting, not a button.
+  useEffect(() => {
+    if (!saved || !item || lastSavedId.current === item.item_id) return;
+    lastSavedId.current = item.item_id;
+    setSessionCount((n) => n + 1);
+    const timer = window.setTimeout(() => advance(), 350);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved, item?.item_id]);
 
   function markStart() {
     if (!startedAt.current) startedAt.current = Date.now();
@@ -161,12 +203,39 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
   if (done) {
     return (
       <div className="rounded-lg bg-white p-10 text-center border border-[#e2e5ea]">
-        <Check size={40} className="mx-auto mb-3 text-green-600" />
-        <p className="text-[15px] font-semibold text-[#0f172a]">Queue clear.</p>
-        <p className="mt-1 text-sm font-semibold text-[#64748b]">
-          You&apos;ve judged everything waiting for you. Refresh later, new questions
-          arrive as kids play and as content is generated.
-        </p>
+        {refilling ? (
+          <>
+            <Loader2 size={36} className="mx-auto mb-3 animate-spin text-[#64748b]" />
+            <p className="text-[15px] font-semibold text-[#0f172a]">Loading more questions…</p>
+          </>
+        ) : (
+          <>
+            <Check size={40} className="mx-auto mb-3 text-green-600" />
+            <p className="text-[15px] font-semibold text-[#0f172a]">
+              {exhausted ? "Nothing left for you right now." : "Catching up…"}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[#64748b]">
+              {sessionCount > 0
+                ? `You labelled ${sessionCount} this session — rahmet. `
+                : ""}
+              {exhausted
+                ? "New ones land as kids play and content is generated. Pull the button below anytime, or come back later."
+                : "Pulling the next batch."}
+            </p>
+            {exhausted && (
+              <button
+                type="button"
+                onClick={() => {
+                  setExhausted(false);
+                  refill();
+                }}
+                className="mt-4 inline-flex items-center gap-1 rounded-md bg-[#0f172a] px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-[#1e293b]"
+              >
+                Check again
+              </button>
+            )}
+          </>
+        )}
       </div>
     );
   }
@@ -175,7 +244,8 @@ export function LabelQueue({ items }: { items: QueueItem[] }) {
     <div className="rounded-lg bg-white p-5 border border-[#e2e5ea]">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#64748b]">
-          {index + 1} of {items.length} waiting · {item.kind}
+          {sessionCount > 0 ? `${sessionCount} done this session · ` : ""}
+          {deck.length - index} left in pile · {item.kind}
           {item.game_slug ? ` · ${item.game_slug}` : ""}
         </span>
         {item.attempts > 0 && (

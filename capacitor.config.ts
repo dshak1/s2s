@@ -25,6 +25,14 @@ const config: CapacitorConfig = {
   android: {
     backgroundColor: '#faf6e9',
   },
+  ios: {
+    backgroundColor: '#faf6e9',
+    // The games draw to the full viewport and several use `min-h-dvh`; letting
+    // the WebView own the safe area (rather than iOS insetting the scroll view)
+    // keeps the mountain backdrops bleeding to the edges like on the web.
+    contentInset: 'never',
+    scrollEnabled: true,
+  },
   plugins: {
     SplashScreen: {
       // Auto-hides after 1.5s as a safety net (in case the deployed site

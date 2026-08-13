@@ -2,16 +2,16 @@
 
 import { useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, Paperclip, Send, X } from "lucide-react";
+import { Bug, Frown, Heart, Lightbulb, MessageCircle, Paperclip, Send, X } from "lucide-react";
 import { store } from "@/lib/store";
 import { toastBus } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 
 const KINDS = [
-  { id: "bug", label: "🐛 Bug", desc: "Something broke" },
-  { id: "idea", label: "💡 Idea", desc: "Feature request" },
-  { id: "love", label: "❤️ Love it", desc: "Positive feedback" },
-  { id: "confusion", label: "😕 Confusing", desc: "Hard to understand" },
+  { id: "bug", icon: Bug, label: "Bug", desc: "Something broke" },
+  { id: "idea", icon: Lightbulb, label: "Idea", desc: "Feature request" },
+  { id: "love", icon: Heart, label: "Love it", desc: "Positive feedback" },
+  { id: "confusion", icon: Frown, label: "Confusing", desc: "Hard to understand" },
 ] as const;
 
 type Kind = (typeof KINDS)[number]["id"];
@@ -22,6 +22,9 @@ export function FeedbackButton() {
   // there instead of guessing a single offset that works everywhere.
   const pathname = usePathname();
   const onProjector = pathname?.startsWith("/facilitator") ?? false;
+  // The first-run intro is four screens with one thing to tap on each. A gold
+  // "Feedback" button in the corner of screen one is the wrong first impression.
+  const onWelcome = pathname === "/welcome";
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<Kind>("idea");
   const [message, setMessage] = useState("");
@@ -68,12 +71,11 @@ export function FeedbackButton() {
     try {
       const res = await fetch("/api/feedback", { method: "POST", body });
       if (!res.ok) throw new Error();
-      toastBus.show({ title: "Feedback sent!", body: "Thanks, the team will see it.", icon: "🙏" });
+      toastBus.show({ title: "Feedback sent!", body: "Thanks, the team will see it." });
     } catch {
       toastBus.show({
         title: "Could not send feedback",
         body: "Check your connection and try again.",
-        icon: "😕",
       });
     }
 
@@ -82,6 +84,8 @@ export function FeedbackButton() {
     setOpen(false);
     setSending(false);
   }
+
+  if (onWelcome) return null;
 
   return (
     <>
@@ -128,7 +132,9 @@ export function FeedbackButton() {
                       : "bg-felt text-steppe hover:bg-felt/80"
                   }`}
                 >
-                  {k.label}
+                  <span className="flex items-center gap-1.5">
+                    <k.icon size={14} /> {k.label}
+                  </span>
                   <div className={`font-semibold ${kind === k.id ? "text-warm/70" : "text-wolf"}`}>
                     {k.desc}
                   </div>

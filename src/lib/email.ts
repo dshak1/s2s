@@ -56,7 +56,7 @@ export async function sendEmail(input: {
   }
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://s2s-ten.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://steppe2screen.com";
 
 export function reviewRequestEmail(input: {
   ref: string;

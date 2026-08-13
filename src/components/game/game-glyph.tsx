@@ -17,14 +17,16 @@ export function GameGlyph({
     strokeLinejoin: "round" as const,
   };
   const fill = { fill: "currentColor", stroke: "none" };
+  const soundGlyph = (
+    <g>
+      <path d="M20 42 H32 L48 28 V72 L32 58 H20 Z" {...stroke} />
+      <path d="M58 38 Q68 50 58 62" {...stroke} />
+      <path d="M68 28 Q86 50 68 72" {...stroke} />
+    </g>
+  );
   const art: Record<string, React.ReactNode> = {
-    "sound-it-out": (
-      <g>
-        <path d="M20 42 H32 L48 28 V72 L32 58 H20 Z" {...stroke} />
-        <path d="M58 38 Q68 50 58 62" {...stroke} />
-        <path d="M68 28 Q86 50 68 72" {...stroke} />
-      </g>
-    ),
+    "sound-it-out": soundGlyph,
+    "learn": soundGlyph,
     "sozdik-match": (
       <g>
         <rect x="10" y="32" width="32" height="28" rx="6" {...stroke} />
@@ -91,8 +93,8 @@ export function GameGlyph({
         <path d="M26 44 Q26 68 50 68 Q74 68 74 44" {...stroke} />
         <path d="M50 68 V82" {...stroke} />
         <path d="M34 82 H66" {...stroke} />
-        <path d="M84 34 Q92 42 84 50" {...stroke} />
-        <path d="M92 26 Q106 42 92 58" {...stroke} />
+        <path d="M82 34 Q90 42 82 50" {...stroke} />
+        <path d="M90 27 Q98 42 90 57" {...stroke} />
       </g>
     ),
     "jaryq-hunter": (

@@ -52,7 +52,7 @@ function itemLabel(kind: string, payload: Record<string, unknown>, refSlug: stri
 }
 
 function pct(n: number | null | undefined): string {
-  return n === null || n === undefined ? ", " : `${Math.round(n * 100)}%`;
+  return n === null || n === undefined ? "-" : `${Math.round(n * 100)}%`;
 }
 
 function weekLabel(iso: string): string {
@@ -183,7 +183,7 @@ export default async function DashboardPage() {
                     g.learners === 1 ? "" : "s"
                   } · ${g.items_touched} questions`,
                   tooltip: `${g.events} answers · median ${
-                    g.median_latency_ms ? `${(g.median_latency_ms / 1000).toFixed(1)}s` : ", "
+                    g.median_latency_ms ? `${(g.median_latency_ms / 1000).toFixed(1)}s` : "-"
                   } to answer`,
                 }))}
               />
@@ -229,7 +229,7 @@ export default async function DashboardPage() {
                         <td className="py-2 pr-3 text-right tabular-nums font-bold">{i.attempts}</td>
                         <td className="py-2 pr-3 text-right tabular-nums font-bold">{pct(i.p_value)}</td>
                         <td className="py-2 pr-3 text-right tabular-nums font-semibold text-wolf">
-                          {i.median_latency_ms ? `${(i.median_latency_ms / 1000).toFixed(1)}s` : ", "}
+                          {i.median_latency_ms ? `${(i.median_latency_ms / 1000).toFixed(1)}s` : "-"}
                         </td>
                         <td className="py-2">
                           <StatusChip

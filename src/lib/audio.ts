@@ -62,23 +62,37 @@ export function letterAudioSrc(cyr: string): string | null {
 
 // Play an arbitrary audio clip (e.g. a greeting MP3). Falls back to a synthesized
 // cue when the file is missing or playback is blocked, so the game is never silent.
+//
+// The play() promise rejecting is not a reliable signal for a 404: some
+// browsers resolve it optimistically before the network request even
+// finishes, then only fire a MediaError on the element once the 404 lands —
+// which sounded like nothing at all, or a stray click as the element
+// aborted mid-attempt. Both the promise rejection AND the element's error
+// event now trigger the fallback, and a fallback-already-fired guard stops
+// double-firing if both paths trip.
 export function playClip(src: string, fallbackText: string): boolean {
   if (typeof window === "undefined") {
     return false;
   }
+  let fellBack = false;
+  const fallback = () => {
+    if (fellBack) return;
+    fellBack = true;
+    synthWordCue(fallbackText);
+  };
   try {
     activeClip?.pause();
-    activeClip = new Audio(src);
-    activeClip.preload = "auto";
-    activeClip.currentTime = 0;
-    activeClip.volume = 1;
-    const promise = activeClip.play();
-    if (promise) {
-      void promise.catch(() => synthWordCue(fallbackText));
-    }
+    const audio = new Audio(src);
+    activeClip = audio;
+    audio.preload = "auto";
+    audio.currentTime = 0;
+    audio.volume = 1;
+    audio.addEventListener("error", fallback);
+    const promise = audio.play();
+    if (promise) void promise.catch(fallback);
     return true;
   } catch {
-    synthWordCue(fallbackText);
+    fallback();
     return false;
   }
 }
@@ -90,19 +104,25 @@ export function playLetterPronunciation(cyr: string, fallbackText = cyr): boolea
     return false;
   }
 
+  let fellBack = false;
+  const fallback = () => {
+    if (fellBack) return;
+    fellBack = true;
+    speakWord(fallbackText);
+  };
   try {
     activeClip?.pause();
-    activeClip = new Audio(src);
-    activeClip.preload = "auto";
-    activeClip.currentTime = 0;
-    activeClip.volume = 1;
-    const promise = activeClip.play();
-    if (promise) {
-      void promise.catch(() => speakWord(fallbackText));
-    }
+    const audio = new Audio(src);
+    activeClip = audio;
+    audio.preload = "auto";
+    audio.currentTime = 0;
+    audio.volume = 1;
+    audio.addEventListener("error", fallback);
+    const promise = audio.play();
+    if (promise) void promise.catch(fallback);
     return true;
   } catch {
-    speakWord(fallbackText);
+    fallback();
     return false;
   }
 }

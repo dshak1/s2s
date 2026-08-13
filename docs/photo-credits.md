@@ -29,10 +29,15 @@ workshop.
 | Turkistan | `turkistan.jpg` | Petar Milošević | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
 | Burabay | `burabay.jpg` | Dots foto | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
 | Aktau | `aktau.jpg` | Vita86 | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+| Katon-Karagay | `katonkaragay.jpg` | Seitov Sultanbai | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Pavlodar | `pavlodar.jpg` | Zac Allan | Public domain |
+| Lake Kaindy | `kaindy.jpg` | Katariyakartikey | [CC0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| Shymbulak | `shymbulak.jpg` | Matti Blume | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
 
-All six were downloaded from Wikimedia Commons and resized to 1200px wide at
-JPEG quality 82. Resizing makes them derivative works, so the CC BY-SA ones stay
-CC BY-SA. That is fine: it constrains the images, not the app around them.
+All were downloaded from Wikimedia Commons and resized to 1200px wide at
+JPEG quality 82. Resizing makes them derivative works, so the CC BY / BY-SA ones
+stay under those licences. That is fine: it constrains the images, not the app
+around them.
 
 ## Rules for adding more
 
@@ -41,4 +46,4 @@ CC BY-SA. That is fine: it constrains the images, not the app around them.
 - Never a Google Images result. Almost all of those are all-rights-reserved and
   using one is a real legal problem, not a technicality.
 - Record the author and licence here, and add the credit to `PHOTOS` in
-  `src/app/play/where-kz/page.tsx` for anything that is not public domain or CC0.
+  `src/content/places.ts` for anything that is not public domain or CC0.

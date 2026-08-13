@@ -21,7 +21,7 @@ export const COUPLETS: Couplet[] = [
   },
   {
     id: "horse-friend",
-    lines: ["Менің досым — жүйрік ___,", "Бірге шабамыз біз ___."],
+    lines: ["Менің досым, жүйрік ___,", "Бірге шабамыз біз ___."],
     answers: ["ат", "тауға"],
     decoys: ["ит", "үйге", "көл", "нан"],
     translation: "My friend is a swift horse, / together we gallop to the mountain.",

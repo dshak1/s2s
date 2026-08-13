@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
+import { GameStatsLine } from "@/components/game/game-stats-line";
 import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { ALPHABET } from "@/content/alphabet";
@@ -159,6 +160,7 @@ export default function SoundItOut() {
         <div className="mx-auto max-w-xl rounded-2xl bg-steppe p-7 text-center text-warm shadow-xl">
           <div className="text-3xl font-black text-gold">Round complete!</div>
           <p className="mt-2 text-lg font-bold">{score} / {TOTAL} correct · +{score * 12} points</p>
+          <div className="mt-3"><GameStatsLine slug="sound-it-out" /></div>
           <div className="mt-5 flex justify-center gap-3">
             <Button variant="gold" size="lg" onClick={replay}>Replay</Button>
             <Button variant="outline" size="lg" onClick={() => history.back()}>Back</Button>

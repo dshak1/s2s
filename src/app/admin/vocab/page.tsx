@@ -47,7 +47,7 @@ export default async function AdminVocabPage() {
     >
       <Panel
         title="Add a word"
-        hint="Goes live immediately, no deploy or publish step — kids see it next time the game loads its pack."
+        hint="Goes live immediately, no deploy or publish step. Kids see it next time the game loads its pack."
       >
         <form action={addVocabWord} className="grid gap-3 sm:grid-cols-2">
           <label className="text-[12px] font-medium text-[#475569]">
