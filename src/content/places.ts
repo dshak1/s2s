@@ -70,7 +70,7 @@ export const PLACES: Place[] = [
     y: 446,
     hue: "#2f8f8a",
     sky: ["#cfe8f2", "#e9f4ea"],
-    fact: "An earthquake flooded a valley here and the spruce forest stayed standing underwater — the bare treetops still poke out of the turquoise lake. Its Kazakh name, Қайыңды, means 'birchy'.",
+    fact: "An earthquake flooded a valley here and the spruce forest stayed standing underwater. The bare treetops still poke out of the turquoise lake. Its Kazakh name, Қайыңды, means 'birchy'.",
   },
   {
     id: "shymbulak",

@@ -314,7 +314,7 @@ function Ready({ name, onFinish }: { name: string; onFinish: () => void }) {
         className="mx-auto mt-7 max-w-md text-xl font-extrabold leading-8 text-steppe/80"
       >
         {name ? `${name}, ` : ""}every game in Steppe to Screen teaches Kazakh. Nothing to
-        lose, nothing to sign up for — play whichever one looks fun.
+        lose, nothing to sign up for. Play whichever one looks fun.
       </motion.p>
 
       <motion.div
