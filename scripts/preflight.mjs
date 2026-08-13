@@ -102,25 +102,26 @@ async function checkRoutesResolve() {
   const targets = new Set();
   for (const f of files) {
     const text = await readFile(join(ROOT, f), "utf8");
-    // Only static, non-template internal paths; dynamic segments are unverifiable here.
-    for (const m of text.matchAll(/(?:href|router\.(?:push|replace))=?\(?\s*"(\/[a-zA-Z0-9/_-]*)"/g)) {
+    // Only static, non-template internal paths; dynamic segments are
+    // unverifiable here. Covers JSX (href="/x"), object literals in nav
+    // config (href: "/x"), and imperative navigation (router.push("/x")).
+    for (const m of text.matchAll(/(?:href|router\.(?:push|replace))\s*[:=]?\s*\(?\s*"(\/[a-zA-Z0-9/_-]*)"/g)) {
       targets.add(m[1]);
     }
   }
 
-  const appDir = join(ROOT, "src/app");
+  // Tested against the git index, not the filesystem. Checking disk would call
+  // a route "fine" while its page.tsx sits untracked and 404s in production,
+  // which is exactly the bug this check exists to find.
+  const trackedRoutes = new Set(sh("git ls-files 'src/app/**'").split("\n").filter(Boolean));
   const routeExists = (route) => {
-    const base = route === "/" ? appDir : join(appDir, route);
-    if (["page.tsx", "page.ts", "route.ts", "route.tsx"].some((f) => existsSync(join(base, f)))) return true;
-    // A dynamic segment ([id], [code], ...) at this level can serve the path.
-    const parent = resolve(base, "..");
-    if (!existsSync(parent)) return false;
-    return false;
+    const base = route === "/" ? "src/app" : `src/app${route}`;
+    return ["page.tsx", "page.ts", "route.ts", "route.tsx"].some((f) => trackedRoutes.has(`${base}/${f}`));
   };
 
   const failures = [...targets]
     .filter((r) => !routeExists(r))
-    .map((r) => `${r} is linked but has no page.tsx/route.ts under src/app`);
+    .map((r) => `${r} is linked but has no committed page.tsx/route.ts under src/app`);
   record("every internal link resolves to a route", failures, "commit the missing page, or fix the link");
 }
 
