@@ -179,8 +179,8 @@ export default function TanbaStudio() {
           <Upload className="mx-auto text-steppe" size={36} />
           <h2 className="mt-3 text-xl font-black text-steppe">Upload avatar art</h2>
           <p className="mt-1 text-sm font-bold text-wolf">
-            PNG, JPG, or SVG. Drag a file here, paste one (Ctrl/Cmd+V), or choose one below — saved
-            straight to your avatar.
+            PNG, JPG, or SVG. Drag a file here, paste one (Ctrl/Cmd+V), or choose one below.
+            Saved straight to your avatar.
           </p>
           <input ref={avatarFileRef} type="file" accept="image/png,image/jpeg,image/svg+xml" hidden onChange={onAvatarUpload} />
           <Button variant="gold" size="lg" className="mt-4" onClick={() => avatarFileRef.current?.click()}>

@@ -181,3 +181,29 @@ Everything below shipped to `feat/pro-infra` and was deployed to
   Words/Spotlight Panic without also updating `VOCAB_CATEGORY_META`.
 - Rolling `useVocab()` out to the remaining vocab-driven games is future
   work, not this pass.
+
+---
+
+## 2026-08-03 — Live playtest fixes: Learn, Falling Words, Nomad Run, Spotlight Rush
+
+Renamed from Say & Shift → Nomad Run and Spotlight Panic → Spotlight Rush.
+Merged Sound It Out + Greetings Quiz into one "Learn" game that rotates
+letter/greeting/general-vocab rounds. Rest of this entry is bug fixes found
+by playtesting the deployed build directly.
+
+| Area | Status | What actually happened |
+|---|---|---|
+| Falling Words: correct tap sometimes not registering | Done | Real race condition: a tap landing at nearly the same instant a word reached bottom could lose to the rAF timeout, which swapped the target word before the click handler ran — a genuinely-in-time tap got checked against the wrong word. Fixed with a 220ms grace hold at the bottom before the miss resolves, so an in-flight tap still lands on the word it was for. Verified by artificially widening the grace window and confirming a deliberately late tap now counts. |
+| localStorage quota silently dropping saves | Done | `persist()` never caught `localStorage.setItem` failing (QuotaExceededError once a profile's `artifacts` — base64 photos — grew large enough). The in-memory change looked like it worked for the rest of that session, then was just gone next visit — this is very likely what looked like "picture hints don't persist." Now retries after trimming `artifacts` to the most recent 20, and shows a toast if a save genuinely can't be saved instead of failing silently. Also capped `artifacts` at 60 going forward so this doesn't recur as easily. |
+| Nomad Run: stray image flash on load | Done | `BandPuppet` slices a runner image into head/torso/legs bands asynchronously (image decode + full pixel-alpha scan) and had zero caching, so every single mount — including revisiting a game you'd already set a runner in — showed the default `<Avatar/>` placeholder for a beat before the real art swapped in. Cached sliced bands by source data URL; a given runner image only ever pays that cost once. |
+| Falling Words: play field too small | Done | Field height/fall-speed constants scaled up together (~1.34×, same ratio as the original 380px/62px-per-second) so the card isn't mostly empty white space below a small game box, without changing the actual fall duration or difficulty curve. |
+| Generic "Set/Change background" button | Done | Was on every `GameShell` screen and quietly changed the whole page chrome (not just the intended game window) to match — confusing and not asked for anywhere but Nomad Run. Made opt-in per screen; only Nomad Run's Sky panel enables it now, and it only affects that game's own play field, not the page around it. |
+| Falling Words: mnemonic picture hints | Done | Kid attaches a photo to a specific hard word (a "before" panel on the pick screen, not while a word is actively falling — tried in-game first, reverted per direct feedback) and it becomes that word's background whenever it falls again. |
+
+**Known gaps, next session:**
+- Small vocab packs (e.g. Family, 10 words) hit their natural ceiling fast —
+  playtest feedback was "it feels like it ends before I'm done." Worth
+  either widening the per-pack pool or letting a finished pack roll into an
+  infinite/endless continuation (same shape as Nomad Run's post-calibration
+  infinite mode) instead of stopping. Not built this session — flagged for
+  next pass.

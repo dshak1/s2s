@@ -31,10 +31,15 @@ export default function HomeworkPage() {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Default the date to today (set in an effect so the static prerender and
-  // the client agree on the initial markup).
+  // Default the date to today, in the kid's own timezone (set in an effect
+  // so the static prerender and the client agree on the initial markup).
+  // toISOString() is UTC, which silently rolls to tomorrow in the evening
+  // for anyone west of it — a real date, not just a display quirk, since
+  // it's saved into the submission.
   useEffect(() => {
-    setDate(new Date().toISOString().slice(0, 10));
+    const now = new Date();
+    const local = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    setDate(local);
   }, []);
 
   const submissions = p.artifacts.filter((a) => a.kind === "homework");
@@ -175,7 +180,7 @@ export default function HomeworkPage() {
                 <div className="p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-black text-steppe">{a.meta?.title || "Homework"}</span>
-                    <span className="rounded-full bg-felt px-2 py-0.5 text-[10px] font-black text-wolf">📚 This is homework</span>
+                    <span className="rounded-full bg-felt px-2 py-0.5 text-[10px] font-black text-wolf">This is homework</span>
                   </div>
                   {a.meta?.note && <p className="mt-1 text-sm font-semibold text-wolf">{a.meta.note}</p>}
                   <p className="mt-1 text-xs text-wolf/60">

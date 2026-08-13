@@ -26,6 +26,11 @@ const ALPHA_THRESHOLD = 12;
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    // Needed for real URLs (a shared-gallery character's Supabase Storage
+    // URL) — without it, getImageData below throws a tainted-canvas
+    // SecurityError even though the bucket is public and CORS-open. A no-op
+    // for data: URLs (drawn/uploaded art), so always safe to set.
+    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error("Could not load character image."));
     img.src = src;
@@ -102,6 +107,12 @@ async function sliceBands(src: string): Promise<Bands | null> {
   };
 }
 
+// Slicing is real work (image decode + a full pixel-alpha scan). A saved
+// runner's src is the same data URL every time the kid opens the game, so
+// caching by src means the default-Avatar flash only ever happens once per
+// image, not on every single mount.
+const bandsCache = new Map<string, Bands | null>();
+
 export function BandPuppet({
   src,
   size = 96,
@@ -116,7 +127,7 @@ export function BandPuppet({
   running?: boolean;
   className?: string;
 }) {
-  const [bands, setBands] = useState<Bands | null>(null);
+  const [bands, setBands] = useState<Bands | null>(() => (src ? (bandsCache.get(src) ?? null) : null));
 
   useEffect(() => {
     let cancelled = false;
@@ -124,11 +135,17 @@ export function BandPuppet({
       setBands(null);
       return;
     }
+    if (bandsCache.has(src)) {
+      setBands(bandsCache.get(src) ?? null);
+      return;
+    }
     sliceBands(src)
       .then((result) => {
+        bandsCache.set(src, result);
         if (!cancelled) setBands(result);
       })
       .catch(() => {
+        bandsCache.set(src, null);
         if (!cancelled) setBands(null);
       });
     return () => {

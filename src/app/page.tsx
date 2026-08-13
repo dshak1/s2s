@@ -4,12 +4,34 @@ import { HomeCoverBackdrop } from "@/components/home-cover-backdrop";
 import { IS_LITE } from "@/lib/lite";
 import { ONLINE_FEATURES_ENABLED } from "@/lib/online-features";
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  // Supabase's own /auth/v1/verify endpoint sends a failed magic-link
+  // straight here (not to /auth/callback) — it doesn't know which app route
+  // to use for an error case, so it falls back to the bare site_url. Without
+  // this, that failure landed silently on the normal kid homepage with raw
+  // error params sitting unexplained in the address bar.
+  searchParams: Promise<{ error?: string; error_code?: string; error_description?: string }>;
+}) {
+  const { error_code, error_description } = await searchParams;
+
   return (
     <div className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
       <HomeCoverBackdrop />
 
       <main className="relative z-10 mx-auto grid min-h-dvh max-w-6xl items-center gap-8 px-6 pb-28 pt-16 md:grid-cols-[1.05fr_.95fr] md:pb-20">
+        {error_code && (
+          <div className="col-span-full -mb-2 rounded-2xl border-2 border-[#ff9a4f] bg-white/90 px-5 py-3 text-center text-sm font-bold text-steppe shadow-sm backdrop-blur md:text-left">
+            {error_code === "otp_expired"
+              ? "That sign-in link expired or was already used."
+              : (error_description?.replaceAll("+", " ") ?? "That sign-in link didn't work.")}{" "}
+            <Link href="/login" className="underline decoration-2 underline-offset-2">
+              Request a new one
+            </Link>
+            .
+          </div>
+        )}
         <section className="max-w-2xl text-center md:text-left">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/75 px-4 py-2 text-sm font-extrabold text-steppe shadow-sm backdrop-blur">
             CC-UNESCO • UBC / SFU Kazakh Workshops

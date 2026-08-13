@@ -29,7 +29,9 @@ export default async function LabelPage() {
   }
 
   const [queueRes, ratersRes, teamRes] = await Promise.all([
-    sb.rpc("label_queue", { p_limit: 25 }),
+    // Fat first deal — raters keep going until the DB has nothing left for
+    // them. The client refills via fetchLabelBatch when this chunk runs out.
+    sb.rpc("label_queue", { p_limit: 200 }),
     sb.from("v_rater_stats").select("*").order("labels", { ascending: false }),
     sb.from("team_members").select("id, display_name"),
   ]);
@@ -49,7 +51,7 @@ export default async function LabelPage() {
       member={member}
       current="/label"
       title="Judge the questions"
-      subtitle="Learner data says a question is hard. Only you can say why."
+      subtitle="Keep going as long as you like — every label makes the dataset stronger. More is better."
     >
       <div className="mx-auto max-w-3xl space-y-5">
         <div className="hidden">
@@ -65,7 +67,7 @@ export default async function LabelPage() {
           <Stat
             label="Your labels"
             value={String(mine?.labels ?? 0)}
-            hint={mine?.avg_seconds ? `${mine.avg_seconds}s each on average` : "start anywhere"}
+            hint={mine?.avg_seconds ? `${mine.avg_seconds}s each on average` : "no cap — do as many as you want"}
           />
           <Stat
             label="You flagged"
@@ -73,9 +75,9 @@ export default async function LabelPage() {
             hint="questions the team should fix"
           />
           <Stat
-            label="Waiting for you"
+            label="In this batch"
             value={String(items.length)}
-            hint="highest-signal first"
+            hint="highest-signal first · refills when you finish"
           />
         </div>
 

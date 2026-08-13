@@ -3,26 +3,39 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
+import { GameStatsLine } from "@/components/game/game-stats-line";
 import { Button } from "@/components/ui/button";
-import { VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
+import { CATEGORIES, CATEGORY_LABELS, VOCAB_CATEGORY_META, type VocabCategory, type VocabItem } from "@/content/vocab";
 import { shuffle } from "@/lib/utils";
 import { playCorrect, playWrong, speakWord } from "@/lib/audio";
 import { store, useProfile } from "@/lib/store";
 import { logAnswer } from "@/lib/telemetry";
 import { vocabItemId } from "@/lib/items";
 import { baseText } from "@/lib/lang";
+import { resizeImageFile } from "@/lib/client-image";
 import { useVocab } from "@/lib/vocab-packs";
-import { Heart, Trophy } from "lucide-react";
+import { Heart, ImagePlus, Trophy, X } from "lucide-react";
 
-const FIELD = 380; // px fall distance before "ground"
+// Field height (and BASE_SPEED/RAMP_PER_CATCH/RAMP_LEVEL_BONUS below) were
+// scaled up together, same ratio, from the original 380/62 — the play area
+// was leaving most of the white card empty below it. Keeping FIELD/BASE_SPEED
+// constant preserves the original ~6s fall time and difficulty curve exactly,
+// just at a size that actually fills the card.
+const FIELD = 510; // px fall distance before "ground"
 const MAX_MISS = 3;
 const MAX_LEVEL = 10;
 const CATCHES_PER_LEVEL = 6; // catches to advance a level, no pause between
 const WORDS_AT_START = 3;
 const WORDS_PER_LEVEL = 2; // new words layered in at each level-up
-const BASE_SPEED = 62; // px/sec, every level starts here…
-const RAMP_PER_CATCH = 11; // …and ramps as you catch words within the level
-const RAMP_LEVEL_BONUS = 1.5; // higher levels ramp a little steeper
+const BASE_SPEED = 83; // px/sec, every level starts here…
+const RAMP_PER_CATCH = 15; // …and ramps as you catch words within the level
+const RAMP_LEVEL_BONUS = 2; // higher levels ramp a little steeper
+// A tap landing right as a word reaches the bottom used to race the rAF
+// timeout: if the miss fired first it swapped currentRef to the next word
+// before the click handler ran, so a genuinely-in-time tap read as wrong
+// against the wrong word. This holds the word at the bottom for one beat so
+// a tap that arrives within it still resolves against the word it was for.
+const MISS_GRACE_MS = 220;
 
 const BEST_KEY = "s2s.falling.best.v2";
 
@@ -44,8 +57,12 @@ function readBests(): Partial<Record<PackKey, number>> {
 type Phase = "pick" | "play" | "over" | "mastered";
 
 export default function FallingSozder() {
-  const { baseLanguage } = useProfile();
+  const profile = useProfile();
+  const { baseLanguage } = profile;
   const vocab = useVocab();
+  const editorFileRef = useRef<HTMLInputElement>(null);
+  const [editingSlug, setEditingSlug] = useState<string | null>(null);
+  const [hintEditorOpen, setHintEditorOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("pick");
   const [category, setCategory] = useState<PackKey>("family");
   const [bests, setBests] = useState<Partial<Record<PackKey, number>>>({});
@@ -67,6 +84,8 @@ export default function FallingSozder() {
   const currentRef = useRef<VocabItem | null>(null);
   const lastSlug = useRef<string | null>(null);
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expired = useRef(false); // word hit bottom, waiting out MISS_GRACE_MS for a late-but-in-time tap
+  const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Level/word-pool state lives in refs so the rAF loop reads fresh values.
   const deck = useRef<VocabItem[]>([]); // full category deck, in intro order
@@ -86,6 +105,7 @@ export default function FallingSozder() {
     return () => {
       cancelAnimationFrame(raf.current);
       if (bannerTimer.current) clearTimeout(bannerTimer.current);
+      if (expiryTimer.current) clearTimeout(expiryTimer.current);
     };
   }, []);
 
@@ -109,6 +129,11 @@ export default function FallingSozder() {
   }, []);
 
   const spawn = useCallback(() => {
+    if (expiryTimer.current) {
+      clearTimeout(expiryTimer.current);
+      expiryTimer.current = null;
+    }
+    expired.current = false;
     const target = pickTarget();
     const distractors = shuffle(pool.current.filter((w) => w.slug !== target.slug)).slice(0, 2);
     setBaskets(shuffle([target, ...distractors]));
@@ -152,6 +177,31 @@ export default function FallingSozder() {
     [category, saveBest],
   );
 
+  // Shared by the grace-timer elapsing and a wrong tap landing after the word
+  // already reached bottom — both mean the same thing: this word is over.
+  const resolveMiss = useCallback(() => {
+    playWrong();
+    if (currentRef.current) {
+      logAnswer({
+        gameSlug: "falling-sozder",
+        itemId: vocabItemId(currentRef.current),
+        promptKind: "text",
+        response: null, // ran out of time rather than picking wrong
+        isCorrect: false,
+        latencyMs: spawnedAt.current ? Date.now() - spawnedAt.current : null,
+        attemptIndex: catchesRef.current + missesRef.current + 1,
+      });
+    }
+    missesRef.current += 1;
+    setMisses(missesRef.current);
+    if (missesRef.current >= MAX_MISS) {
+      finish("over");
+      return;
+    }
+    spawn();
+    lastTs.current = 0;
+  }, [finish, spawn]);
+
   const loopRef = useRef<(ts: number) => void>(() => {});
   const loop = useCallback(
     (ts: number) => {
@@ -163,33 +213,25 @@ export default function FallingSozder() {
       // touch steeper at higher levels so late levels end harder.
       const ramp = RAMP_PER_CATCH + RAMP_LEVEL_BONUS * (levelRef.current - 1);
       const speed = BASE_SPEED + ramp * catchesInLevel.current;
-      yRef.current += speed * dt;
-      setY(yRef.current);
-      if (yRef.current >= FIELD) {
-        playWrong();
-        if (currentRef.current) {
-          logAnswer({
-            gameSlug: "falling-sozder",
-            itemId: vocabItemId(currentRef.current),
-            promptKind: "text",
-            response: null, // ran out of time rather than picking wrong
-            isCorrect: false,
-            latencyMs: spawnedAt.current ? Date.now() - spawnedAt.current : null,
-            attemptIndex: catchesRef.current + missesRef.current + 1,
-          });
+      if (!expired.current) {
+        yRef.current += speed * dt;
+        setY(yRef.current);
+        if (yRef.current >= FIELD) {
+          // Hold here instead of resolving immediately — a tap already on its
+          // way in for this word (see MISS_GRACE_MS above) still needs a
+          // moment to arrive and land on the word it was actually meant for.
+          yRef.current = FIELD;
+          setY(FIELD);
+          expired.current = true;
+          expiryTimer.current = setTimeout(() => {
+            if (!expired.current || phaseRef.current !== "play") return;
+            resolveMiss();
+          }, MISS_GRACE_MS);
         }
-        missesRef.current += 1;
-        setMisses(missesRef.current);
-        if (missesRef.current >= MAX_MISS) {
-          finish("over");
-          return;
-        }
-        spawn();
-        lastTs.current = ts;
       }
       raf.current = requestAnimationFrame(loopRef.current);
     },
-    [finish, spawn],
+    [resolveMiss],
   );
   useEffect(() => {
     loopRef.current = loop;
@@ -241,6 +283,16 @@ export default function FallingSozder() {
 
   function tapBasket(item: VocabItem) {
     if (phaseRef.current !== "play" || !currentRef.current) return;
+    // A word already past the bottom is only still "current" because it's
+    // waiting out MISS_GRACE_MS for exactly this — a tap that was on its way
+    // in before it landed. Resolve it now instead of letting the timer redo
+    // this same work a moment later (which would cost a second life).
+    const wasExpired = expired.current;
+    if (expiryTimer.current) {
+      clearTimeout(expiryTimer.current);
+      expiryTimer.current = null;
+    }
+    expired.current = false;
     const target = currentRef.current;
     logAnswer({
       gameSlug: "falling-sozder",
@@ -267,6 +319,8 @@ export default function FallingSozder() {
       }
       spawn();
       lastTs.current = 0;
+    } else if (wasExpired) {
+      resolveMiss();
     } else {
       playWrong();
       wrongCount.current.set(target.slug, (wrongCount.current.get(target.slug) ?? 0) + 1);
@@ -276,8 +330,15 @@ export default function FallingSozder() {
     }
   }
 
+  async function attachHintTo(slug: string, file: File | undefined | null) {
+    if (!file) return;
+    const dataUrl = await resizeImageFile(file, 800);
+    store.setVocabHint(slug, dataUrl);
+  }
+
   const meta = PACKS.find((c) => c.key === category)!;
   const playing = phase === "play";
+  const currentHint = current ? profile.vocabHints[current.slug] : null;
 
   return (
     <GameShell
@@ -293,13 +354,18 @@ export default function FallingSozder() {
         </div>
         {playing && (
           <span className="rounded-full bg-warm/90 px-3 py-1 text-xs font-black text-steppe shadow-sm">
-            {meta.emoji} {meta.kk}
+            {meta.kk}
           </span>
         )}
         <span className="font-extrabold text-steppe">Caught: {catches}</span>
       </div>
 
-      <div className="relative mx-auto overflow-hidden rounded-3xl bg-gradient-to-b from-steppe to-steppe-700" style={{ height: FIELD + 90 }}>
+      <div
+        className="relative mx-auto overflow-hidden rounded-3xl bg-gradient-to-b from-steppe to-steppe-700 bg-cover bg-center"
+        style={{ height: FIELD + 90, backgroundImage: currentHint ? `url(${currentHint})` : undefined }}
+      >
+        {currentHint && <div className="pointer-events-none absolute inset-0 bg-steppe/45" />}
+
         {/* falling word */}
         <AnimatePresence>
           {playing && current && (
@@ -342,12 +408,97 @@ export default function FallingSozder() {
           ))}
         </div>
 
-        {phase === "pick" && (
+        {phase === "pick" && hintEditorOpen && (
+          <div className="absolute inset-0 flex flex-col bg-steppe/95 p-4 text-warm">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-lg font-black">Picture hints</p>
+                <p className="text-xs text-warm/70">Add a photo to a hard word. It becomes the background when that word falls.</p>
+              </div>
+              <Button size="sm" onClick={() => setHintEditorOpen(false)}>Done</Button>
+            </div>
+            <input
+              ref={editorFileRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(event) => {
+                if (editingSlug) attachHintTo(editingSlug, event.target.files?.[0]);
+                event.currentTarget.value = "";
+                setEditingSlug(null);
+              }}
+            />
+            <div className="mt-3 flex-1 space-y-4 overflow-y-auto pr-1">
+              {CATEGORIES.map((cat) => {
+                const words = vocab.filter((v) => v.category === cat);
+                if (words.length === 0) return null;
+                return (
+                  <div key={cat}>
+                    <p className="text-xs font-black uppercase tracking-wide text-warm/60">{CATEGORY_LABELS[cat]}</p>
+                    <div className="mt-1.5 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                      {words.map((word) => {
+                        const hint = profile.vocabHints[word.slug];
+                        return (
+                          <div key={word.slug} className="flex items-center gap-2 rounded-lg bg-white/10 p-1.5">
+                            {hint ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={hint} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+                            ) : (
+                              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white/10 text-warm/40">
+                                <ImagePlus size={16} />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-black">{word.kk}</p>
+                              <p className="truncate text-[10px] text-warm/60">{baseText(word, baseLanguage)}</p>
+                            </div>
+                            <button
+                              type="button"
+                              title={hint ? "Replace hint" : "Add hint"}
+                              aria-label={hint ? `Replace hint for ${word.kk}` : `Add hint for ${word.kk}`}
+                              onClick={() => {
+                                setEditingSlug(word.slug);
+                                editorFileRef.current?.click();
+                              }}
+                              className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/15 hover:bg-white/25"
+                            >
+                              <ImagePlus size={13} />
+                            </button>
+                            {hint && (
+                              <button
+                                type="button"
+                                title="Remove hint"
+                                aria-label={`Remove hint for ${word.kk}`}
+                                onClick={() => store.clearVocabHint(word.slug)}
+                                className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/15 hover:bg-white/25"
+                              >
+                                <X size={13} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {phase === "pick" && !hintEditorOpen && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-steppe/85 p-4 text-center text-warm">
             <p className="text-2xl font-black">Pick a word pack</p>
             <p className="max-w-sm text-sm text-warm/85">
               Each pack starts with 3 words and adds more as you level up. Catch the Kazakh basket before the English word lands!
             </p>
+            <button
+              type="button"
+              onClick={() => setHintEditorOpen(true)}
+              className="flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-black text-warm transition hover:bg-white/25"
+            >
+              <ImagePlus size={16} /> Add picture hints
+            </button>
             <div className="grid w-full max-w-md grid-cols-2 gap-2 sm:grid-cols-4">
               {PACKS.map((c) => (
                 <button
@@ -355,9 +506,8 @@ export default function FallingSozder() {
                   onClick={() => start(c.key)}
                   className="rounded-2xl bg-warm/95 p-3 text-steppe shadow-md transition hover:-translate-y-0.5 active:scale-95"
                 >
-                  <div className="text-2xl">{c.emoji}</div>
-                  <div className="text-sm font-black">{c.kk}</div>
-                  <div className="text-[11px] font-bold text-steppe/60">{baseText(c, baseLanguage)}</div>
+                  <div className="text-sm font-black leading-tight break-words sm:text-base">{c.kk}</div>
+                  <div className="mt-0.5 text-[11px] font-bold text-steppe/60">{baseText(c, baseLanguage)}</div>
                   {(bests[c.key] ?? 0) > 0 && (
                     <div className="mt-1 text-[11px] font-black text-terra">Best: Lvl {bests[c.key]}</div>
                   )}
@@ -379,10 +529,11 @@ export default function FallingSozder() {
               <>
                 <p className="text-3xl font-black">Game over!</p>
                 <p>
-                  {meta.emoji} {baseText(meta, baseLanguage)}, you caught {catches} words and reached level {level}.
+                  {baseText(meta, baseLanguage)}, you caught {catches} words and reached level {level}.
                 </p>
               </>
             )}
+            <GameStatsLine slug="falling-sozder" />
             <div className="flex gap-2">
               <Button variant="gold" size="lg" onClick={() => start(category)}>
                 Play again

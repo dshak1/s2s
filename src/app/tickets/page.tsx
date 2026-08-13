@@ -21,6 +21,7 @@ import {
   AiRunFeedbackForm,
   DecisionForm,
   EditTicketForm,
+  MoreActions,
   NewTicketForm,
   RequestReviewForm,
 } from "./forms";
@@ -611,40 +612,23 @@ export default async function TicketsPage({
                       </ul>
                     )}
 
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                      <form action={addComment} className="flex min-w-[15rem] flex-1 gap-1.5">
-                        <input type="hidden" name="ticket_id" value={t.id} />
-                        <input
-                          name="body"
-                          required
-                          placeholder="Comment…"
-                          className={input}
-                        />
-                        <button
-                          type="submit"
-                          className="rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#475569] hover:bg-[#f1f3f6]"
-                        >
-                          Post
-                        </button>
-                      </form>
-                      <form action={addLink} className="flex min-w-[15rem] flex-1 gap-1.5">
-                        <input type="hidden" name="ticket_id" value={t.id} />
-                        <input
-                          name="url"
-                          required
-                          placeholder="Link to something similar…"
-                          className={input}
-                        />
-                        <button
-                          type="submit"
-                          className="rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#475569] hover:bg-[#f1f3f6]"
-                        >
-                          Add
-                        </button>
-                      </form>
-                    </div>
+                    <form action={addComment} className="mt-2.5 flex items-center gap-1.5">
+                      <input type="hidden" name="ticket_id" value={t.id} />
+                      <input
+                        name="body"
+                        required
+                        placeholder="Comment…"
+                        className={`${input} flex-1`}
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#475569] hover:bg-[#f1f3f6]"
+                      >
+                        Post
+                      </button>
+                    </form>
 
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-[#eef1f5] pt-2.5">
+                    <MoreActions>
                       <EditTicketForm
                         ticketId={t.id}
                         title={t.title}
@@ -670,7 +654,22 @@ export default async function TicketsPage({
                           currentPreview={t.preview_url}
                         />
                       )}
-                    </div>
+                      <form action={addLink} className="flex min-w-[13rem] flex-1 gap-1.5">
+                        <input type="hidden" name="ticket_id" value={t.id} />
+                        <input
+                          name="url"
+                          required
+                          placeholder="Link to something similar…"
+                          className={input}
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-[#dbe0e6] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#475569] hover:bg-[#f1f3f6]"
+                        >
+                          Add
+                        </button>
+                      </form>
+                    </MoreActions>
                   </div>
                 </div>
               </article>

@@ -17,6 +17,7 @@ The app has two populations and they are treated oppositely:
 | [backlog.md](backlog.md) | Everything shipped, everything open. Mirrors /tickets |
 | [setup.md](setup.md) | Getting it running, env vars, the manual Supabase steps |
 | [architecture.md](architecture.md) | How the pieces fit, and why offline-first |
+| [native-shells.md](native-shells.md) | The Android and iOS Capacitor wrappers, and how to build them |
 | [data-model.md](data-model.md) | Every table, what it is for, who can read it |
 | [telemetry.md](telemetry.md) | How an answer becomes a row, and how to add a game |
 | [labelling-guide.md](labelling-guide.md) | The rubric raters actually use |

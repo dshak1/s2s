@@ -71,7 +71,7 @@ export default function RaceProjector() {
             <ArrowLeft size={14} /> Back to console
           </Link>
           <div className="flex items-center gap-2 text-2xl font-black">
-            <Flag size={22} className="text-gold" /> Say &amp; Shift — live race
+            <Flag size={22} className="text-gold" /> Nomad Run · live race
           </div>
         </div>
         <div className="text-right">
@@ -82,7 +82,7 @@ export default function RaceProjector() {
 
       <div className="px-8 py-8">
         {ranked.length === 0 ? (
-          <p className="text-lg text-warm/60">Waiting for a table to start Say &amp; Shift…</p>
+          <p className="text-lg text-warm/60">Waiting for a table to start Nomad Run…</p>
         ) : (
           <div className="space-y-5">
             <AnimatePresence>

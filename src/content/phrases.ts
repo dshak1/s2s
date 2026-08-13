@@ -6,7 +6,7 @@ export const PHRASES: Phrase[] = [
   { kk: "Қалайсың?", en: "How are you?", ru: "Как дела?" },
   { kk: "Жақсы!", en: "I'm good!", ru: "Хорошо!" },
   { kk: "Менің атым ...", en: "My name is ...", ru: "Меня зовут ..." },
-  { kk: "Бұл — ...", en: "This is ...", ru: "Это ..." },
+  { kk: "Бұл ...", en: "This is ...", ru: "Это ..." },
   { kk: "Мен ...мын", en: "I am ...", ru: "Я ..." },
   { kk: "Рахмет!", en: "Thank you!", ru: "Спасибо!" },
   { kk: "Сау бол!", en: "Goodbye!", ru: "Пока!" },

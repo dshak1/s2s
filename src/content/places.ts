@@ -42,12 +42,57 @@ export const PLACES: Place[] = [
     sky: ["#dbeef6", "#f7efd8"],
     fact: "Aktau sits by the Caspian Sea. Its name means white mountain.",
   },
+  {
+    id: "katonkaragay",
+    name: "Katon-Karagay",
+    kk: "Катонқарағай",
+    x: 935,
+    y: 240,
+    hue: "#2f6b45",
+    sky: ["#cfe6f5", "#eaf6e6"],
+    fact: "Katon-Karagay is Kazakhstan's largest national park, high in the Altai mountains where bears, deer and golden eagles live. Beekeepers here make the country's most famous honey.",
+  },
+  {
+    id: "pavlodar",
+    name: "Pavlodar",
+    kk: "Павлодар",
+    x: 734,
+    y: 136,
+    hue: "#6f9f7a",
+    sky: ["#d8ecf8", "#f2f7e6"],
+    fact: "Pavlodar sits on the wide Irtysh river in the north. Kids swim in it all summer and skate on top of it once it freezes.",
+  },
+  {
+    id: "kaindy",
+    name: "Lake Kaindy",
+    kk: "Қайыңды көлі",
+    x: 769,
+    y: 446,
+    hue: "#2f8f8a",
+    sky: ["#cfe8f2", "#e9f4ea"],
+    fact: "An earthquake flooded a valley here and the spruce forest stayed standing underwater. The bare treetops still poke out of the turquoise lake. Its Kazakh name, Қайыңды, means 'birchy'.",
+  },
+  {
+    id: "shymbulak",
+    name: "Shymbulak",
+    kk: "Шымбұлақ",
+    x: 736,
+    y: 441,
+    hue: "#dfe9f2",
+    sky: ["#bcdcf2", "#f0f6fb"],
+    fact: "Shymbulak is a ski slope in the mountains right above Almaty. You ride a cable car up and the whole city looks tiny below you.",
+  },
 ];
 
 // Photos. The team supplied the first four; the rest come from Wikimedia
 // Commons. Four of those are CC BY-SA, which requires the credit to be visible,
 // so `credit` is rendered on the image rather than buried in a file nobody opens.
 // Full licence details are in docs/photo-credits.md.
+//
+// A place with no entry here still plays — it falls back to the gradient
+// silhouette below and shows a "No photo yet" badge. That is deliberate: a
+// place kids asked for should be in the game the same week they asked, not
+// blocked behind a photo hunt.
 export type Photo = { src: string; credit?: string };
 
 export const PHOTOS: Record<string, Photo> = {
@@ -67,6 +112,16 @@ export const PHOTOS: Record<string, Photo> = {
   },
   burabay: { src: "/img/places-photos/burabay.jpg", credit: "Dots foto, CC BY-SA 4.0" },
   aktau: { src: "/img/places-photos/aktau.jpg", credit: "Vita86, CC BY-SA 3.0" },
+  katonkaragay: {
+    src: "/img/places-photos/katonkaragay.jpg",
+    credit: "Seitov Sultanbai, CC BY 4.0",
+  },
+  pavlodar: { src: "/img/places-photos/pavlodar.jpg", credit: "Zac Allan, public domain" },
+  kaindy: { src: "/img/places-photos/kaindy.jpg", credit: "Katariyakartikey, CC0" },
+  shymbulak: {
+    src: "/img/places-photos/shymbulak.jpg",
+    credit: "Matti Blume, CC BY-SA 4.0",
+  },
 };
 
 export function placeCloseness(pin: { x: number; y: number }, place: Place): number {
