@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useProfile } from "@/lib/store";
 import { IS_LITE } from "@/lib/lite";
 import { Avatar } from "@/components/avatar";
+import { useExperimental } from "@/lib/experimental-mode";
 import { BookOpenCheck, Flame, ShieldCheck, Star } from "lucide-react";
 
 export function TopNav() {
   const p = useProfile();
+  const [experimental] = useExperimental();
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/70 bg-white/75 px-3 py-3 text-steppe shadow-[0_10px_26px_rgba(30,77,140,.12)] backdrop-blur-md sm:px-4">
       <Link href="/play" className="flex items-center gap-1.5 text-base font-black sm:text-xl">
@@ -16,6 +18,15 @@ export function TopNav() {
         <span>Screen</span>
       </Link>
       <div className="flex items-center gap-1.5 sm:gap-3">
+        {experimental && (
+          <Link
+            href={`/profile/${p.id}#experimental`}
+            title="Experimental mode is on"
+            className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.35)]"
+          >
+            exp
+          </Link>
+        )}
         {!IS_LITE && (
           <>
             <Link

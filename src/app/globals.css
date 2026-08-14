@@ -534,3 +534,35 @@ body {
     @apply font-sans;
   }
 }
+
+/* Experimental mode. Palette is shadcn zinc + emerald, nudged toward
+   composio.dev: near-black, mint, cyan. Not a custom rainbow. */
+html.experimental {
+  --color-steppe: #34d399;
+  --color-steppe-700: #10b981;
+  --color-gold: #22d3ee;
+  --color-warm: #05070a;
+  --color-felt: #0b1220;
+  --color-terra: #22d3ee;
+  --color-wolf: #94a3b8;
+  --background: #05070a;
+  --foreground: #ecfdf5;
+  color-scheme: dark;
+}
+
+html.experimental body {
+  background-color: #05070a !important;
+  color: #ecfdf5;
+}
+
+html.experimental .min-h-dvh {
+  background-color: #05070a !important;
+  color: #ecfdf5;
+}
+
+html.experimental header {
+  background: rgba(5, 7, 10, 0.82) !important;
+  color: #ecfdf5 !important;
+  border-color: rgba(52, 211, 153, 0.28) !important;
+  box-shadow: 0 0 40px rgba(16, 185, 129, 0.12) !important;
+}

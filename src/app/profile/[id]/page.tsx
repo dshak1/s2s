@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { PlayerAccountPanel } from "@/components/player-account-panel";
+import { useExperimental } from "@/lib/experimental-mode";
 import { TopNav } from "@/components/top-nav";
 import { Avatar } from "@/components/avatar";
 import { Card } from "@/components/ui/card";
@@ -15,7 +16,7 @@ import { VISIBLE_GAMES } from "@/content/games";
 import { KID_COVERS } from "@/content/kid-covers";
 import { store, useProfile, masteredLetterCount, isVocabMastered } from "@/lib/store";
 import { toastBus } from "@/lib/toast";
-import { BookOpenCheck, Check, Gamepad2, Pencil, RotateCcw, Snowflake, Trash2, TriangleAlert, Volume2, X } from "lucide-react";
+import { BookOpenCheck, Check, FlaskConical, Gamepad2, Pencil, RotateCcw, Snowflake, Trash2, TriangleAlert, Volume2, X } from "lucide-react";
 import type { Artifact } from "@/lib/store";
 
 const ARTIFACT_LABELS: Record<Artifact["kind"], string> = {
@@ -30,6 +31,7 @@ const ARTIFACT_LABELS: Record<Artifact["kind"], string> = {
 export default function ProfilePage() {
   const params = useParams<{ id: string }>();
   const p = useProfile();
+  const [experimental, setExperimental] = useExperimental();
   const [adopting, setAdopting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -318,6 +320,27 @@ export default function ProfilePage() {
         </Card>
 
         <PlayerAccountPanel />
+
+        <Card id="experimental" className="scroll-mt-24 border-2 border-emerald-400/30">
+          <h2 className="mb-1 flex items-center gap-2 text-lg font-black text-steppe">
+            <FlaskConical size={18} className="text-emerald-500" /> Experimental mode
+          </h2>
+          <p className="mb-3 text-sm text-wolf">
+            Not developer mode. You try stuff that is not guaranteed first try, then tell us if the screen still looks okay. Ideas you submit can get built back to just you before they hit everyone.
+          </p>
+          <button
+            type="button"
+            aria-pressed={experimental}
+            onClick={() => setExperimental(!experimental)}
+            className={`rounded-full px-4 py-2 text-sm font-black transition ${
+              experimental
+                ? "bg-emerald-400 text-[#05070a] shadow-[0_0_24px_rgba(52,211,153,0.45)]"
+                : "bg-steppe text-white"
+            }`}
+          >
+            {experimental ? "Experimental is on" : "Turn experimental on"}
+          </button>
+        </Card>
 
         <Card className="border-2 border-terra/20">
           <h2 className="mb-1 flex items-center gap-2 text-lg font-black text-steppe"><TriangleAlert size={18} className="text-terra" /> Reset profile</h2>

@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { DebugPanel } from "@/components/debug-panel";
+import { ExperimentalShell } from "@/components/experimental-mode";
 import { ToastProvider } from "@/components/toast-provider";
 import { FeedbackButton } from "@/components/feedback-button";
 import { LiveRoundOverlay } from "@/components/live-round-overlay";
@@ -30,6 +31,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ToastProvider />
       <FeedbackButton />
       <LiveRoundOverlay />
+      <ExperimentalShell />
       <DebugPanel />
       <NativeShellBridge />
     </QueryClientProvider>

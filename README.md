@@ -1,31 +1,15 @@
-# Steppe to Screen
+# steppe to screen
 
-Kazakh language + culture learning for kids (ages 5–12). Built for the UBC/SFU CC-UNESCO workshop series. One projector, kids in the room, daily iteration.
+live site: https://steppe2screen.com
 
-## What it is
+kazakh language + culture games for kids (about 6-12). this is the deployed thing, not a homework repo. funded as a ubc ccel unesco chapman grant project ($10k). ios app coming soon.
 
-A game hub (Next.js) with Learn / play loops: vocab, places, greetings, sound-it-out, and more. Kids tap through games. The team watches what actually happens, not what we hoped would happen.
+i joined the team not knowing much kazakh. the way i could actually contribute was convincing the kids they can ship. an impressive school project is supposed to be the first domino: they enjoy building, they ship again, it compounds, and the next generation of kazakhs in canada has people ahead of them who already did it.
 
-## The product experiment that matters
+feedback is not a form. when something is wrong they tap feedback and we get their voice plus the screen, so we see the exact issue instead of "it broke." design, ship, kids test the same day, clip, fix.
 
-**Feedback is not a form.** When a tester hits a problem they tap feedback and it captures **their voice plus the screen**, so we see the exact issue instead of a vague "it broke." The rest of the team can label from that clip. Design → ship → kids test the same day → clip → fix.
+experimental mode: from the profile page, or add ?experimental=1 on the url. the site goes dark (zinc/emerald, composio-ish) and the react-bits waves come up so you can tell you left the normal kids theme. when a screen changed for you it asks once, "does this still look okay?" that is issue #18, first slice, not the whole idea-to-rollout ladder yet. film it in screen studio. shot list is in docs/screenstudio-shots.md. i will drop the mp4s here after i record them. do not wait on a first-take gif.
 
-That is the whole loop: decent UI, real backend, lots of small experiments, users every day.
+always looking to hire people for s2s. if you want to join the team, open an issue or email me.
 
-## Recent (Aug 2026)
-
-- Restored the v2 game hub (prod had been a mix of old committed code and unstaged working-tree files)
-- First-run `/welcome` was 404ing every new session — the gate existed, the page did not. Fixed, then added a preflight check so nav links cannot point at missing routes again
-- Preflight suite (`pnpm preflight`): committed tree typechecks in isolation, referenced `/public` assets must be in git, no kid-facing em dashes
-
-## Stack
-
-TypeScript, Next.js, Supabase, Capacitor (iOS/Android shell).
-
-## Run
-
-```bash
-pnpm install
-pnpm dev
-pnpm preflight
-```
+stack is next.js, typescript, supabase, capacitor for the native shells. the domain above is the source of truth, not whatever is sitting on my laptop.
