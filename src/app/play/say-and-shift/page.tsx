@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Ear, Flag, Heart, Mic, MicOff, RotateCcw, Share2, SkipForward, Trash2, Upload, Volume2, WifiOff, X } from "lucide-react";
+import { Check, Ear, Flag, Heart, Mic, MicOff, RotateCcw, Share2, SkipForward, Trash2, Upload, Volume2, WifiOff, X, Zap } from "lucide-react";
 import { BandPuppet } from "@/components/game/band-puppet";
 import { Confetti } from "@/components/game/confetti";
 import { DrawingBoard } from "@/components/game/drawing-board";
@@ -172,6 +172,11 @@ type Outcome = "correct" | "wrong" | null;
 const INFINITE_START_TIMER_MS = 5000;
 const INFINITE_MIN_TIMER_MS = 2200;
 const INFINITE_TIMER_STEP_MS = 150;
+// Ceiling on how long the clock waits for an answer that was spoken in time
+// but is still being transcribed. Generous enough to cover the hangover plus a
+// slow round trip; the wall almost always resolves well before this, because
+// the wait ends the moment the clip settles.
+const LATE_ANSWER_GRACE_MS = 2200;
 // "unavailable" is the speech-to-text service being down, not the mic being
 // off — the kid's mic is fine, there is just nothing on the other end to
 // transcribe with. It gets its own state because the recovery is different:
@@ -208,7 +213,7 @@ type ListenerStatus = "idle" | "listening" | "checking" | "unavailable";
 // (which recreates it every time) never interrupts an in-flight clip.
 const LEVEL_SAMPLE_MS = 50;
 const PREROLL_SEGMENT_MS = 600;
-const SPEECH_HANGOVER_MS = 600;
+const SPEECH_HANGOVER_MS = 500;
 const MAX_UTTERANCE_MS = 4000;
 // Shorter than this is a cough, a chair, a tap on the desk — not a word.
 const MIN_UTTERANCE_MS = 320;
@@ -240,6 +245,20 @@ type Segment = {
   send: boolean;
 };
 
+// What the mic is busy with right now, so the infinite-mode clock can tell the
+// difference between "nobody answered" and "they answered and we are still
+// working it out". Saying a word is not instant to check: the clip is only cut
+// SPEECH_HANGOVER_MS after the kid stops, and the transcription round trip is
+// a few hundred ms on top. A kid who finishes the word half a second before
+// the buzzer would otherwise be marked wrong while their own answer was still
+// in flight, which is the single most unfair thing the game can do.
+export type ListenerActivity = {
+  /** When speech ended, for each clip currently being transcribed. */
+  pending: number[];
+  /** If a clip is being recorded right now, when its speech started. */
+  capturingSince: number | null;
+};
+
 function useWallListener({
   stream,
   active,
@@ -252,7 +271,11 @@ function useWallListener({
   target: VocabItem;
   distractors: VocabItem[];
   onMatch: (transcript: string) => void;
-}): { status: ListenerStatus; levelRef: React.RefObject<number> } {
+}): {
+  status: ListenerStatus;
+  levelRef: React.RefObject<number>;
+  activityRef: React.RefObject<ListenerActivity>;
+} {
   const [status, setStatus] = useState<ListenerStatus>("idle");
   const targetRef = useRef(target);
   const distractorsRef = useRef(distractors);
@@ -261,6 +284,7 @@ function useWallListener({
   // the meter reads it on its own animation frame, so the whole game scene does
   // not re-render at 20fps to move three little bars.
   const levelRef = useRef(0);
+  const activityRef = useRef<ListenerActivity>({ pending: [], capturingSince: null });
   // Outlives the effect, which restarts on every wall. Without it a dead
   // service would be re-probed (and re-fail) three clips at a time, once per
   // wall, for the rest of the run — the kid would watch "Listening…" flicker
@@ -279,6 +303,7 @@ function useWallListener({
     if (!active || !stream) {
       setStatus("idle");
       levelRef.current = 0;
+      activityRef.current = { pending: [], capturingSince: null };
       return;
     }
 
@@ -297,6 +322,7 @@ function useWallListener({
 
     let noiseFloor = ABS_SILENCE_RMS;
     let lastLoudAt = 0;
+    let speechEndedAt = 0;
     let segment: Segment | null = null;
 
     function openSegment() {
@@ -313,7 +339,7 @@ function useWallListener({
       };
       mr.onstop = () => {
         if (!live || !seg.send || seg.chunks.length === 0) return;
-        void sendUtterance(new Blob(seg.chunks, { type: mr.mimeType || "audio/webm" }));
+        void sendUtterance(new Blob(seg.chunks, { type: mr.mimeType || "audio/webm" }), speechEndedAt);
       };
       mr.start();
       segment = seg;
@@ -325,7 +351,11 @@ function useWallListener({
       const seg = segment;
       if (!seg) return;
       seg.send = send;
+      // The moment the kid actually stopped talking, not the moment the
+      // hangover elapsed — the clock should judge them on when they spoke.
+      speechEndedAt = lastLoudAt;
       segment = null;
+      activityRef.current.capturingSince = null;
       if (seg.mr.state !== "inactive") seg.mr.stop();
     }
 
@@ -338,8 +368,9 @@ function useWallListener({
       setStatus("unavailable");
     }
 
-    async function sendUtterance(blob: Blob, isRetry = false) {
+    async function sendUtterance(blob: Blob, endedAt: number, isRetry = false) {
       inFlight += 1;
+      activityRef.current.pending.push(endedAt);
       setStatus("checking");
       attempt += 1;
       const attemptIndex = attempt;
@@ -358,7 +389,7 @@ function useWallListener({
           // worth one retry now that a lost clip is a lost answer.
           if (!transient) noteFailure();
           else if (!isRetry) {
-            setTimeout(() => { if (live) void sendUtterance(blob, true); }, BUSY_RETRY_MS);
+            setTimeout(() => { if (live) void sendUtterance(blob, endedAt, true); }, BUSY_RETRY_MS);
           }
           return;
         }
@@ -378,6 +409,8 @@ function useWallListener({
         if (live) noteFailure();
       } finally {
         inFlight -= 1;
+        const at = activityRef.current.pending.indexOf(endedAt);
+        if (at !== -1) activityRef.current.pending.splice(at, 1);
         // In `finally`, because every path above returns early — the previous
         // version reset the status only on fall-through, so any clip that came
         // back busy or matched left the UI stuck on "Checking…" forever.
@@ -411,8 +444,12 @@ function useWallListener({
 
       if (!segment.capturing) {
         // Adopt this recorder mid-flight; it already holds the word's onset.
-        if (speaking) segment.capturing = true;
-        else if (age >= PREROLL_SEGMENT_MS) closeSegment(false);
+        if (speaking) {
+          segment.capturing = true;
+          activityRef.current.capturingSince = now;
+        } else if (age >= PREROLL_SEGMENT_MS) {
+          closeSegment(false);
+        }
         return;
       }
 
@@ -428,6 +465,7 @@ function useWallListener({
       live = false;
       clearInterval(tick);
       levelRef.current = 0;
+      activityRef.current = { pending: [], capturingSince: null };
       const seg = segment;
       segment = null;
       if (seg && seg.mr.state !== "inactive") seg.mr.stop();
@@ -440,7 +478,7 @@ function useWallListener({
     // target.slug controls whether this restarts for a new wall.
   }, [active, stream, target.slug]);
 
-  return { status, levelRef };
+  return { status, levelRef, activityRef };
 }
 
 export default function SayAndShiftPage() {
@@ -495,6 +533,9 @@ export default function SayAndShiftPage() {
   const [themeMode, setThemeMode] = useState<"auto" | "day" | "night">("auto");
   const [seenSlugs, setSeenSlugs] = useState<string[]>([]);
   const [timeLeftMs, setTimeLeftMs] = useState<number | null>(null);
+  // The buzzer went but the kid's answer is still being checked — see the
+  // countdown effect. Shown so a paused-looking clock is explained.
+  const [awaitingLateAnswer, setAwaitingLateAnswer] = useState(false);
 
   const recordedRef = useRef(false);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -698,7 +739,7 @@ export default function SayAndShiftPage() {
     afterLifeLoss(remaining);
   }
 
-  const { status: listenerStatus, levelRef: micLevelRef } = useWallListener({
+  const { status: listenerStatus, levelRef: micLevelRef, activityRef } = useWallListener({
     stream: micStream,
     active: listenActive,
     target: wall.target,
@@ -708,22 +749,53 @@ export default function SayAndShiftPage() {
 
   // Infinite mode's per-wall countdown. Only ticks while a wall is actually
   // waiting on an answer; resolveMiss handles what happens at zero.
+  //
+  // The clock judges when the kid SPOKE, not when the transcript came back.
+  // Those are up to a second and a half apart — the clip is not even cut until
+  // SPEECH_HANGOVER_MS after they stop, and transcription takes a few hundred
+  // ms more. Failing someone whose answer is still in flight is the most unfair
+  // thing this game can do, and it happened constantly. So at zero, if the mic
+  // is still holding speech that started or ended before the buzzer, the clock
+  // waits for that answer to land instead of calling it a miss. Anything begun
+  // after the buzzer does not count, so this cannot be used to steal time.
   useEffect(() => {
     if (!infiniteMode || phase !== "wall" || outcome !== null) {
       setTimeLeftMs(null);
+      setAwaitingLateAnswer(false);
       return;
     }
-    const startedAt = Date.now();
+    const deadline = Date.now() + infiniteTimerMs;
     setTimeLeftMs(infiniteTimerMs);
+    setAwaitingLateAnswer(false);
+    let graceUntil = 0;
+
     const tick = setInterval(() => {
-      const left = infiniteTimerMs - (Date.now() - startedAt);
-      if (left <= 0) {
-        clearInterval(tick);
-        setTimeLeftMs(0);
-        resolveMiss();
-      } else {
+      const now = Date.now();
+      const left = deadline - now;
+      if (left > 0) {
         setTimeLeftMs(left);
+        return;
       }
+      setTimeLeftMs(0);
+
+      const activity = activityRef.current;
+      const beatTheBuzzer =
+        activity.pending.some((endedAt) => endedAt <= deadline) ||
+        (activity.capturingSince !== null && activity.capturingSince <= deadline);
+
+      if (beatTheBuzzer) {
+        // Cap it so a stuck request cannot hold the wall open forever, but the
+        // common case exits as soon as the clip settles, not on the cap.
+        if (graceUntil === 0) {
+          graceUntil = now + LATE_ANSWER_GRACE_MS;
+          setAwaitingLateAnswer(true);
+        }
+        if (now < graceUntil) return;
+      }
+
+      clearInterval(tick);
+      setAwaitingLateAnswer(false);
+      resolveMiss();
     }, 100);
     return () => clearInterval(tick);
     // infiniteTimerMs is derived from wallIndex, already a dep via infiniteMode
@@ -1157,7 +1229,13 @@ export default function SayAndShiftPage() {
                     {canAnswerByVoice ? (
                       <div className="flex items-center gap-2 rounded-full bg-[#fff0ed] px-4 py-2 text-sm font-black text-[#c8513e]">
                         <MicLevelBars levelRef={micLevelRef} />
-                        <span className="inline-block h-3.5">{listenerStatus === "checking" ? "Checking…" : "Listening… say it whenever"}</span>
+                        <span className="inline-block h-3.5">
+                          {awaitingLateAnswer
+                            ? "Got it, checking…"
+                            : listenerStatus === "checking"
+                              ? "Checking…"
+                              : "Listening… say it whenever"}
+                        </span>
                       </div>
                     ) : (
                       <>
@@ -1248,13 +1326,13 @@ export default function SayAndShiftPage() {
                 transition={{ type: "spring", stiffness: 220, damping: 15 }}
                 className="text-center"
               >
-                <motion.p
-                  className="text-6xl"
+                <motion.div
+                  className="flex justify-center text-[#ffd84f]"
                   animate={{ rotate: [0, -8, 8, -8, 0] }}
                   transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut" }}
                 >
-                  ⚡
-                </motion.p>
+                  <Zap size={56} fill="currentColor" strokeWidth={1.5} />
+                </motion.div>
                 <h2 className="mt-3 text-4xl font-black text-white">Test complete!</h2>
                 <p className="mt-2 text-lg font-black text-[#ffd84f]">Now: Infinite mode</p>
                 <p className="mt-1 text-sm font-bold text-white/70">Walls keep coming. Answer fast, the clock&apos;s live.</p>

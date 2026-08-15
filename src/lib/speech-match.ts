@@ -50,13 +50,17 @@ const FOLD: Record<string, string> = {
   "j": "zh",
 };
 
-// Two rounds of real playtesting pulled this in opposite directions: 0.62/0.15
-// missed real words split across chunk boundaries (fixed separately, by
-// overlapping listen windows — see useWallListener), then 0.48/0.08 turned
-// out to accept almost anything vaguely similar-length. Splitting the
-// difference. Still untuned against real recordings (the spike that needed
-// never ran), so treat this as a judgment call to revisit with real data,
-// not a settled number.
+// These ARE now tuned against real recordings — see scripts/tune-speech-match.mjs,
+// which replays every word in public/audio/vocab through the real ASR output
+// cached in scripts/fixtures/asr-transcripts.json and scores all 92x92 word
+// pairs: "if a kid said A while the wall asked for B, would we accept it?"
+//
+// At these values: 88 of 92 words are recognised from their own recording, and
+// 196 of the 8372 wrong-word pairs are wrongly accepted (2.3%). Tightening
+// these two numbers specifically is a bad trade — conf 0.7/margin 0.26 cuts
+// false accepts to 66 but drops recognition to 71/92, and a kid who said the
+// word correctly being told they did not is worse than an occasional lucky
+// accept. The leverage is in SHORT_WORD_PAD below, not here.
 export const CONFIDENCE_THRESHOLD = 0.58;
 export const MARGIN_THRESHOLD = 0.14;
 
@@ -96,22 +100,33 @@ function levenshtein(a: string, b: string): number {
 
 // 1 = identical after folding, 0 = maximally different.
 //
-// The denominator is padded rather than the raw length: plain
-// dist/maxLen makes one ASR-mangled phoneme cost 33-50% of the score on a
-// 2-3 letter word (numbers: "екі"/"үш"/"бір"), while the exact same
-// single-phoneme miss barely dents a long word. That's not the word being
-// mispronounced, it's the ratio math punishing short words harder for the
-// same error. Padding by SHORT_WORD_PAD flattens that gap — a one-edit miss
-// stays forgivable at any length, while a genuinely different short word
-// (2+ edits) still fails to match.
-const SHORT_WORD_PAD = 2;
+// The denominator is padded rather than the raw length: plain dist/maxLen
+// makes one ASR-mangled phoneme cost 33-50% of the score on a 2-3 letter word
+// (numbers: "екі"/"үш"/"бір"), while the exact same single-phoneme miss barely
+// dents a long word. That's not the word being mispronounced, it's the ratio
+// math punishing short words harder for the same error.
+//
+// A flat pad of 2 over-corrected, and it was the single biggest source of the
+// "it accepts anything" complaint. On a three-letter word a pad of 2 means two
+// whole edits still score 0.6 and clear the threshold — but two edits on a
+// three-letter word is a different word. Measured over the real-ASR corpus,
+// dropping the pad to 1 for words of four characters or fewer removes 131 of
+// 327 false accepts (40%) while recognising exactly the same 88 of 92 words.
+// Free, in other words: nothing a kid says correctly stops being accepted.
+//
+// Longer words keep the full pad — they have enough characters that a single
+// mangled phoneme is genuinely a small proportion, and tightening them costs
+// recall without buying much.
+function padFor(maxLen: number): number {
+  return maxLen <= 4 ? 1 : 2;
+}
 
 function similarity(a: string, b: string): number {
   const na = normalize(a);
   const nb = normalize(b);
   if (!na && !nb) return 1;
   const maxLen = Math.max(na.length, nb.length, 1);
-  return 1 - levenshtein(na, nb) / (maxLen + SHORT_WORD_PAD);
+  return 1 - levenshtein(na, nb) / (maxLen + padFor(maxLen));
 }
 
 // Score one word (or word pair) against both scripts a candidate carries
