@@ -22,7 +22,7 @@ export function TopNav() {
           <Link
             href={`/profile/${p.id}#experimental`}
             title="Experimental mode is on"
-            className="rounded-full border border-emerald-400/50 bg-emerald-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.35)]"
+            className="rounded-full border border-steppe/15 bg-[#fff3cf] px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-steppe"
           >
             exp
           </Link>

@@ -535,34 +535,42 @@ body {
   }
 }
 
-/* Experimental mode. Palette is shadcn zinc + emerald, nudged toward
-   composio.dev: near-black, mint, cyan. Not a custom rainbow. */
-html.experimental {
-  --color-steppe: #34d399;
-  --color-steppe-700: #10b981;
-  --color-gold: #22d3ee;
-  --color-warm: #05070a;
-  --color-felt: #0b1220;
-  --color-terra: #22d3ee;
-  --color-wolf: #94a3b8;
-  --background: #05070a;
-  --foreground: #ecfdf5;
-  color-scheme: dark;
+/* Experimental mode deliberately has NO theme of its own.
+   It used to force a dark zinc/emerald palette onto every screen with
+   !important and lay an animated wave grid over all the content, permanently.
+   That buried the game under a console skin and made everything harder to
+   read. The mode is now a one-time tide wash on entry plus a small corner
+   badge — see src/components/experimental-mode.tsx. Nothing here to override. */
+
+/* Experimental mode's tide wash. Plain CSS keyframes on purpose: this is a
+   fire-once decoration that must not depend on React staying mounted through
+   the whole animation, and an earlier framer-motion version silently did
+   nothing because `calc(100% - 38%)` is not an interpolable keyframe. */
+@keyframes s2s-tide {
+  0%   { transform: translateY(100%); }
+  37%  { transform: translateY(0); }
+  52%  { transform: translateY(0); }
+  100% { transform: translateY(100%); }
 }
 
-html.experimental body {
-  background-color: #05070a !important;
-  color: #ecfdf5;
+@keyframes s2s-tide-sheen {
+  0%, 100% { opacity: 0; }
+  45%, 60% { opacity: 0.9; }
 }
 
-html.experimental .min-h-dvh {
-  background-color: #05070a !important;
-  color: #ecfdf5;
+.s2s-tide-layer {
+  animation: s2s-tide 2.3s cubic-bezier(0.33, 0, 0.2, 1) forwards;
 }
 
-html.experimental header {
-  background: rgba(5, 7, 10, 0.82) !important;
-  color: #ecfdf5 !important;
-  border-color: rgba(52, 211, 153, 0.28) !important;
-  box-shadow: 0 0 40px rgba(16, 185, 129, 0.12) !important;
+.s2s-tide-sheen {
+  animation: s2s-tide-sheen 2.3s ease-out forwards;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .s2s-tide-layer,
+  .s2s-tide-sheen {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}
+

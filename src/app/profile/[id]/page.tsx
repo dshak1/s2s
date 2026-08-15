@@ -321,25 +321,26 @@ export default function ProfilePage() {
 
         <PlayerAccountPanel />
 
-        <Card id="experimental" className="scroll-mt-24 border-2 border-emerald-400/30">
+        {/* Palette and the shared Button, not a one-off emerald pill with a
+            blurred glow behind it. Button.tsx is explicit that this system is
+            flat colour plus a hard offset shadow, no gradients and no glows —
+            that soft halo was exactly the look this project has decided against. */}
+        <Card id="experimental" className="scroll-mt-24 border-2 border-gold/40">
           <h2 className="mb-1 flex items-center gap-2 text-lg font-black text-steppe">
-            <FlaskConical size={18} className="text-emerald-500" /> Experimental mode
+            <FlaskConical size={18} className="text-[#ff8f4f]" /> Experimental mode
           </h2>
           <p className="mb-3 text-sm text-wolf">
             Not developer mode. You try stuff that is not guaranteed first try, then tell us if the screen still looks okay. Ideas you submit can get built back to just you before they hit everyone.
           </p>
-          <button
-            type="button"
+          <Button
+            variant={experimental ? "gold" : "primary"}
+            size="sm"
             aria-pressed={experimental}
             onClick={() => setExperimental(!experimental)}
-            className={`rounded-full px-4 py-2 text-sm font-black transition ${
-              experimental
-                ? "bg-emerald-400 text-[#05070a] shadow-[0_0_24px_rgba(52,211,153,0.45)]"
-                : "bg-steppe text-white"
-            }`}
           >
+            <FlaskConical size={15} />
             {experimental ? "Experimental is on" : "Turn experimental on"}
-          </button>
+          </Button>
         </Card>
 
         <Card className="border-2 border-terra/20">
