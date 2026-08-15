@@ -143,10 +143,21 @@ async function transcribeWithGroq(audio: File, key: string): Promise<ProviderRes
 }
 
 export async function POST(request: NextRequest) {
-  const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
+  // More than one ElevenLabs key is supported because the free tier is 10,000
+  // credits a month and this route is the thing that eats them. A second
+  // account is a second month's worth of headroom, and the breaker already
+  // knows how to step over an exhausted one — a key that answers 401
+  // quota_exceeded is benched for five minutes and the next is tried, so
+  // adding a key costs nothing when it is not needed. Numbered rather than
+  // comma-separated so each stays a normal Vercel env var.
+  const elevenLabsKeys = [
+    process.env.ELEVENLABS_API_KEY,
+    process.env.ELEVENLABS_API_KEY_2,
+    process.env.ELEVENLABS_API_KEY_3,
+  ].filter((k): k is string => Boolean(k));
   const groqKey = process.env.GROQ_API_KEY;
 
-  if (!elevenLabsKey && !groqKey) {
+  if (elevenLabsKeys.length === 0 && !groqKey) {
     return NextResponse.json(
       { error: "Speech check is off, set ELEVENLABS_API_KEY or GROQ_API_KEY.", code: "unconfigured" },
       { status: 501 },
@@ -171,12 +182,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Scribe first (stronger on Kazakh), Groq second. A provider in cooldown is
-  // skipped outright rather than retried and failed.
+  // Scribe first (stronger on Kazakh), then any spare Scribe accounts, then
+  // Groq. A provider in cooldown is skipped outright rather than retried and
+  // failed. Each key is its own named provider so one running dry benches only
+  // itself, and the logs say which one.
   const providers: { name: string; run: () => Promise<ProviderResult> }[] = [];
-  if (elevenLabsKey) {
-    providers.push({ name: "elevenlabs", run: () => transcribeWithElevenLabs(audio, elevenLabsKey) });
-  }
+  elevenLabsKeys.forEach((key, i) => {
+    providers.push({
+      name: i === 0 ? "elevenlabs" : `elevenlabs-${i + 1}`,
+      run: () => transcribeWithElevenLabs(audio, key),
+    });
+  });
   if (groqKey) {
     providers.push({ name: "groq", run: () => transcribeWithGroq(audio, groqKey) });
   }

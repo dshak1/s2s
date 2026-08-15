@@ -20,7 +20,15 @@ export async function generateSpeech(input: {
   if (!key) throw new Error("Set ELEVENLABS_API_KEY to generate replacement audio.");
 
   const voiceId = input.voiceId || elevenLabsVoiceId();
-  const modelId = process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
+  // eleven_v3, not eleven_multilingual_v2 — Kazakh is only in v3. Asked the
+  // API directly (GET /v1/models, which reports each model's language list):
+  // v3 carries 74 languages including kk, while multilingual_v2 (29) and
+  // turbo/flash_v2_5 (32) have no Kazakh at all. This function is what the
+  // ticket agent calls to regenerate a clip when a kid reports a bad
+  // pronunciation, so it was answering "this word sounds wrong" with a model
+  // that cannot speak the language. scripts/gen-new-vocab-audio.mjs already
+  // pinned v3; this is the same choice, made in the one place that had drifted.
+  const modelId = process.env.ELEVENLABS_MODEL_ID || "eleven_v3";
   const res = await fetch(
     `${API}/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
     {
