@@ -1,8 +1,15 @@
 import { cn } from "@/lib/utils";
 
-export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
+// Passes through the rest of the div's attributes so a card can carry an `id`
+// for in-page anchors — /profile/[id] links to #experimental, which did not
+// typecheck when the props were only className/children.
+export function Card({
+  className,
+  children,
+  ...rest
+}: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("rounded-3xl bg-felt shadow-sm border border-black/5 p-5", className)}>
+    <div {...rest} className={cn("rounded-3xl bg-felt shadow-sm border border-black/5 p-5", className)}>
       {children}
     </div>
   );
