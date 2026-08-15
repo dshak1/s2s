@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Ear, Flag, Heart, Mic, MicOff, RotateCcw, Share2, SkipForward, Trash2, Upload, Volume2, WifiOff, X, Zap } from "lucide-react";
 import { BandPuppet } from "@/components/game/band-puppet";
@@ -15,7 +15,7 @@ import { vocabItemId } from "@/lib/items";
 import { baseText } from "@/lib/lang";
 import { playClip, playCorrect, playWrong } from "@/lib/audio";
 import { deleteSharedCharacter, fetchGalleryCharacters, shareCharacterToGallery, toggleCharacterLike, type GalleryCharacter } from "@/lib/character-gallery";
-import { resizeImageFile } from "@/lib/client-image";
+import { resizeImageFile, shrinkDataUrl } from "@/lib/client-image";
 import { scanForTarget } from "@/lib/speech-match";
 import { store, useProfile } from "@/lib/store";
 import { openRaceChannel } from "@/lib/supabase/sync";
@@ -503,14 +503,22 @@ export default function SayAndShiftPage() {
   // wallFor's own index math is deterministic on purpose (hydration-safe),
   // which meant wall 0 always landed on the same pool entry every single
   // playthrough — the first walls never varied. wallSeed shifts every
-  // index by a per-session random offset; it starts at 0 (matches the
-  // server-rendered pass) and only randomizes after mount, so there's no
-  // hydration mismatch — just a same-frame reshuffle before "ready" phase
-  // is ever interactive.
+  // index by a random offset; it starts at 0 (matches the server-rendered
+  // pass) and only randomizes after mount, so there's no hydration mismatch —
+  // just a same-frame reshuffle before "ready" phase is ever interactive.
+  //
+  // Rerolled on every run, not once per page load. Seeding on mount alone
+  // meant "Run again" replayed the identical wall list in the identical order
+  // — you lost, hit replay, and got the same six words back. Only a full page
+  // reload ever changed anything, which is not something a kid would think to
+  // do. startRun() calls reseed() below.
   const [wallSeed, setWallSeed] = useState(0);
-  useEffect(() => {
+  const reseedWalls = useCallback(() => {
     setWallSeed(Math.floor(Math.random() * 10_000));
   }, []);
+  useEffect(() => {
+    reseedWalls();
+  }, [reseedWalls]);
   const walls = Array.from({ length: totalWalls }, (_, i) => wallFor(pool, i + wallSeed));
 
   const [phase, setPhase] = useState<Phase>("ready");
@@ -641,6 +649,9 @@ export default function SayAndShiftPage() {
 
   async function startRun() {
     recordedRef.current = false;
+    // New wall order every run — see reseedWalls. Without this, "Run again"
+    // handed back the same words in the same order.
+    reseedWalls();
     setWallIndex(0);
     setLives(START_LIVES);
     setScore(themeLetters.length > 0 ? 2 : 0);
@@ -823,9 +834,15 @@ export default function SayAndShiftPage() {
     }
   }
 
-  function saveRunner() {
+  async function saveRunner() {
     if (!pendingRunner || pendingRunner === savedRunner) return;
-    store.addArtifact("runner", pendingRunner);
+    // Shrink before storing. A full 720x960 PNG from the drawing board is
+    // hundreds of KB of base64 in the same localStorage blob as everything
+    // else the kid owns, and once that budget runs out writeToStorage() fails
+    // and the save does not survive leaving the page — which looks exactly
+    // like "I picked my runner and it disappeared".
+    const stored = await shrinkDataUrl(pendingRunner);
+    store.addArtifact("runner", stored);
     setPendingRunner(null);
   }
 
@@ -1184,7 +1201,7 @@ export default function SayAndShiftPage() {
                         variant="outline"
                         size="sm"
                         className="mt-2"
-                        onClick={saveRunner}
+                        onClick={() => { void saveRunner(); }}
                         disabled={!pendingRunner || pendingRunner === savedRunner}
                       >
                         Use this runner
