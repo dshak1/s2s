@@ -31,10 +31,20 @@ const MAX_BYTES = 5 * 1024 * 1024; // one ~1.8s overlapping window, not a voice 
 const RATE_LIMIT = 450; // overlapping windows roughly double the old chunk rate
 const WINDOW_MS = 60 * 60 * 1000;
 
-// How long a provider sits out after a hard refusal (quota/auth). Long enough
-// that a dead key stops costing a round trip on every single window, short
-// enough that a topped-up account recovers on its own without a deploy.
-const COOLDOWN_MS = 5 * 60 * 1000;
+// Two very different failures, so two very different cooldowns.
+//
+// DEAD (401/402) is an out-of-credits or bad key: nothing changes for hours,
+// so sit the provider out long enough that it stops costing a round trip on
+// every window, but short enough that a topped-up account recovers on its own
+// without a deploy.
+//
+// THROTTLED (429) is per-minute rate limiting and clears in seconds — Groq's
+// free tier allows 20 requests/minute and says "try again in 3s" in the body.
+// Treating that as a dead provider (which the first cut of this did) locks out
+// a perfectly healthy provider for five minutes over a three second wait, and
+// with both providers benched the route returns 503 and the game gives up.
+const DEAD_COOLDOWN_MS = 5 * 60 * 1000;
+const THROTTLED_COOLDOWN_MS = 8 * 1000;
 
 // Best-effort, in-memory rate limit. Resets on cold start; there is no
 // durable table for mic attempts and the risk here is transcription spend, not
@@ -42,8 +52,10 @@ const COOLDOWN_MS = 5 * 60 * 1000;
 const attempts = new Map<string, number[]>();
 
 // Same caveat as the rate limit: per-instance, resets on cold start. A stale
-// cooldown costs one wasted request on a new instance, which is fine.
-const coolingDown = new Map<string, number>();
+// cooldown costs one wasted request on a new instance, which is fine. The
+// reason is kept because "benched for 8s by rate limiting" and "benched for
+// 5min with a dead key" mean opposite things to the client.
+const coolingDown = new Map<string, { until: number; reason: "dead" | "throttled" }>();
 
 function rateLimited(key: string): boolean {
   const now = Date.now();
@@ -54,22 +66,23 @@ function rateLimited(key: string): boolean {
   return recent.length > RATE_LIMIT;
 }
 
-function onCooldown(provider: string): boolean {
-  const until = coolingDown.get(provider);
-  if (until === undefined) return false;
-  if (Date.now() >= until) {
+function benchedReason(provider: string): "dead" | "throttled" | null {
+  const entry = coolingDown.get(provider);
+  if (!entry) return null;
+  if (Date.now() >= entry.until) {
     coolingDown.delete(provider);
-    return false;
+    return null;
   }
-  return true;
+  return entry.reason;
 }
 
-// 401/402/429 from a transcription provider means the key is dead, the plan is
-// out of credits, or we are being throttled — none of which the next window
-// will fix. Anything else (500s, network blips) is worth retrying immediately,
-// so it does not trip the breaker.
-function isHardRefusal(status: number): boolean {
-  return status === 401 || status === 402 || status === 429;
+// How long this provider should sit out, or 0 to not bench it at all.
+// Anything that is not an auth/quota/throttle answer (500s, network blips) is
+// worth retrying on the very next window, so it does not trip the breaker.
+function cooldownFor(status: number): number {
+  if (status === 401 || status === 402) return DEAD_COOLDOWN_MS;
+  if (status === 429) return THROTTLED_COOLDOWN_MS;
+  return 0;
 }
 
 type ProviderResult =
@@ -161,40 +174,53 @@ export async function POST(request: NextRequest) {
     providers.push({ name: "groq", run: () => transcribeWithGroq(audio, groqKey) });
   }
 
-  let lastError = { status: 502, detail: "Speech check failed.", provider: "none", hard: false };
-  let attempted = false;
+  let detail = "Speech check failed.";
+  // Whether anything that went wrong was merely per-minute throttling. If the
+  // only thing standing between us and a transcript is a few seconds of rate
+  // limit, this request fails but the game must not conclude the service is
+  // down — the next window will very likely succeed.
+  let onlyThrottled = true;
 
   for (const provider of providers) {
-    if (onCooldown(provider.name)) continue;
-    attempted = true;
+    const benched = benchedReason(provider.name);
+    if (benched) {
+      if (benched === "dead") onlyThrottled = false;
+      continue;
+    }
     try {
       const result = await provider.run();
       if (result.ok) {
         return NextResponse.json({ transcript: result.transcript, provider: provider.name });
       }
-      const hard = isHardRefusal(result.status);
-      if (hard) {
-        coolingDown.set(provider.name, Date.now() + COOLDOWN_MS);
+      detail = result.detail;
+      const cooldown = cooldownFor(result.status);
+      const reason = result.status === 429 ? "throttled" : "dead";
+      if (cooldown > 0) {
+        coolingDown.set(provider.name, { until: Date.now() + cooldown, reason });
         console.error(
-          `[say-check] ${provider.name} hard refusal ${result.status}, cooling down ${COOLDOWN_MS / 1000}s: ${result.detail}`,
+          `[say-check] ${provider.name} ${reason} ${result.status}, benched ${cooldown / 1000}s: ${result.detail}`,
         );
       } else {
         console.error(`[say-check] ${provider.name} failed ${result.status}: ${result.detail}`);
       }
-      lastError = { status: result.status, detail: result.detail, provider: provider.name, hard };
+      if (result.status !== 429) onlyThrottled = false;
     } catch (err) {
-      const detail = err instanceof Error ? err.message : "Speech check failed.";
+      detail = err instanceof Error ? err.message : "Speech check failed.";
       console.error(`[say-check] ${provider.name} threw: ${detail}`);
-      lastError = { status: 502, detail, provider: provider.name, hard: false };
+      onlyThrottled = false;
     }
   }
 
-  // Every provider is either in cooldown or just refused. `code` is what the
-  // client keys off to flip the game into tap-to-answer instead of leaving a
-  // kid talking at a mic that cannot hear them.
-  const code = !attempted || lastError.hard ? "unavailable" : "upstream";
+  // `code` is what the client keys off. "busy" means keep listening, this
+  // window just did not get through; "unavailable" means stop asking and flip
+  // the game to tap-to-answer rather than leave a kid talking at a mic that
+  // cannot hear them.
   return NextResponse.json(
-    { error: "Speech check is unavailable right now.", code, detail: lastError.detail },
+    {
+      error: onlyThrottled ? "Speech check is busy, try the next window." : "Speech check is unavailable right now.",
+      code: onlyThrottled ? "busy" : "unavailable",
+      detail,
+    },
     { status: 503 },
   );
 }

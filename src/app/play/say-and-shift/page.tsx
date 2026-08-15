@@ -195,8 +195,17 @@ type ListenerStatus = "idle" | "listening" | "checking" | "unavailable";
 // `onMatch`/`onTimeout` are read through refs rather than the effect's own
 // deps so a parent re-render (which recreates them every time) never
 // interrupts an in-flight window.
-const SEND_INTERVAL_MS = 900;
-const WINDOW_MS = 1800;
+// 900/1800 was ~66 transcription calls a minute for a single kid. Groq's free
+// tier allows 20 requests/minute and ElevenLabs charges a credit per call, so
+// that rate does not fit inside any free plan and is expensive on a paid one —
+// it is what drained the Scribe credits in the first place. 1400/2800 keeps
+// the 50% overlap (any word under SEND_INTERVAL_MS still lands entirely inside
+// at least one window) at ~43 calls a minute, and the silence filter below
+// removes most of what is left in a quiet room. Still above 20/min while a kid
+// is actually talking — the real fix is one call per detected utterance rather
+// than per fixed window, which is a bigger change than this.
+const SEND_INTERVAL_MS = 1400;
+const WINDOW_MS = 2800;
 
 // A window with nothing but room tone in it is never going to transcribe into
 // the target word, but it still costs a full transcription call — and at ~1.1
@@ -334,9 +343,13 @@ function useWallListener({
         const json = (await res.json()) as { transcript?: string; code?: string };
         if (!live) return;
         if (!res.ok || typeof json.transcript !== "string") {
-          // 429 is this kid talking a lot, not the service being down — the
-          // window budget refills on its own, so it must not trip the breaker.
-          if (json.code !== "rate_limited") noteFailure();
+          // Two codes mean "this window did not get through, but the service is
+          // fine": `rate_limited` is our own per-kid budget, `busy` is the
+          // upstream provider's per-minute limit, which clears in seconds.
+          // Neither is an outage, so neither may trip the breaker — doing so
+          // would drop a kid into tap-to-answer over a few seconds of
+          // throttling.
+          if (json.code !== "rate_limited" && json.code !== "busy") noteFailure();
           return;
         }
         consecutiveFailures = 0;
