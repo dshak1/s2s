@@ -172,7 +172,12 @@ type Outcome = "correct" | "wrong" | null;
 const INFINITE_START_TIMER_MS = 5000;
 const INFINITE_MIN_TIMER_MS = 2200;
 const INFINITE_TIMER_STEP_MS = 150;
-type ListenerStatus = "idle" | "listening" | "checking";
+// "unavailable" is the speech-to-text service being down, not the mic being
+// off — the kid's mic is fine, there is just nothing on the other end to
+// transcribe with. It gets its own state because the recovery is different:
+// mic-off tells them to grant permission, this one silently switches the wall
+// to tap-to-answer so the run keeps going.
+type ListenerStatus = "idle" | "listening" | "checking" | "unavailable";
 
 // Continuous mic listener for one wall. Back-to-back, non-overlapping chunks
 // (the first cut of this) meant a word spoken right across a chunk boundary
@@ -193,6 +198,22 @@ type ListenerStatus = "idle" | "listening" | "checking";
 const SEND_INTERVAL_MS = 900;
 const WINDOW_MS = 1800;
 
+// A window with nothing but room tone in it is never going to transcribe into
+// the target word, but it still costs a full transcription call — and at ~1.1
+// calls a second per kid that is what drained the Scribe plan to zero and took
+// the whole game down (see the note in /api/say-check). So each window is
+// checked against a rolling loudness trace first and dropped if the room was
+// silent for its whole span. Deliberately a low bar: sending a too-quiet
+// window wastes one call, dropping a real one costs a kid their answer, so
+// this only filters out near-silence, not quiet speech.
+const SILENCE_RMS = 0.012;
+const ENERGY_SAMPLE_MS = 100;
+
+// Consecutive failed windows before the game stops asking. Three is roughly
+// three seconds of overlapping windows — long enough to ride out one bad
+// response, short enough that a kid is not left talking to a dead service.
+const MAX_CONSECUTIVE_FAILURES = 3;
+
 function useWallListener({
   stream,
   active,
@@ -210,12 +231,21 @@ function useWallListener({
   const targetRef = useRef(target);
   const distractorsRef = useRef(distractors);
   const onMatchRef = useRef(onMatch);
+  // Outlives the effect, which restarts on every wall. Without it a dead
+  // service would be re-probed (and re-fail) three windows at a time, once per
+  // wall, for the rest of the run — the kid would watch "Listening…" flicker
+  // back on and mean nothing. One outage, one switch to tap-to-answer.
+  const outageRef = useRef(false);
 
   useEffect(() => { targetRef.current = target; }, [target]);
   useEffect(() => { distractorsRef.current = distractors; }, [distractors]);
   useEffect(() => { onMatchRef.current = onMatch; }, [onMatch]);
 
   useEffect(() => {
+    if (outageRef.current) {
+      setStatus("unavailable");
+      return;
+    }
     if (!active || !stream) {
       setStatus("idle");
       return;
@@ -224,22 +254,70 @@ function useWallListener({
     let live = true;
     let windowAttempt = 0;
     let inFlight = 0;
+    let consecutiveFailures = 0;
+    let stoppedForOutage = false;
+
+    // Rolling loudness trace, used to drop windows that contain only room
+    // tone. Sampled off the same MediaStream the recorder is using, so it
+    // needs no second getUserMedia call and no extra permission prompt.
+    const audioCtx = new (window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    audioCtx.createMediaStreamSource(stream as MediaStream).connect(analyser);
+    const energyBuffer = new Float32Array(analyser.fftSize);
+    let energyTrace: { at: number; rms: number }[] = [];
+
+    const energyTimer = setInterval(() => {
+      analyser.getFloatTimeDomainData(energyBuffer);
+      let sum = 0;
+      for (const sample of energyBuffer) sum += sample * sample;
+      const now = Date.now();
+      energyTrace.push({ at: now, rms: Math.sqrt(sum / energyBuffer.length) });
+      // Only ever need one window's worth of history; a little slack so a
+      // sample taken right on a boundary is not dropped before it is read.
+      energyTrace = energyTrace.filter((s) => s.at > now - WINDOW_MS * 2);
+    }, ENERGY_SAMPLE_MS);
+
+    function heardSomethingSince(startedAt: number): boolean {
+      const samples = energyTrace.filter((s) => s.at >= startedAt);
+      // No samples yet (a window shorter than the sampling interval, or an
+      // AudioContext the browser has not resumed) — assume speech and send it.
+      // Failing open here costs a call; failing closed costs an answer.
+      if (samples.length === 0) return true;
+      return samples.some((s) => s.rms >= SILENCE_RMS);
+    }
 
     function startWindow() {
       if (!live) return;
       const localChunks: Blob[] = [];
+      const startedAt = Date.now();
       const mr = new MediaRecorder(stream as MediaStream);
       mr.ondataavailable = (e) => {
         if (e.data.size > 0) localChunks.push(e.data);
       };
       mr.onstop = () => {
         if (!live) return;
+        if (!heardSomethingSince(startedAt)) return;
         void processWindow(new Blob(localChunks, { type: mr.mimeType || "audio/webm" }));
       };
       mr.start();
       setTimeout(() => {
         if (mr.state !== "inactive") mr.stop();
       }, WINDOW_MS);
+    }
+
+    // Every window failing used to be invisible: the response was read as
+    // `json.transcript ?? ""`, an empty transcript matches nothing, and the UI
+    // sat on "Listening…" forever. Now a run of failures stops the listener
+    // and flips it to "unavailable", which the wall renders as tap-to-answer.
+    function noteFailure() {
+      consecutiveFailures += 1;
+      if (consecutiveFailures < MAX_CONSECUTIVE_FAILURES) return;
+      stoppedForOutage = true;
+      outageRef.current = true;
+      live = false;
+      setStatus("unavailable");
     }
 
     async function processWindow(blob: Blob) {
@@ -253,9 +331,16 @@ function useWallListener({
         form.append("audio", blob, "chunk.webm");
         form.append("profile_id", profile.id === "server-profile" ? "" : profile.id);
         const res = await fetch("/api/say-check", { method: "POST", body: form });
-        const json = (await res.json()) as { transcript?: string };
+        const json = (await res.json()) as { transcript?: string; code?: string };
         if (!live) return;
-        const transcript = json.transcript ?? "";
+        if (!res.ok || typeof json.transcript !== "string") {
+          // 429 is this kid talking a lot, not the service being down — the
+          // window budget refills on its own, so it must not trip the breaker.
+          if (json.code !== "rate_limited") noteFailure();
+          return;
+        }
+        consecutiveFailures = 0;
+        const transcript = json.transcript;
         const result = scanForTarget(transcript, targetRef.current, distractorsRef.current);
         logAnswer({
           gameSlug: "say-and-shift",
@@ -270,7 +355,9 @@ function useWallListener({
           return;
         }
       } catch {
-        // network blip on this window — the overlapping ones keep going
+        // A network blip on one window is normal and the overlapping ones keep
+        // going, but a solid run of them is an outage like any other.
+        if (live) noteFailure();
       } finally {
         inFlight -= 1;
       }
@@ -281,12 +368,17 @@ function useWallListener({
     startWindow();
     const spawnTimer = setInterval(() => {
       if (live) startWindow();
+      else clearInterval(spawnTimer);
     }, SEND_INTERVAL_MS);
 
     return () => {
       live = false;
       clearInterval(spawnTimer);
-      setStatus("idle");
+      clearInterval(energyTimer);
+      void audioCtx.close().catch(() => {});
+      // Leave "unavailable" standing: it is a real outage the wall is still
+      // rendering around, not the idle state of a torn-down listener.
+      if (!stoppedForOutage) setStatus("idle");
     };
     // target/distractors/onMatch are read through refs above — only
     // target.slug controls whether this restarts for a new wall.
@@ -622,13 +714,23 @@ export default function SayAndShiftPage() {
   }
 
   const passingThrough = outcome === "correct" && phase === "wall";
+  // Three different ways the mic can be no help: offline, permission denied,
+  // or the speech service itself being down. All three land in the same place
+  // — tap the right word — so the wall branches on one flag and only the
+  // explanation above the tiles differs.
+  const canAnswerByVoice = online && micPermission !== "denied" && listenerStatus !== "unavailable";
 
   return (
-    <GameShell title="Nomad Run" kk="Айт та өт" right={<Scoreboard label="Score" value={score} />} showBackgroundControl>
+    <GameShell title="Nomad Run" kk="Айт та өт" right={<Scoreboard label="Score" value={score} />} showBackgroundControl wide>
       {phase === "finished" && <Confetti count={70} />}
 
       <motion.div
-        className="relative mx-auto min-h-[560px] max-w-4xl overflow-hidden rounded-lg border border-steppe/10 shadow-inner sm:min-h-[600px]"
+        // Grows into whatever height GameShell's card has left rather than
+        // sitting at a fixed 560px inside a full-height card — on a desktop
+        // window that pinned the whole game to a band in the middle of a lot
+        // of empty white (issue #28). The min-height is now only a floor for
+        // short windows, not the size it always is.
+        className="relative mx-auto min-h-[480px] w-full flex-1 overflow-hidden rounded-lg border border-steppe/10 shadow-inner"
         animate={customBackground ? {} : { background: `linear-gradient(180deg, ${sky.top}, ${sky.mid} 55%, ${sky.bottom})` }}
         transition={{ duration: 1.4, ease: "easeInOut" }}
         style={customBackground ? { backgroundImage: `url(${customBackground})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
@@ -996,7 +1098,7 @@ export default function SayAndShiftPage() {
 
                 {outcome === null && (
                   <div className="mt-4 flex flex-col items-center gap-2">
-                    {online && micPermission !== "denied" ? (
+                    {canAnswerByVoice ? (
                       <div className="flex items-center gap-2 rounded-full bg-[#fff0ed] px-4 py-2 text-sm font-black text-[#c8513e]">
                         <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
                           {[0, 1, 2].map((bar) => (
@@ -1011,10 +1113,33 @@ export default function SayAndShiftPage() {
                         <span className="inline-block h-3.5">{listenerStatus === "checking" ? "Checking…" : "Listening… say it whenever"}</span>
                       </div>
                     ) : (
-                      <p className="flex items-center gap-1.5 text-xs font-bold text-steppe/55">
-                        {!online ? <WifiOff size={14} /> : <MicOff size={14} />}
-                        {!online ? "No connection. Reconnect to keep playing." : "Mic access is off. Turn it on to keep playing."}
-                      </p>
+                      <>
+                        <p className="flex items-center gap-1.5 text-xs font-bold text-steppe/55">
+                          {!online ? <WifiOff size={14} /> : listenerStatus === "unavailable" ? <Ear size={14} /> : <MicOff size={14} />}
+                          {!online
+                            ? "No connection. Tap the right word to keep playing."
+                            : listenerStatus === "unavailable"
+                              ? "Listening is having a rest. Tap the right word to keep playing."
+                              : "Mic access is off. Tap the right word to keep playing."}
+                        </p>
+                        {/* The tap fallback the "you can still play by tapping"
+                            copy has always promised. It was never actually
+                            rendered, so a kid whose mic could not be used had
+                            no way past a wall except Skip. */}
+                        <div className="mt-1 grid w-full grid-cols-2 gap-2 sm:grid-cols-3">
+                          {wall.candidates.map((candidate) => (
+                            <button
+                              key={candidate.item.slug}
+                              type="button"
+                              onClick={() => resolveCandidate(candidate)}
+                              className="rounded-lg border-2 border-steppe/10 bg-[#f4f8fb] px-3 py-2 leading-tight transition hover:border-gold hover:bg-[#fff3cf]"
+                            >
+                              <span className="block text-base font-black text-steppe">{candidate.item.kk}</span>
+                              <span className="block text-[10px] font-bold uppercase tracking-wide text-steppe/50">{candidate.item.latin}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
                 )}

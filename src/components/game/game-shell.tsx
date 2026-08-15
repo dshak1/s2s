@@ -14,12 +14,20 @@ export function GameShell({
   right,
   scene,
   showBackgroundControl = false,
+  wide = false,
 }: {
   title: string;
   kk?: string;
   children: React.ReactNode;
   right?: React.ReactNode;
   scene?: MountainScene;
+  /** Let the content run out to nearly the full window instead of stopping at
+   * the reading-width column. Only for games that are a *scene* rather than a
+   * page of text — Nomad Run's play field looked like a small box marooned in
+   * the middle of a large monitor at the default width. Word-quiz screens keep
+   * the narrow column on purpose; a line of text 2000px wide is worse, not
+   * better. */
+  wide?: boolean;
   /** The "set a custom background" button — only Nomad Run's Sky panel
    * actually uses this (it's the only upload entry point for that photo).
    * Every other game leaves it off; a whole-window backdrop swap didn't fit
@@ -80,8 +88,14 @@ export function GameShell({
         <div className="min-w-[80px] text-right">{right}</div>
       </header>
 
-      <main className="relative z-10 mx-auto w-full max-w-5xl px-4 py-6">
-        <div className="min-h-[calc(100dvh-8rem)] rounded-lg border border-white/80 bg-white/[.88] p-4 text-foreground shadow-[0_20px_60px_rgba(69,128,59,.16)] backdrop-blur-sm sm:p-5">
+      {/* Flex column, not a plain block: a game's play field can then claim the
+          leftover height with `flex-1` instead of being pinned to a fixed
+          pixel min-height and leaving dead white space above and below it on a
+          desktop window (issue #28). Children that don't opt in lay out
+          exactly as they did before — a column flex container stretches block
+          children to full width the same way. */}
+      <main className={`relative z-10 mx-auto w-full px-4 py-6 ${wide ? "max-w-[110rem]" : "max-w-5xl"}`}>
+        <div className="flex min-h-[calc(100dvh-8rem)] flex-col rounded-lg border border-white/80 bg-white/[.88] p-4 text-foreground shadow-[0_20px_60px_rgba(69,128,59,.16)] backdrop-blur-sm sm:p-5">
           {children}
         </div>
       </main>
