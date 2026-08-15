@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, KeyRound, Loader2, LogIn, Mail, RefreshCw, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PlayerNamePicker } from "@/components/player-name-picker";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import {
   fetchLinkedPlayerProfiles,
@@ -239,9 +240,22 @@ export function PlayerAccountPanel() {
 
         <div className="p-4 sm:p-5">
           <div className="flex items-center gap-2 text-steppe">
-            <RefreshCw size={18} />
-            <h3 className="font-black">Switch player</h3>
+            <UserRound size={18} />
+            <h3 className="font-black">I&apos;ve played before</h3>
           </div>
+          <p className="mt-1 text-xs font-bold text-steppe/55">
+            Find your name. No code to remember.
+          </p>
+          <div className="mt-3">
+            <PlayerNamePicker />
+          </div>
+
+          {/* The code path stays, quieter, underneath. It is still the only way
+              in for a kid who is not on the workshop roster. */}
+          <details className="mt-4 border-t border-steppe/10 pt-3">
+            <summary className="cursor-pointer text-xs font-black uppercase text-steppe/50">
+              Or use a player code
+            </summary>
           <form onSubmit={switchWithCode} className="mt-3 flex gap-2">
             <input
               value={switchCode}
@@ -259,6 +273,7 @@ export function PlayerAccountPanel() {
           <p className="mt-3 text-xs font-semibold leading-5 text-steppe/60">
             Use the code for a workshop device. Use email when you want the same player on several devices.
           </p>
+          </details>
         </div>
       </div>
 

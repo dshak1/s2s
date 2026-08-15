@@ -88,14 +88,29 @@ export type Profile = {
   homeCoverId: string | null; // KidCover id chosen as the home-page background
   baseLanguage: BaseLanguage; // language prompts are explained in; Kazakh is always what's taught
   customGames: CustomGame[];
+  /**
+   * Profile ids whose progress has already been folded into this one. Points
+   * are summed on a merge, so without this a kid who signs in twice on the same
+   * device would have their anonymous XP counted twice. Absorbing an id is
+   * recorded here and a repeat merge of the same id contributes nothing.
+   */
+  mergedFrom: string[];
 };
 
 const KEY = "s2s_profile_v1";
 
+// The name a profile carries before a kid has told us who they are. Used to
+// decide whether signing in should CARRY this device's points across or just
+// switch to another player: an unnamed profile is "whoever is on this laptop",
+// and their work should follow them into the account they sign into. A profile
+// that already has a real name is a different person, and their points must not
+// be poured into someone else's total.
+export const ANONYMOUS_NAME = "Demo Kid";
+
 function freshProfile(): Profile {
   return {
     id: crypto.randomUUID(),
-    displayName: "Demo Kid",
+    displayName: ANONYMOUS_NAME,
     sessionCode: null,
     table: null,
     xp: 0,
@@ -118,6 +133,7 @@ function freshProfile(): Profile {
     homeCoverId: null,
     baseLanguage: "en",
     customGames: [],
+    mergedFrom: [],
   };
 }
 
@@ -152,6 +168,7 @@ function normalizeProfile(profile: Profile): Profile {
     weeklyCodes: { ...fallbackCodes, ...(profile.weeklyCodes ?? {}) },
     regionProgress: profile.regionProgress?.length ? profile.regionProgress : ["almaty"],
     runnerArtifactId: profile.runnerArtifactId ?? null,
+    mergedFrom: Array.isArray(profile.mergedFrom) ? profile.mergedFrom : [],
     gameStats: profile.gameStats ?? {},
     vocabHints: profile.vocabHints ?? {},
     mistakes: profile.mistakes ?? {},
@@ -603,6 +620,121 @@ export const store = {
 
     await store.hydrateFromServer();
     return { ok: true, name: found.displayName };
+  },
+
+  /**
+   * Sign in as an existing player and BRING THIS DEVICE'S WORK WITH YOU.
+   *
+   * This is the difference between it and adoptById/adoptByCode, which replace
+   * the local profile: they set `artifacts = []` and take `max(xp)`, so a kid
+   * who played anonymously for a month and then signed in watched all of it
+   * disappear. Everything earned on this device is folded into the account
+   * being signed into instead.
+   *
+   * Per-field rules, because one blanket policy is wrong for all of them:
+   *
+   *   xp                        summed — the two totals were earned separately
+   *   vocabCorrect, letterStats max per item — mastery is a level, not a tally
+   *   mistakes, gameStats       max per key, same reason
+   *   regionProgress, badges    union
+   *   artifacts, customGames    concatenated, deduped by id, capped
+   *   gameRuns                  concatenated, newest first, capped
+   *   displayName               the account's, since that is who you signed in as
+   *
+   * Summing xp is the one that needs care: it must not run twice for the same
+   * source. The absorbed id goes into `mergedFrom` and a repeat is a no-op.
+   */
+  async adoptAndMerge(remoteId: string): Promise<{ ok: boolean; name?: string; merged: boolean; xpBefore: number; xpAfter: number }> {
+    const before = load();
+    const localId = before.id;
+    const localXp = before.xp;
+
+    const remote = await fetchProfileState(remoteId);
+    if (!remote) return { ok: false, merged: false, xpBefore: localXp, xpAfter: localXp };
+
+    // Only an unnamed profile's work follows the kid into the account. If this
+    // device is already signed in as someone else, picking a different name is
+    // a SWITCH, not a merge — pouring Alima's points into Alan's total would be
+    // worse than losing them.
+    const anonymousHere = before.displayName.trim() === ANONYMOUS_NAME || before.displayName.trim() === "";
+    const alreadyAbsorbed =
+      localId === remoteId || before.mergedFrom.includes(localId) || !anonymousHere;
+
+    update((p) => {
+      const carried = alreadyAbsorbed ? 0 : localXp;
+
+      p.id = remoteId;
+      p.displayName = remote.displayName || p.displayName;
+      p.xp = (remote.xp ?? 0) + carried;
+      // unlockedWeeks is not part of RemoteProfileState — it is derived from
+      // workshop codes on the device — so there is nothing to merge for it and
+      // the local value already stands.
+
+      for (const region of (remote.regionProgress ?? []) as RegionId[]) {
+        if (!p.regionProgress.includes(region)) p.regionProgress.push(region);
+      }
+      for (const [slug, count] of Object.entries(remote.vocabCorrect ?? {})) {
+        p.vocabCorrect[slug] = Math.max(p.vocabCorrect[slug] ?? 0, count as number);
+      }
+      for (const [cyr, stat] of Object.entries(remote.letterStats ?? {})) {
+        const local = p.letterStats[cyr];
+        const incoming = stat as LetterStat;
+        if (!local || incoming.level > local.level || (incoming.level === local.level && incoming.correct > local.correct)) {
+          p.letterStats[cyr] = incoming;
+        }
+      }
+      const localGames = new Map(p.customGames.map((game) => [game.id, game]));
+      for (const game of remote.customGames ?? []) localGames.set(game.id, game);
+      p.customGames = [...localGames.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, 12);
+
+      if (!p.homeCoverId && remote.homeCoverId) p.homeCoverId = remote.homeCoverId;
+
+      // Artifacts stay put when this device's work is being carried across —
+      // they are the kid's drawings and the thing they notice missing. On a
+      // plain switch, drop them so the next player does not inherit someone
+      // else's gallery; hydrateFromServer() below then pulls that account's own.
+      if (alreadyAbsorbed && localId !== remoteId) p.artifacts = [];
+      if (!alreadyAbsorbed && localId !== "server-profile") p.mergedFrom.push(localId);
+    });
+
+    await store.hydrateFromServer();
+    const after = load();
+    return {
+      ok: true,
+      name: after.displayName,
+      merged: !alreadyAbsorbed && localXp > 0,
+      xpBefore: localXp,
+      xpAfter: after.xp,
+    };
+  },
+
+  /**
+   * Take a roster name onto the profile already on this device. Used when an
+   * UNNAMED kid picks their name and nobody has played under it yet — there is
+   * nothing to adopt, so the work stays exactly where it is and gains a name.
+   *
+   * Only call this on an anonymous profile. Renaming a profile that already
+   * belongs to someone would hand their points and drawings to whoever typed a
+   * different name next, which on a shared classroom laptop is the normal case,
+   * not an edge one. `startAs` is the right call there.
+   */
+  claimName(name: string) {
+    const trimmed = name.trim().slice(0, 40);
+    if (!trimmed) return;
+    update((p) => { p.displayName = trimmed; });
+  },
+
+  /**
+   * Begin a brand new player under this name, leaving whoever was signed in
+   * here behind. Their work is already on the server under their own id, so
+   * this loses nothing — it just stops the next kid inheriting the last kid's
+   * account on a device they share.
+   */
+  startAs(name: string) {
+    const trimmed = name.trim().slice(0, 40);
+    state = freshProfile();
+    if (trimmed) state.displayName = trimmed;
+    persist();
   },
 
   // --- debug-only helpers (safe to call in prod; just XP/unlock manipulation) ---
