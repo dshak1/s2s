@@ -28,7 +28,14 @@ import { NextResponse, type NextRequest } from "next/server";
 const ELEVENLABS_ENDPOINT = "https://api.elevenlabs.io/v1/speech-to-text";
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/audio/transcriptions";
 const MAX_BYTES = 5 * 1024 * 1024; // one ~1.8s overlapping window, not a voice note
-const RATE_LIMIT = 450; // overlapping windows roughly double the old chunk rate
+// Sized for the client's worst case, which is now bounded: the listener sends
+// one clip per utterance, capped at one per MAX_UTTERANCE_MS (~13/min) even in
+// a room loud enough that the speech gate never closes. 450/hr was set for a
+// design that fired ~43/min regardless of whether anyone spoke, so a kid blew
+// the whole hour's budget in ten minutes and then got 429 on every clip for
+// the rest of the hour — 2241 of 3286 production requests in one hour were
+// this limit rejecting a kid who was talking to it correctly.
+const RATE_LIMIT = 1200;
 const WINDOW_MS = 60 * 60 * 1000;
 
 // Two very different failures, so two very different cooldowns.

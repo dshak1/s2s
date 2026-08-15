@@ -179,49 +179,66 @@ const INFINITE_TIMER_STEP_MS = 150;
 // to tap-to-answer so the run keeps going.
 type ListenerStatus = "idle" | "listening" | "checking" | "unavailable";
 
-// Continuous mic listener for one wall. Back-to-back, non-overlapping chunks
-// (the first cut of this) meant a word spoken right across a chunk boundary
-// got clipped on both sides and matched nothing — the exact "I have to say
-// it five times" complaint. Fix: overlapping windows. Every SEND_INTERVAL_MS
-// a fresh MediaRecorder starts and records for WINDOW_MS, independently of
-// any recorder already in flight — several windows are open at once, each
-// its own complete, independently-decodable recording (MediaRecorder only
-// guarantees a valid file across one full start→stop cycle, so this can't be
-// done by trimming one continuous stream's chunks). With a 50% overlap
-// (WINDOW_MS = 2x SEND_INTERVAL_MS), any word under ~SEND_INTERVAL_MS long
-// falls entirely inside at least one window no matter when it's spoken.
-// Scans the target only, never the distractors, so overheard chatter can
-// only ever produce a correct match, never an accidental wrong one.
-// `onMatch`/`onTimeout` are read through refs rather than the effect's own
-// deps so a parent re-render (which recreates them every time) never
-// interrupts an in-flight window.
-// 900/1800 was ~66 transcription calls a minute for a single kid. Groq's free
-// tier allows 20 requests/minute and ElevenLabs charges a credit per call, so
-// that rate does not fit inside any free plan and is expensive on a paid one —
-// it is what drained the Scribe credits in the first place. 1400/2800 keeps
-// the 50% overlap (any word under SEND_INTERVAL_MS still lands entirely inside
-// at least one window) at ~43 calls a minute, and the silence filter below
-// removes most of what is left in a quiet room. Still above 20/min while a kid
-// is actually talking — the real fix is one call per detected utterance rather
-// than per fixed window, which is a bigger change than this.
-const SEND_INTERVAL_MS = 1400;
-const WINDOW_MS = 2800;
+// Continuous mic listener for one wall.
+//
+// THIS IS SEGMENTED BY SPEECH, NOT BY A CLOCK. The previous design started a
+// fresh MediaRecorder every SEND_INTERVAL_MS and uploaded every window, which
+// made the call rate a function of wall-clock time rather than of anyone
+// talking: ~43 transcription calls a minute per kid, whether the room was
+// silent or not. Production numbers over one hour, with one person testing:
+// 2241 of 3286 requests rejected by our own rate limiter, 743 more with both
+// providers benched, and 171 actually transcribed. Five percent. A kid saying
+// "Он" perfectly had a one-in-twenty chance of the window carrying it being
+// one that got through, which is indistinguishable from "the mic is broken".
+//
+// So: an idle recorder is recycled every PREROLL_SEGMENT_MS and thrown away
+// (cheap, local, never uploaded). The moment the level crosses the speech
+// threshold that recorder is adopted mid-flight — so it already contains the
+// word's onset, which a start-on-detection design would clip — and it keeps
+// running until the room has been quiet for SPEECH_HANGOVER_MS or the clip
+// hits MAX_UTTERANCE_MS. Then, and only then, one clip goes up.
+//
+// That makes the worst case bounded rather than constant: a silent room sends
+// nothing at all, and a room so loud the gate never closes still sends only
+// one clip per MAX_UTTERANCE_MS (~13/min, under Groq's 20/min free limit).
+//
+// Scans the target only, never the distractors, so overheard chatter can only
+// ever produce a correct match, never an accidental wrong one. `onMatch` is
+// read through a ref rather than the effect's own deps so a parent re-render
+// (which recreates it every time) never interrupts an in-flight clip.
+const LEVEL_SAMPLE_MS = 50;
+const PREROLL_SEGMENT_MS = 600;
+const SPEECH_HANGOVER_MS = 600;
+const MAX_UTTERANCE_MS = 4000;
+// Shorter than this is a cough, a chair, a tap on the desk — not a word.
+const MIN_UTTERANCE_MS = 320;
 
-// A window with nothing but room tone in it is never going to transcribe into
-// the target word, but it still costs a full transcription call — and at ~1.1
-// calls a second per kid that is what drained the Scribe plan to zero and took
-// the whole game down (see the note in /api/say-check). So each window is
-// checked against a rolling loudness trace first and dropped if the room was
-// silent for its whole span. Deliberately a low bar: sending a too-quiet
-// window wastes one call, dropping a real one costs a kid their answer, so
-// this only filters out near-silence, not quiet speech.
-const SILENCE_RMS = 0.012;
-const ENERGY_SAMPLE_MS = 100;
+// Speech has to clear both an absolute floor and a margin over the room's own
+// noise. The absolute floor alone fails in a workshop room: twenty kids talking
+// sits permanently above any fixed threshold, so the gate never closes and the
+// clip cap becomes the only thing limiting uploads. The noise floor tracks the
+// quiet moments (drops instantly, creeps back up) so "louder than this room" is
+// what actually triggers, not "louder than a recording studio".
+const ABS_SILENCE_RMS = 0.012;
+const SPEECH_OVER_NOISE = 2.2;
 
-// Consecutive failed windows before the game stops asking. Three is roughly
-// three seconds of overlapping windows — long enough to ride out one bad
-// response, short enough that a kid is not left talking to a dead service.
+// Consecutive failed clips before the game stops asking. Three is enough to
+// ride out one bad response without leaving a kid talking to a dead service.
 const MAX_CONSECUTIVE_FAILURES = 3;
+
+// One retry for a clip the service was too busy to take. Under the old design
+// a throttled window was no loss — several others overlapped it. Now a clip is
+// the whole utterance, so dropping it drops the kid's answer.
+const BUSY_RETRY_MS = 1500;
+
+type Segment = {
+  mr: MediaRecorder;
+  chunks: Blob[];
+  startedAt: number;
+  /** Speech was detected inside this segment, so it is an utterance, not pre-roll. */
+  capturing: boolean;
+  send: boolean;
+};
 
 function useWallListener({
   stream,
@@ -235,13 +252,17 @@ function useWallListener({
   target: VocabItem;
   distractors: VocabItem[];
   onMatch: (transcript: string) => void;
-}): ListenerStatus {
+}): { status: ListenerStatus; levelRef: React.RefObject<number> } {
   const [status, setStatus] = useState<ListenerStatus>("idle");
   const targetRef = useRef(target);
   const distractorsRef = useRef(distractors);
   const onMatchRef = useRef(onMatch);
+  // Live mic loudness, 0-1ish. A ref, not state: this updates 20x a second and
+  // the meter reads it on its own animation frame, so the whole game scene does
+  // not re-render at 20fps to move three little bars.
+  const levelRef = useRef(0);
   // Outlives the effect, which restarts on every wall. Without it a dead
-  // service would be re-probed (and re-fail) three windows at a time, once per
+  // service would be re-probed (and re-fail) three clips at a time, once per
   // wall, for the rest of the run — the kid would watch "Listening…" flicker
   // back on and mean nothing. One outage, one switch to tap-to-answer.
   const outageRef = useRef(false);
@@ -257,69 +278,57 @@ function useWallListener({
     }
     if (!active || !stream) {
       setStatus("idle");
+      levelRef.current = 0;
       return;
     }
 
     let live = true;
-    let windowAttempt = 0;
+    let attempt = 0;
     let inFlight = 0;
     let consecutiveFailures = 0;
     let stoppedForOutage = false;
 
-    // Rolling loudness trace, used to drop windows that contain only room
-    // tone. Sampled off the same MediaStream the recorder is using, so it
-    // needs no second getUserMedia call and no extra permission prompt.
     const audioCtx = new (window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = 1024;
     audioCtx.createMediaStreamSource(stream as MediaStream).connect(analyser);
-    const energyBuffer = new Float32Array(analyser.fftSize);
-    let energyTrace: { at: number; rms: number }[] = [];
+    const sampleBuffer = new Float32Array(analyser.fftSize);
 
-    const energyTimer = setInterval(() => {
-      analyser.getFloatTimeDomainData(energyBuffer);
-      let sum = 0;
-      for (const sample of energyBuffer) sum += sample * sample;
-      const now = Date.now();
-      energyTrace.push({ at: now, rms: Math.sqrt(sum / energyBuffer.length) });
-      // Only ever need one window's worth of history; a little slack so a
-      // sample taken right on a boundary is not dropped before it is read.
-      energyTrace = energyTrace.filter((s) => s.at > now - WINDOW_MS * 2);
-    }, ENERGY_SAMPLE_MS);
+    let noiseFloor = ABS_SILENCE_RMS;
+    let lastLoudAt = 0;
+    let segment: Segment | null = null;
 
-    function heardSomethingSince(startedAt: number): boolean {
-      const samples = energyTrace.filter((s) => s.at >= startedAt);
-      // No samples yet (a window shorter than the sampling interval, or an
-      // AudioContext the browser has not resumed) — assume speech and send it.
-      // Failing open here costs a call; failing closed costs an answer.
-      if (samples.length === 0) return true;
-      return samples.some((s) => s.rms >= SILENCE_RMS);
-    }
-
-    function startWindow() {
+    function openSegment() {
       if (!live) return;
-      const localChunks: Blob[] = [];
-      const startedAt = Date.now();
-      const mr = new MediaRecorder(stream as MediaStream);
-      mr.ondataavailable = (e) => {
-        if (e.data.size > 0) localChunks.push(e.data);
+      let mr: MediaRecorder;
+      try {
+        mr = new MediaRecorder(stream as MediaStream);
+      } catch {
+        return; // stream ended under us; the effect's cleanup will follow
+      }
+      const seg: Segment = { mr, chunks: [], startedAt: Date.now(), capturing: false, send: false };
+      mr.ondataavailable = (event) => {
+        if (event.data.size > 0) seg.chunks.push(event.data);
       };
       mr.onstop = () => {
-        if (!live) return;
-        if (!heardSomethingSince(startedAt)) return;
-        void processWindow(new Blob(localChunks, { type: mr.mimeType || "audio/webm" }));
+        if (!live || !seg.send || seg.chunks.length === 0) return;
+        void sendUtterance(new Blob(seg.chunks, { type: mr.mimeType || "audio/webm" }));
       };
       mr.start();
-      setTimeout(() => {
-        if (mr.state !== "inactive") mr.stop();
-      }, WINDOW_MS);
+      segment = seg;
     }
 
-    // Every window failing used to be invisible: the response was read as
-    // `json.transcript ?? ""`, an empty transcript matches nothing, and the UI
-    // sat on "Listening…" forever. Now a run of failures stops the listener
-    // and flips it to "unavailable", which the wall renders as tap-to-answer.
+    // Closes the open segment. `send: false` is the pre-roll case — the clip is
+    // dropped locally and never costs a request.
+    function closeSegment(send: boolean) {
+      const seg = segment;
+      if (!seg) return;
+      seg.send = send;
+      segment = null;
+      if (seg.mr.state !== "inactive") seg.mr.stop();
+    }
+
     function noteFailure() {
       consecutiveFailures += 1;
       if (consecutiveFailures < MAX_CONSECUTIVE_FAILURES) return;
@@ -329,27 +338,28 @@ function useWallListener({
       setStatus("unavailable");
     }
 
-    async function processWindow(blob: Blob) {
+    async function sendUtterance(blob: Blob, isRetry = false) {
       inFlight += 1;
       setStatus("checking");
-      windowAttempt += 1;
-      const attemptIndex = windowAttempt;
+      attempt += 1;
+      const attemptIndex = attempt;
       try {
         const profile = store.get();
         const form = new FormData();
-        form.append("audio", blob, "chunk.webm");
+        form.append("audio", blob, "utterance.webm");
         form.append("profile_id", profile.id === "server-profile" ? "" : profile.id);
         const res = await fetch("/api/say-check", { method: "POST", body: form });
         const json = (await res.json()) as { transcript?: string; code?: string };
         if (!live) return;
         if (!res.ok || typeof json.transcript !== "string") {
-          // Two codes mean "this window did not get through, but the service is
-          // fine": `rate_limited` is our own per-kid budget, `busy` is the
-          // upstream provider's per-minute limit, which clears in seconds.
-          // Neither is an outage, so neither may trip the breaker — doing so
-          // would drop a kid into tap-to-answer over a few seconds of
-          // throttling.
-          if (json.code !== "rate_limited" && json.code !== "busy") noteFailure();
+          const transient = json.code === "rate_limited" || json.code === "busy";
+          // Transient means the service is fine, this clip just did not get
+          // through — never an outage, so it must not trip the breaker. It is
+          // worth one retry now that a lost clip is a lost answer.
+          if (!transient) noteFailure();
+          else if (!isRetry) {
+            setTimeout(() => { if (live) void sendUtterance(blob, true); }, BUSY_RETRY_MS);
+          }
           return;
         }
         consecutiveFailures = 0;
@@ -363,31 +373,64 @@ function useWallListener({
           isCorrect: result.found ? true : null,
           attemptIndex,
         });
-        if (result.found) {
-          onMatchRef.current(transcript);
-          return;
-        }
+        if (result.found) onMatchRef.current(transcript);
       } catch {
-        // A network blip on one window is normal and the overlapping ones keep
-        // going, but a solid run of them is an outage like any other.
         if (live) noteFailure();
       } finally {
         inFlight -= 1;
+        // In `finally`, because every path above returns early — the previous
+        // version reset the status only on fall-through, so any clip that came
+        // back busy or matched left the UI stuck on "Checking…" forever.
+        if (live && !stoppedForOutage) setStatus(inFlight > 0 ? "checking" : "listening");
       }
-      if (live) setStatus(inFlight > 0 ? "checking" : "listening");
     }
 
+    // One timer owns every state transition: level, noise floor, and whether
+    // the open segment is pre-roll, an utterance, or finished.
+    const tick = setInterval(() => {
+      if (!live) return;
+      analyser.getFloatTimeDomainData(sampleBuffer);
+      let sum = 0;
+      for (const sample of sampleBuffer) sum += sample * sample;
+      const rms = Math.sqrt(sum / sampleBuffer.length);
+      levelRef.current = rms;
+
+      // Falls to a new quiet instantly, recovers slowly, so one loud moment
+      // does not deafen the gate for the rest of the wall.
+      noiseFloor = rms < noiseFloor ? rms : Math.min(noiseFloor * 1.02 + 0.0002, 0.15);
+      const speaking = rms > Math.max(ABS_SILENCE_RMS, noiseFloor * SPEECH_OVER_NOISE);
+
+      const now = Date.now();
+      if (speaking) lastLoudAt = now;
+
+      if (!segment) {
+        openSegment();
+        return;
+      }
+      const age = now - segment.startedAt;
+
+      if (!segment.capturing) {
+        // Adopt this recorder mid-flight; it already holds the word's onset.
+        if (speaking) segment.capturing = true;
+        else if (age >= PREROLL_SEGMENT_MS) closeSegment(false);
+        return;
+      }
+
+      if (now - lastLoudAt >= SPEECH_HANGOVER_MS || age >= MAX_UTTERANCE_MS) {
+        closeSegment(age >= MIN_UTTERANCE_MS);
+      }
+    }, LEVEL_SAMPLE_MS);
+
     setStatus("listening");
-    startWindow();
-    const spawnTimer = setInterval(() => {
-      if (live) startWindow();
-      else clearInterval(spawnTimer);
-    }, SEND_INTERVAL_MS);
+    openSegment();
 
     return () => {
       live = false;
-      clearInterval(spawnTimer);
-      clearInterval(energyTimer);
+      clearInterval(tick);
+      levelRef.current = 0;
+      const seg = segment;
+      segment = null;
+      if (seg && seg.mr.state !== "inactive") seg.mr.stop();
       void audioCtx.close().catch(() => {});
       // Leave "unavailable" standing: it is a real outage the wall is still
       // rendering around, not the idle state of a torn-down listener.
@@ -397,7 +440,7 @@ function useWallListener({
     // target.slug controls whether this restarts for a new wall.
   }, [active, stream, target.slug]);
 
-  return status;
+  return { status, levelRef };
 }
 
 export default function SayAndShiftPage() {
@@ -655,7 +698,7 @@ export default function SayAndShiftPage() {
     afterLifeLoss(remaining);
   }
 
-  const listenerStatus = useWallListener({
+  const { status: listenerStatus, levelRef: micLevelRef } = useWallListener({
     stream: micStream,
     active: listenActive,
     target: wall.target,
@@ -1113,16 +1156,7 @@ export default function SayAndShiftPage() {
                   <div className="mt-4 flex flex-col items-center gap-2">
                     {canAnswerByVoice ? (
                       <div className="flex items-center gap-2 rounded-full bg-[#fff0ed] px-4 py-2 text-sm font-black text-[#c8513e]">
-                        <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
-                          {[0, 1, 2].map((bar) => (
-                            <motion.span
-                              key={bar}
-                              className="w-1 rounded-full bg-[#c8513e]"
-                              animate={{ height: [4, 15, 4] }}
-                              transition={{ repeat: Infinity, duration: 0.7, delay: bar * 0.15, ease: "easeInOut" }}
-                            />
-                          ))}
-                        </span>
+                        <MicLevelBars levelRef={micLevelRef} />
                         <span className="inline-block h-3.5">{listenerStatus === "checking" ? "Checking…" : "Listening… say it whenever"}</span>
                       </div>
                     ) : (
@@ -1255,6 +1289,55 @@ export default function SayAndShiftPage() {
         )}
       </motion.div>
     </GameShell>
+  );
+}
+
+// A real level meter, not a decoration. These bars used to run a canned
+// keyframe loop forever, so they waved identically whether the mic was hearing
+// a kid shout or was switched off entirely — which told the player nothing and
+// actively lied about whether they were being heard. Now they follow the
+// analyser's live RMS.
+//
+// Driven by requestAnimationFrame writing straight to style.height, not React
+// state: the level updates 20x a second and re-rendering the whole parallax
+// scene at that rate to move three 4px bars is not a trade worth making.
+function MicLevelBars({ levelRef }: { levelRef: React.RefObject<number> }) {
+  const barsRef = useRef<(HTMLSpanElement | null)[]>([]);
+
+  useEffect(() => {
+    let frame = 0;
+    // Smoothed so the bars glide instead of strobing, and so a single quiet
+    // frame mid-word does not read as "it stopped hearing me".
+    let shown = 0;
+    const loop = () => {
+      const raw = levelRef.current ?? 0;
+      // Speech RMS sits well under 1; this maps the useful part of the range
+      // onto the bar height rather than leaving everything at the bottom pixel.
+      const target = Math.min(1, raw * 9);
+      shown += (target - shown) * (target > shown ? 0.45 : 0.12);
+      barsRef.current.forEach((bar, i) => {
+        if (!bar) return;
+        // Middle bar tallest, so the shape reads as a voice meter at a glance.
+        const weight = i === 1 ? 1 : 0.66;
+        bar.style.height = `${3 + shown * 13 * weight}px`;
+      });
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
+  }, [levelRef]);
+
+  return (
+    <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
+      {[0, 1, 2].map((bar) => (
+        <span
+          key={bar}
+          ref={(node) => { barsRef.current[bar] = node; }}
+          className="w-1 rounded-full bg-[#c8513e]"
+          style={{ height: 3 }}
+        />
+      ))}
+    </span>
   );
 }
 
