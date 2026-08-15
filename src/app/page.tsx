@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ClipboardList, PlayCircle, Users } from "lucide-react";
 import { HomeCoverBackdrop } from "@/components/home-cover-backdrop";
+import { Bilingual } from "@/components/ui/bilingual";
 import { IS_LITE } from "@/lib/lite";
 import { ONLINE_FEATURES_ENABLED } from "@/lib/online-features";
 
@@ -34,7 +35,7 @@ export default async function Home({
         )}
         <section className="max-w-2xl text-center md:text-left">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/75 px-4 py-2 text-sm font-extrabold text-steppe shadow-sm backdrop-blur">
-            CC-UNESCO • UBC / SFU Kazakh Workshops
+            CC-UNESCO • Steppe to Screen
           </div>
           <h1 className="mt-6 text-5xl font-black leading-[1.02] text-steppe sm:text-7xl">
             Қазақ тілін үйренейік
@@ -47,14 +48,14 @@ export default async function Home({
               href="/play"
               className="inline-flex items-center justify-center gap-3 rounded-2xl bg-gold px-8 py-4 text-lg font-black text-steppe-700 shadow-[4px_5px_0_0_#b8960a] transition hover:brightness-105 active:translate-y-[2px] active:shadow-none"
             >
-              <PlayCircle size={24} /> Ойнау
+              <PlayCircle size={24} /> <Bilingual kk="Ойнау">Play</Bilingual>
             </Link>
             {!IS_LITE && ONLINE_FEATURES_ENABLED && (
               <Link
                 href="/join"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-steppe bg-white/80 px-6 py-4 text-base font-black text-steppe shadow-sm transition hover:bg-[#fff3cf]"
               >
-                <Users size={20} /> Join session
+                <Users size={20} /> <Bilingual kk="Қосылу">Join session</Bilingual>
               </Link>
             )}
           </div>

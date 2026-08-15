@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Check, Volume2 } from "lucide-react";
 import { MountainBackdrop } from "@/components/game/mountain-backdrop";
+import { Bilingual } from "@/components/ui/bilingual";
 import { Button } from "@/components/ui/button";
 import { KID_COVERS } from "@/content/kid-covers";
 import { playClip, playPop, playWin } from "@/lib/audio";
@@ -89,7 +90,7 @@ export default function Welcome() {
               onClick={leave}
               className="text-sm font-bold text-steppe/55 underline-offset-4 transition hover:text-steppe hover:underline"
             >
-              Skip
+              <Bilingual kk="Өткізу">Skip</Bilingual>
             </button>
           )}
         </header>
@@ -175,7 +176,7 @@ function Hello({ onNext }: { onNext: () => void }) {
       </motion.p>
 
       <Button variant="gold" size="lg" className="mt-7" onClick={onNext}>
-        Next <ArrowRight size={20} />
+        <Bilingual kk="Келесі">Next</Bilingual> <ArrowRight size={20} />
       </Button>
     </div>
   );
@@ -221,7 +222,9 @@ function NameStep({
       </p>
 
       <Button variant="gold" size="lg" type="submit" className="mt-7">
-        {name.trim() ? `Jaqsy, ${name.trim()}!` : "I'll pick later"} <ArrowRight size={20} />
+        {name.trim()
+          ? <Bilingual kk={`Жақсы, ${name.trim()}!`}>Nice to meet you</Bilingual>
+          : <Bilingual kk="Кейін таңдаймын">I&apos;ll pick later</Bilingual>} <ArrowRight size={20} />
       </Button>
     </form>
   );
@@ -288,7 +291,9 @@ function CoverStep({
       </div>
 
       <Button variant="gold" size="lg" className="mt-7" onClick={onNext}>
-        {coverId ? "That one" : "Keep the mountains"} <ArrowRight size={20} />
+        {coverId
+          ? <Bilingual kk="Сол">That one</Bilingual>
+          : <Bilingual kk="Тауларды қалдырамын">Keep the mountains</Bilingual>} <ArrowRight size={20} />
       </Button>
     </div>
   );
@@ -323,7 +328,7 @@ function Ready({ name, onFinish }: { name: string; onFinish: () => void }) {
         transition={{ delay: 0.22, duration: 0.35 }}
       >
         <Button variant="gold" size="lg" className="mt-7" onClick={onFinish}>
-          Ойнау <ArrowRight size={20} />
+          <Bilingual kk="Ойнау">Play</Bilingual> <ArrowRight size={20} />
         </Button>
       </motion.div>
     </div>

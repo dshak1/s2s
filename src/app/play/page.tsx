@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { FirstRunGate } from "@/components/first-run-gate";
 import { TopNav } from "@/components/top-nav";
+import { Bilingual } from "@/components/ui/bilingual";
 import { GameGlyph } from "@/components/game/game-glyph";
 import { MountainBackdrop, sceneForGameSlug } from "@/components/game/mountain-backdrop";
 import { Button } from "@/components/ui/button";
@@ -126,10 +127,10 @@ function FullHub() {
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link href={continueGame.href} className="inline-flex items-center gap-2 rounded-full bg-[#ffd84f] px-5 py-3 font-black text-steppe shadow-lg transition hover:bg-[#ffe478]">
-                  <Play size={18} fill="currentColor" /> Continue: {continueGame.title}
+                  <Play size={18} fill="currentColor" /> <Bilingual kk={`Жалғастыру: ${continueGame.kk}`} align="left">Continue: {continueGame.title}</Bilingual>
                 </Link>
                 <Link href={`/profile/${profile.id}`} className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/15 px-5 py-3 font-black text-white backdrop-blur transition hover:bg-white/25">
-                  <CircleUserRound size={18} /> Player account
+                  <CircleUserRound size={18} /> <Bilingual kk="Менің парағым" align="left">Player account</Bilingual>
                 </Link>
               </div>
             </div>
@@ -144,8 +145,9 @@ function FullHub() {
                   <GameGlyph slug="say-and-shift" size={44} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black">Nomad Run: say it, slip through the wall</h2>
-                  <p className="text-sm font-bold text-white/65">Say the Kazakh word out loud. The mic is always listening</p>
+                  <h2 className="text-xl font-black leading-tight">Айт та өт</h2>
+                  <p className="text-xs font-black uppercase tracking-wide text-[#ffd84f]">Nomad Run</p>
+                  <p className="mt-1 text-sm font-bold text-white/65">Say the Kazakh word out loud. The mic is always listening</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2">
@@ -330,10 +332,15 @@ function GameCard({ game, weeklyChallenge = false }: { game: GameMeta; weeklyCha
         )}
       </div>
       <div className="flex flex-1 flex-col p-4">
-        <p className="text-xs font-black text-[#e35f4c]">{game.kk}</p>
-        <h3 className="mt-1 text-lg font-black leading-tight text-steppe">{game.title}</h3>
-        <p className="mt-1 flex-1 text-xs font-bold leading-5 text-steppe/58">{game.blurb}</p>
-        <span className="mt-3 inline-flex items-center gap-1 text-sm font-black text-steppe">Play <ChevronRight size={16} /></span>
+        {/* Kazakh is the big line and English the small one under it, not the
+            other way round (issue #25) — the card should teach the game's
+            Kazakh name, with the English there so nobody is lost. */}
+        <h3 className="text-lg font-black leading-tight text-steppe">{game.kk}</h3>
+        <p className="mt-0.5 text-xs font-black uppercase tracking-wide text-[#e35f4c]">{game.title}</p>
+        <p className="mt-1.5 flex-1 text-xs font-bold leading-5 text-steppe/58">{game.blurb}</p>
+        <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-black text-steppe">
+          <Bilingual kk="Ойнау" align="left">Play</Bilingual> <ChevronRight size={16} />
+        </span>
       </div>
     </Link>
   );

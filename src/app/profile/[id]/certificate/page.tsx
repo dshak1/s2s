@@ -39,7 +39,7 @@ export default function CertificatePage() {
         {/* top band */}
         <div className="bg-steppe px-8 py-6 text-center text-warm">
           <div className="text-xs font-black uppercase tracking-[0.3em] text-gold">
-            CC-UNESCO · UBC / SFU Kazakh Workshops
+            CC-UNESCO · Steppe to Screen
           </div>
           <h1 className="mt-2 text-4xl font-black tracking-tight">
             Steppe <span className="text-gold">to</span> Screen

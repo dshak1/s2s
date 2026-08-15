@@ -1,0 +1,43 @@
+name: Preflight
+
+# Runs the same checks as `pnpm preflight`, plus a real build. Vercel deploys
+# on push, so this is the backstop for anything pushed without running the
+# script locally first.
+on:
+  push:
+    branches: [claude/step-to-screen-games-zW3eP-1MkAC, feat/pro-infra]
+  pull_request:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # CI checks out a clean tree, so "nothing uncommitted" and "committed
+      # tree typechecks" are trivially true here. The checks that earn their
+      # keep on CI are the ones about references: orphaned routes, uncommitted
+      # assets, and copy style.
+      - run: pnpm preflight
+
+      - run: pnpm exec tsc --noEmit
+
+      - run: pnpm lint
+
+      # The one thing the local script cannot cheaply do. A route that
+      # typechecks can still fail to prerender.
+      - run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
