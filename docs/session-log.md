@@ -227,3 +227,16 @@ add a pile of new modes.
 | Session join codes + attendance rows | `sessions` + `attendance` tables. What is missing is a reason to enter the code (points, prizes, extras). |
 | Weekly journey rail | `JOURNEY` / `REGIONS` on `/play`. A path exists. It does not look or feel like one. |
 | Streak number in the nav | `streakWeeks` is stored and shown. Nothing in the app ever increments it. |
+
+### Dashboard and labelling, current facts
+
+Queried `team_members`, `labels`, and `question_verifications` on 2026-08-16:
+
+- **One real team account:** Diar (`admin`). One declined test inbox. Nobody else has signed in.
+- **Zero labels. Zero verifications.** `/label` and `/verify` are built and empty.
+- Dashboard does not show "how much of the checklist is done".
+
+The pronunciation problem (ElevenLabs clips that do not sound like Kazakh) is
+not a missing page. It is that the team has not gone through the list once.
+Native-speaker comments on kinship and register (әже vs апа, аға used for
+older brother and for uncle, the in-law terms) belong in that pass.
