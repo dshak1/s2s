@@ -215,3 +215,15 @@ by playtesting the deployed build directly.
 Product pass after looking at Duolingo-class apps, classroom live games, and
 similar kids products. Bias: make the games we already have stickier. Do not
 add a pile of new modes.
+
+### Already exists (do not rebuild)
+
+| Thing | Where |
+|---|---|
+| Hearts / lives | Learn, Nomad Run, Sound It Out, Jaryq Hunter |
+| Practice words you missed | Learn, "Practice N you missed before" (closed #14) |
+| One-pass question check | `/verify` (closed #5). Approve or send back with a comment. Split across the team. |
+| Five-axis labelling | `/label` |
+| Session join codes + attendance rows | `sessions` + `attendance` tables. What is missing is a reason to enter the code (points, prizes, extras). |
+| Weekly journey rail | `JOURNEY` / `REGIONS` on `/play`. A path exists. It does not look or feel like one. |
+| Streak number in the nav | `streakWeeks` is stored and shown. Nothing in the app ever increments it. |
