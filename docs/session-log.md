@@ -299,3 +299,9 @@ games. This is not a second lives economy.
 Weekly, reset on workshop day. Table totals rather than only kid-vs-kid.
 Labelling / verify points for the team so adults have a reason to clear
 the checklist. Not on the kids' hub.
+
+### Table vs table (#46)
+
+Workshop tables (and Zoom breakouts) sharing a score on games we already
+have. Live multi-table race exists and is gated. Try that in a room before
+building another mode.
