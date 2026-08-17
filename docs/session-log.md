@@ -207,3 +207,11 @@ by playtesting the deployed build directly.
   infinite/endless continuation (same shape as Nomad Run's post-calibration
   infinite mode) instead of stopping. Not built this session — flagged for
   next pass.
+
+---
+
+## 2026-08-16 — What to steal, and what not to build
+
+Product pass after looking at Duolingo-class apps, classroom live games, and
+similar kids products. Bias: make the games we already have stickier. Do not
+add a pile of new modes.
