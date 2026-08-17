@@ -387,3 +387,10 @@ Research cautions on existing issues:
 - Avoid: open NPC chat, AR hunts, strict pronunciation scores, global leaderboards
 
 New issues filed below, one commit each.
+### Offline workshop packs (#56)
+
+Perplexity rank #1. Named pack precached before the room: all audio,
+images, prompts, and answer rules for one workshop. Facilitator preflight
+shows which devices are ready. Extends PWA hardening with a workshop
+manifest, not just shell caching.
+
