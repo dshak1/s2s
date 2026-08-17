@@ -420,4 +420,9 @@ after-school workshops. Pairs with #55 Latin scaffold.
 Perplexity item 18. One word becomes a reviewed card: audio, image,
 bridge hint, variants, movement prompt, cultural note. Extends
 `/admin/vocab` and the verify pipeline.
+### Co-design votes (#63)
+
+Perplexity co-design recommendation. Three visual votes after a
+workshop: want more / confusing / I want to make this. Feeds tickets,
+not a public kid feed.
 
