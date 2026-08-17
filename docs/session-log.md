@@ -415,4 +415,9 @@ on the projector, language prompts from phones, room wins together.
 Perplexity rank #10. Facilitator-set band: spoken prompts, one
 decision, large taps, minimal text. Primary audience is 5-7 in
 after-school workshops. Pairs with #55 Latin scaffold.
+### Content card authoring (#62)
+
+Perplexity item 18. One word becomes a reviewed card: audio, image,
+bridge hint, variants, movement prompt, cultural note. Extends
+`/admin/vocab` and the verify pipeline.
 
