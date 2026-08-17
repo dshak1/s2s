@@ -357,3 +357,15 @@ use it.
 Workshop-only or Nauryz-only runners so there is a reason to show up.
 One or two that are actually good. Depends on attendance actually being
 used, and on Nomad Run's default art not looking worse than the reward.
+
+### Do not build
+
+- Stories with choices
+- Call-and-response chorus / hear-and-repeat as a new mode (Nomad Run already
+  covers speaking)
+- Tower defense, cooking sim, detective mystery
+- Power-ups (#54, parked). Kids do not play often enough for a power-up
+  economy. Live-round only, and only if a facilitator asks.
+- Parent dashboard. No one has asked. Not enough users.
+- More game modes in general. A few that work, used in homework, in-person,
+  and on Zoom.
