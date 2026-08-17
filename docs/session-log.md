@@ -293,3 +293,9 @@ Count workshop weeks, not calendar days. Soft landing: freeze, or a short
 practice-to-keep pack, so missing a Saturday does not wipe the kid.
 Showing up with the session code should count. Hearts already exist inside
 games. This is not a second lives economy.
+
+### League and table competition (#44)
+
+Weekly, reset on workshop day. Table totals rather than only kid-vs-kid.
+Labelling / verify points for the team so adults have a reason to clear
+the checklist. Not on the kids' hub.
