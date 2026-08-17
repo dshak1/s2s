@@ -240,3 +240,15 @@ The pronunciation problem (ElevenLabs clips that do not sound like Kazakh) is
 not a missing page. It is that the team has not gone through the list once.
 Native-speaker comments on kinship and register (әже vs апа, аға used for
 older brother and for uncle, the in-law terms) belong in that pass.
+
+### Recorded from the in-person workshop
+
+Where in Kazakhstan on a projector, screen-shared. Kids who knew the place
+raised a hand, ran up, and put the pin on the map in front of everyone.
+
+That physical run-to-the-front is more interactive than sitting and tapping
+on a phone. Keep it as a real option. The in-app live round (facilitator
+launches, kids pin on their own device) still exists and is the Kahoot
+replacement for Zoom. The question for the team is whether the in-person
+version should stay analogue on purpose, or whether the projector should
+still be the pin surface while kids stay in their seats.
