@@ -410,4 +410,9 @@ Projector shows room progress. Offline-friendly workshop mechanic.
 
 Perplexity rank #9. Cooperative workshop climax: shared obstacle
 on the projector, language prompts from phones, room wins together.
+### Age-band modes 5-7 (#61)
+
+Perplexity rank #10. Facilitator-set band: spoken prompts, one
+decision, large taps, minimal text. Primary audience is 5-7 in
+after-school workshops. Pairs with #55 Latin scaffold.
 
