@@ -351,3 +351,9 @@ kinship terms are not flattened to one English gloss.
 Facilitator launches three items at the end of in-person or Zoom. Same
 games, not a new mode. If it is longer than a Kahoot round we will not
 use it.
+
+### Limited-edition characters (#53)
+
+Workshop-only or Nauryz-only runners so there is a reason to show up.
+One or two that are actually good. Depends on attendance actually being
+used, and on Nomad Run's default art not looking worse than the reward.
