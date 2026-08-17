@@ -330,3 +330,11 @@ account linking. Teaching "what an API is" is a bonus, not the product.
 The hoppable `<Bush>` SVG is three green ellipses on a stem. It sits in
 the runner's path as every round starts. Fix ASAP. Do not wait on #36
 (the empty sky/ground).
+
+### Get the team through every question once (#51)
+
+`/verify` is the one-pass checklist (closed #5). Split the list across
+the team. Dashboard should show remaining count until it is zero. Ask
+them to sign in. Optional points via #44. Kinship/register comments
+rather than a new game. Clone a native voice (#34) after we know which
+clips are wrong.
