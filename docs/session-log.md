@@ -305,3 +305,9 @@ the checklist. Not on the kids' hub.
 Workshop tables (and Zoom breakouts) sharing a score on games we already
 have. Live multi-table race exists and is gated. Try that in a room before
 building another mode.
+
+### Workshop attendance rewards (#47)
+
+Session codes and `attendance` rows already exist. Time-box the code to
+the workshop, then points / a prize ticket / streak keep / a limited
+character for showing up. Entering the code has to stay easier than Maze.
