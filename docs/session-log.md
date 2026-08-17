@@ -398,4 +398,8 @@ manifest, not just shell caching.
 Hear the word, tap it in an illustrated scene. Perplexity rank #2.
 Built for ages 5-7 and offline workshop tablets. Reuses native audio
 and kid art. Not a flashcard app.
+### Speech-to-action fallback (#58)
+
+Perplexity rank #4. Upgrade Nomad Run: confidence bands, group echo,
+tap fallback, no public failure. Speech is delight, not a gate.
 
