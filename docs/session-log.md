@@ -324,3 +324,9 @@ Zhanerke already told the group this is coming. See
 Import their existing avatar as the runner. Nomad Run already accepts a
 drawing or upload. Start with a guided crop of a screenshot. No Roblox
 account linking. Teaching "what an API is" is a bonus, not the product.
+
+### Nomad Run default bush (#50)
+
+The hoppable `<Bush>` SVG is three green ellipses on a stem. It sits in
+the runner's path as every round starts. Fix ASAP. Do not wait on #36
+(the empty sky/ground).
