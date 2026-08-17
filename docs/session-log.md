@@ -406,4 +406,8 @@ tap fallback, no public failure. Speech is delight, not a gate.
 
 Perplexity rank #7. Cooperative category sort with spoken prompts.
 Projector shows room progress. Offline-friendly workshop mechanic.
+### Group boss finale (#60)
+
+Perplexity rank #9. Cooperative workshop climax: shared obstacle
+on the projector, language prompts from phones, room wins together.
 
