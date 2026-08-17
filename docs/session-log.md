@@ -252,3 +252,17 @@ launches, kids pin on their own device) still exists and is the Kahoot
 replacement for Zoom. The question for the team is whether the in-person
 version should stay analogue on purpose, or whether the projector should
 still be the pin surface while kids stay in their seats.
+
+### Latin vs Cyrillic (Canadian school)
+
+A lot of these kids go to school in Canada. Latin may be the script they can
+actually read. Cyrillic is not a given, even if Kazakh is spoken at home.
+
+Concrete case: Al, seven or eight, lived here pretty much his whole life.
+Unknown whether he can read Cyrillic. Starting him on the Kazakh alphabet
+in Cyrillic is the trivial-for-the-wrong-reason version of #23.
+
+Vocab already has a `latin` field; Learn shows it after reveal, which is
+too late if they cannot read the prompt. Try a Latin line under the word
+with Al and a couple of peers before making it the default. Filed as #55.
+Not Qazaq Latin as an orthography project. A reading scaffold.
