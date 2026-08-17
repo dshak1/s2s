@@ -369,3 +369,21 @@ used, and on Nomad Run's default art not looking worse than the reward.
 - Parent dashboard. No one has asked. Not enough users.
 - More game modes in general. A few that work, used in homework, in-person,
   and on Zoom.
+
+---
+
+## 2026-08-17 — Perplexity research (aug 2026)
+
+Full write-up: `docs/perplexity-research-aug17.md`.
+
+Core framing: **shared expedition**, not quiz platform. Projector carries
+the cultural journey; phones are controllers, vocabulary tools, and
+creative artifacts. Primary audience clarified: **ages 5-7**, after-school
+workshops, classroom tablets with offline Wi-Fi.
+
+Research cautions on existing issues:
+- #43 streaks: workshop weeks and soft landing, not Duolingo daily pressure
+- #44 league: team/cooperative scoring, not public kid speed ranks
+- Avoid: open NPC chat, AR hunts, strict pronunciation scores, global leaderboards
+
+New issues filed below, one commit each.
