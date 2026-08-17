@@ -338,3 +338,10 @@ the team. Dashboard should show remaining count until it is zero. Ask
 them to sign in. Optional points via #44. Kinship/register comments
 rather than a new game. Clone a native voice (#34) after we know which
 clips are wrong.
+
+### Family / Nauryz homework (#11)
+
+Scavenger-style prompts at home: ask a parent or grandparent something in
+Kazakh, record the reply (poem, song, what they call grandma). Parents
+see the kid is actually doing this. Native speakers set the prompts so
+kinship terms are not flattened to one English gloss.
