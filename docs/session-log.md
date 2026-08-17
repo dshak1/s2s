@@ -318,3 +318,9 @@ Kids change words, art, and eventually rules, not only skins. `/play/create`
 is a reskin, and a custom background collapses the five-landmark journey.
 Zhanerke already told the group this is coming. See
 `docs/student-designed-games.md`. Do not turn the app into Roblox.
+
+### Roblox / Minecraft character in Nomad Run (#49)
+
+Import their existing avatar as the runner. Nomad Run already accepts a
+drawing or upload. Start with a guided crop of a screenshot. No Roblox
+account linking. Teaching "what an API is" is a bonus, not the product.
