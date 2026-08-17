@@ -345,3 +345,9 @@ Scavenger-style prompts at home: ask a parent or grandparent something in
 Kazakh, record the reply (poem, song, what they call grandma). Parents
 see the kid is actually doing this. Native speakers set the prompts so
 kinship terms are not flattened to one English gloss.
+
+### Exit ticket (#52)
+
+Facilitator launches three items at the end of in-person or Zoom. Same
+games, not a new mode. If it is longer than a Kahoot round we will not
+use it.
