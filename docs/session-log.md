@@ -311,3 +311,10 @@ building another mode.
 Session codes and `attendance` rows already exist. Time-box the code to
 the workshop, then points / a prize ticket / streak keep / a limited
 character for showing up. Entering the code has to stay easier than Maze.
+
+### Remix ladder (#48)
+
+Kids change words, art, and eventually rules, not only skins. `/play/create`
+is a reskin, and a custom background collapses the five-landmark journey.
+Zhanerke already told the group this is coming. See
+`docs/student-designed-games.md`. Do not turn the app into Roblox.
