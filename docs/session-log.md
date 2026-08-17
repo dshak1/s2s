@@ -266,3 +266,9 @@ Vocab already has a `latin` field; Learn shows it after reveal, which is
 too late if they cannot read the prompt. Try a Latin line under the word
 with Al and a couple of peers before making it the default. Filed as #55.
 Not Qazaq Latin as an orthography project. A reading scaffold.
+
+### Parent dashboard: not now
+
+Do not build a parents dashboard. Nobody has asked, and there are not
+enough users for it to be worth the surface. #20 (admin seeing kid
+progress) is the team classroom view, not a parent product.
