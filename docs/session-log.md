@@ -286,3 +286,10 @@ change per stop (Mangystau dry, Almaty mountains, Aral water). Placement
 Cinematic zoom-into-Kazakhstan is easy to make ugly. If it happens later:
 `motion` (`motion/react`) with `useScroll` / `useTransform`, real photos,
 motion-primitives from #17. No generated landscapes, no 3D globe.
+
+### Workshop-friendly streaks (#43)
+
+Count workshop weeks, not calendar days. Soft landing: freeze, or a short
+practice-to-keep pack, so missing a Saturday does not wipe the kid.
+Showing up with the session code should count. Hearts already exist inside
+games. This is not a second lives economy.
