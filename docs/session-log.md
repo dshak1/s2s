@@ -402,4 +402,8 @@ and kid art. Not a flashcard app.
 
 Perplexity rank #4. Upgrade Nomad Run: confidence bands, group echo,
 tap fallback, no public failure. Speech is delight, not a gate.
+### Listen-and-sort categories (#59)
+
+Perplexity rank #7. Cooperative category sort with spoken prompts.
+Projector shows room progress. Offline-friendly workshop mechanic.
 
