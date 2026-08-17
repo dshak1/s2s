@@ -272,3 +272,17 @@ Not Qazaq Latin as an orthography project. A reading scaffold.
 Do not build a parents dashboard. Nobody has asked, and there are not
 enough users for it to be worth the surface. #20 (admin seeing kid
 progress) is the team classroom view, not a parent product.
+
+### Visible map progression (#42)
+
+A path you can see: where you have been, where you are, what is locked.
+Landmarks and a reward at each stop. `JOURNEY` / `REGIONS` already has
+eight places. The hub is dots. It should look like a game map.
+
+Ship the simple path first, using photos we already have. Terrain can
+change per stop (Mangystau dry, Almaty mountains, Aral water). Placement
+(#23) drops a decent reader onto the right stop.
+
+Cinematic zoom-into-Kazakhstan is easy to make ugly. If it happens later:
+`motion` (`motion/react`) with `useScroll` / `useTransform`, real photos,
+motion-primitives from #17. No generated landscapes, no 3D globe.
