@@ -393,4 +393,9 @@ Perplexity rank #1. Named pack precached before the room: all audio,
 images, prompts, and answer rules for one workshop. Facilitator preflight
 shows which devices are ready. Extends PWA hardening with a workshop
 manifest, not just shell caching.
+### Audio-first scene hunt (#57)
+
+Hear the word, tap it in an illustrated scene. Perplexity rank #2.
+Built for ages 5-7 and offline workshop tablets. Reuses native audio
+and kid art. Not a flashcard app.
 
