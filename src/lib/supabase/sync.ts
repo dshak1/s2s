@@ -169,6 +169,44 @@ export async function syncProfileState(profile: Profile) {
   });
 }
 
+/**
+ * Make sure this kid has a row in `profiles` before anything that references
+ * one is written.
+ *
+ * kid_artifacts, homework_items and game_runs all carry
+ * `profile_id uuid references profiles(id)`. A brand-new anonymous kid has no
+ * profiles row until the scheduleServerSync debounce in store.ts fires, two
+ * seconds after their first change — so their very first drawing, runner,
+ * backdrop or finished game raced that debounce and lost it, with
+ * `23503: Key (profile_id)=(…) is not present in table "profiles"`. The
+ * artwork still uploaded to Storage; only the row pointing at it was dropped,
+ * which is the same silent server-side loss 0026 was written to end.
+ *
+ * The row is only *created*, never refreshed: if the server already knows this
+ * profile, its xp and progress are left exactly as they are. That matters
+ * because sync_profile_state overwrites those columns with whatever this
+ * device holds, and a device that has not hydrated yet holds less than the
+ * server does. Creating a missing row cannot lose anything — there is nothing
+ * there to lose — and the debounced sync right behind it carries the real
+ * numbers up a moment later.
+ */
+const knownProfileRows = new Set<string>();
+
+export async function ensureProfileRow(profile: Profile): Promise<void> {
+  if (profile.id === "server-profile" || knownProfileRows.has(profile.id)) return;
+  const sb = getSupabaseBrowser();
+  if (!sb) return;
+
+  const { data, error } = await sb.rpc("profile_state", { p_profile_id: profile.id });
+  // An error means we do not know whether the row exists. Writing on a guess
+  // is the one thing here that could cost a kid their xp, so do nothing: the
+  // debounced sync was always going to run anyway.
+  if (error) return;
+
+  if (((data ?? []) as unknown[]).length === 0) await syncProfileState(profile);
+  knownProfileRows.add(profile.id);
+}
+
 export type LinkedPlayerProfile = {
   id: string;
   displayName: string;

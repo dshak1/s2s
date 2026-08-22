@@ -7,6 +7,7 @@
 import { useSyncExternalStore } from "react";
 import {
   syncJoin,
+  ensureProfileRow,
   syncGameRun,
   syncArtifact,
   syncHomework,
@@ -286,6 +287,16 @@ function persist() {
   scheduleServerSync();
 }
 
+// Anything the server stores against a profile_id needs that profile to exist
+// first — see ensureProfileRow. Fire-and-forget, exactly as these calls always
+// were: a kid's work lives in localStorage regardless of what the server does
+// with it.
+function syncAgainstProfile(p: Profile, write: () => Promise<unknown>) {
+  ensureProfileRow(p)
+    .then(write)
+    .catch(() => {});
+}
+
 function update(fn: (p: Profile) => void) {
   const p = load();
   fn(p);
@@ -334,7 +345,7 @@ export const store = {
       }
     });
     const p = load();
-    syncArtifact(p.id, p.avatarArtifactId, artifact).catch(() => {});
+    syncAgainstProfile(p, () => syncArtifact(p.id, p.avatarArtifactId, artifact));
     return id;
   },
 
@@ -367,7 +378,7 @@ export const store = {
       p.xp += 20;
     });
     const p = load();
-    syncHomework(p.id, p.displayName, artifact).catch(() => {});
+    syncAgainstProfile(p, () => syncHomework(p.id, p.displayName, artifact));
     return id;
   },
 
@@ -382,7 +393,7 @@ export const store = {
       p.gameBackgrounds[slug] = dataUrl;
     });
     const p = load();
-    syncArtifact(p.id, p.avatarArtifactId, artifact).catch(() => {});
+    syncAgainstProfile(p, () => syncArtifact(p.id, p.avatarArtifactId, artifact));
   },
 
   clearGameBackground(slug: string) {
@@ -557,7 +568,7 @@ export const store = {
       if (run.game === "memory-match") award(p, "memory_master");
     });
     const p = load();
-    syncGameRun(p.id, p.sessionCode, newRun).catch(() => {});
+    syncAgainstProfile(p, () => syncGameRun(p.id, p.sessionCode, newRun));
     maybeShowRecoveryHint();
   },
 
