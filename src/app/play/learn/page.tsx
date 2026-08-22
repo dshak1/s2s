@@ -13,8 +13,7 @@ import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { ReportQuestion } from "@/components/report-question";
 import { ALPHABET } from "@/content/alphabet";
-import { CATEGORY_LABELS } from "@/content/vocab";
-import { type JourneyStop } from "@/content/journey";
+import { workshopDateLabel, type WorkshopSet } from "@/content/workshops";
 import { GREETINGS, type Greeting } from "@/content/greetings";
 import { type VocabItem } from "@/content/vocab";
 import { playClip, playCorrect, playLetterPronunciation, playWin, playWrong, speakWord } from "@/lib/audio";
@@ -148,7 +147,7 @@ export default function Learn() {
   const [mode, setMode] = useState<"normal" | "mistakes" | "workshop">("normal");
   // The workshop being drilled, kept for the labels; the words themselves are
   // in workshopDeck below.
-  const [workshopStop, setWorkshopStop] = useState<JourneyStop | null>(null);
+  const [workshopSet, setWorkshopSet] = useState<WorkshopSet | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [endless, setEndless] = useState(false);
   const [roundIndex, setRoundIndex] = useState(0);
@@ -319,7 +318,7 @@ export default function Learn() {
     seenSlugs.current = new Set();
     correctSlugs.current = new Set();
     setMode("normal");
-    setWorkshopStop(null);
+    setWorkshopSet(null);
     setEndless(false);
     setRoundIndex(0);
     setRound(buildRound(0));
@@ -353,16 +352,16 @@ export default function Learn() {
     audioPlays.current = 0;
   }
 
-  /** Drill one journey stop's words, in a shuffled order, one round each.
+  /** Drill one workshop's words, in a shuffled order, one round each.
    *  Same rounds Learn already builds for a word — hear it, or match the
    *  sound — just drawn from a single workshop's list. */
-  function startWorkshop(stop: JourneyStop) {
-    const words = shuffle(workshopWords(vocab, stop));
+  function startWorkshop(set: WorkshopSet) {
+    const words = shuffle(workshopWords(vocab, set));
     if (words.length < 3) return;
     workshopDeck.current = words;
     seenSlugs.current = new Set();
     correctSlugs.current = new Set();
-    setWorkshopStop(stop);
+    setWorkshopSet(set);
     setMode("workshop");
     setReviewing(false);
     setEndless(false);
@@ -397,8 +396,8 @@ export default function Learn() {
 
   const playsOnLoad = round.mode === "hear-letter" || round.mode === "hear-phrase" || round.mode === "hear-word";
   const kindLabel =
-    mode === "workshop" && workshopStop
-      ? `Week ${workshopStop.week} · ${workshopStop.name} · ${CATEGORY_LABELS[workshopStop.category]}`
+    mode === "workshop" && workshopSet
+      ? `Workshop ${workshopSet.number} · ${workshopDateLabel(workshopSet.date)} · ${workshopSet.title}`
       : round.kind === "letter"
         ? "Focus letters · Ә Ғ Қ Ң Ө Ұ Ү Һ І"
         : round.kind === "greeting"
@@ -419,7 +418,6 @@ export default function Learn() {
         <WorkshopReview
           vocab={vocab}
           baseLanguage={baseLanguage}
-          unlockedWeeks={profile.unlockedWeeks}
           onPractice={startWorkshop}
           onClose={() => setReviewing(false)}
         />
@@ -430,8 +428,8 @@ export default function Learn() {
           <div className="text-3xl font-black text-gold">
             {mode === "mistakes"
               ? "Mistakes cleared!"
-              : mode === "workshop" && workshopStop
-                ? `${workshopStop.name} done!`
+              : mode === "workshop" && workshopSet
+                ? `${workshopSet.title} done!`
                 : "Round complete!"}
           </div>
           <p className="mt-2 text-lg font-bold">{score} / {effectiveTotal} correct · +{score * 12} points</p>
