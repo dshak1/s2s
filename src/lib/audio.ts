@@ -1,15 +1,23 @@
 // Synthesized SFX via WebAudio so the games are never silent, even without
 // uploaded audio assets. Major-chord arpeggio for correct, low pulse for wrong.
 import { VOCAB } from "@/content/vocab";
+import { WORKSHOP_SETS, workshopSetTerms } from "@/content/workshops";
 import { LETTER_AUDIO_SRC } from "@/content/letter-audio";
 
 let ctx: AudioContext | null = null;
 let activeClip: HTMLAudioElement | null = null;
 
 // Generated Kazakh TTS clips, keyed by the Cyrillic word as games pass it in.
-const VOCAB_AUDIO_SRC: Record<string, string> = Object.fromEntries(
-  VOCAB.map((v) => [v.kk, `/audio/vocab/${v.slug}.mp3`]),
-);
+// Workshop terms are in here too: they deliberately stay out of VOCAB (see
+// src/content/workshops.ts) but their clips sit in the same folder under the
+// same slug, and without this line every one of them would fall through to the
+// synthesized cue instead of a voice.
+const VOCAB_AUDIO_SRC: Record<string, string> = Object.fromEntries([
+  ...VOCAB.map((v) => [v.kk, `/audio/vocab/${v.slug}.mp3`] as const),
+  ...WORKSHOP_SETS.flatMap((set) =>
+    workshopSetTerms(set).map((v) => [v.kk, `/audio/vocab/${v.slug}.mp3`] as const),
+  ),
+]);
 
 function ac(): AudioContext | null {
   if (typeof window === "undefined") return null;
