@@ -436,6 +436,7 @@ export function SceneDesignBar({
   selectedId,
   onSelect,
   onDone,
+  placement = "floating",
 }: {
   slug: string;
   slots: SceneSlot[];
@@ -443,6 +444,15 @@ export function SceneDesignBar({
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onDone: () => void;
+  /**
+   * "floating" pins the bar over the bottom of the scene — right for a game
+   * that fills the window, where there is no "below" to put it in. "inline"
+   * puts it in the flow underneath instead, for a board that is a column on a
+   * page: floating there laid an opaque strip over the last inch of the board,
+   * hiding the hint line and the bottom of whatever picture a kid had dropped
+   * near it.
+   */
+  placement?: "floating" | "inline";
 }) {
   // Only pieces the layer actually renders can be selected, so anything that
   // reaches here is draggable and resizable.
@@ -456,7 +466,11 @@ export function SceneDesignBar({
       // would have covered its cards) would otherwise deselect on the way
       // *down* on Remove, unmounting the button before its click could land.
       onPointerDown={(event) => event.stopPropagation()}
-      className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-white/92 p-2.5 shadow-[0_-6px_18px_rgba(19,62,90,.12)] backdrop-blur"
+      className={
+        placement === "inline"
+          ? "flex flex-wrap items-center justify-between gap-2 rounded-lg border border-steppe/10 bg-white p-2.5"
+          : "pointer-events-auto absolute inset-x-0 bottom-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-white/92 p-2.5 shadow-[0_-6px_18px_rgba(19,62,90,.12)] backdrop-blur"
+      }
     >
       <p className="px-1 text-xs font-black text-steppe">
         {selected

@@ -245,12 +245,7 @@ export default function KazakhColours() {
             // ScenePieceView), and the cards keep their own taps either way —
             // an overlay would have swallowed the upload buttons.
             onPointerDown={designing ? () => setSelectedId(null) : undefined}
-            className={`relative overflow-hidden rounded-lg border border-steppe/10 bg-white/70 bg-cover bg-center p-4 shadow-inner sm:p-6 ${
-              // The design bar floats over the bottom of the board, so the
-              // board has to hold a strip clear for it or it covers the
-              // hint line.
-              designing ? "pb-20" : ""
-            }`}
+            className="relative overflow-hidden rounded-lg border border-steppe/10 bg-white/70 bg-cover bg-center p-4 shadow-inner sm:p-6"
             style={background ? { backgroundImage: `url(${background})` } : undefined}
           >
             {/* A photo backdrop sits behind dark text and small type, so it
@@ -355,17 +350,19 @@ export default function KazakhColours() {
               boundsRef={sceneRef}
             />
 
-            {designing && (
-              <SceneDesignBar
-                slug={SLUG}
-                slots={SCENE_SLOTS}
-                pieces={pieces}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                onDone={stopDesign}
-              />
-            )}
           </div>
+
+          {designing && (
+            <SceneDesignBar
+              slug={SLUG}
+              slots={SCENE_SLOTS}
+              pieces={pieces}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onDone={stopDesign}
+              placement="inline"
+            />
+          )}
 
           {designing && (
             <InsertPicturesPanel
