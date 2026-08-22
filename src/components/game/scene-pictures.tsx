@@ -333,7 +333,13 @@ export function InsertPicturesPanel({
   }
 
   return (
-    <div className="rounded-lg border border-steppe/10 p-3">
+    <div
+      // Same reasoning as the design bar: every tile here is a control, so a
+      // tap on one must not reach a scene that treats stray pointerdowns as
+      // "you tapped nothing".
+      onPointerDown={(event) => event.stopPropagation()}
+      className="rounded-lg border border-steppe/10 p-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-black text-steppe">Insert pictures</p>
@@ -444,7 +450,14 @@ export function SceneDesignBar({
   const selectedSlot = selected?.slot ? slots.find((s) => s.key === selected.slot) : undefined;
 
   return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-white/92 p-2.5 shadow-[0_-6px_18px_rgba(19,62,90,.12)] backdrop-blur">
+    <div
+      // The bar is a control surface, not board background. A game whose scene
+      // clears the selection on pointerdown (Kazakh Colours does — an overlay
+      // would have covered its cards) would otherwise deselect on the way
+      // *down* on Remove, unmounting the button before its click could land.
+      onPointerDown={(event) => event.stopPropagation()}
+      className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-white/92 p-2.5 shadow-[0_-6px_18px_rgba(19,62,90,.12)] backdrop-blur"
+    >
       <p className="px-1 text-xs font-black text-steppe">
         {selected
           ? `Dragging ${selectedSlot?.label ?? "your picture"}`
