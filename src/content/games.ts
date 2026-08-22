@@ -52,6 +52,7 @@ export const GAME_GROUPS: Array<{
 
 export const GAMES: GameMeta[] = [
   { slug: "learn", title: "Learn", kk: "Үйрен", blurb: "Get quizzed on letters and greetings, mixed together as you improve.", href: "/play/learn", accent: "bg-steppe", group: "Words & Letters", isNew: true },
+  { slug: "tuster", title: "Kazakh Colours", kk: "Түстер", blurb: "Name the colour, then design the board with your own photos.", href: "/play/tuster", accent: "bg-terra", group: "Words & Letters", isNew: true },
   { slug: "say-and-shift", title: "Nomad Run", kk: "Айт та өт", blurb: "Say the Kazakh word out loud to slip through the wall.", href: "/play/say-and-shift", accent: "bg-[#c8513e]", group: "Make Your Own", isNew: true },
   // Folded into "Learn" — kept routable (old links, telemetry history) but off every launcher.
   { slug: "sound-it-out", title: "Sound It Out", kk: "Дыбыс", blurb: "Hear it, tap the matching Kazakh letter.", href: "/play/sound-it-out", accent: "bg-steppe", group: "Words & Letters", hidden: true },

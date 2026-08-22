@@ -62,6 +62,26 @@ export type CustomGame = {
   createdAt: number;
 };
 
+/**
+ * One picture a kid dropped into a game's scene. Either it *replaces* a
+ * built-in element (`slot` names which - the sun, the bush, the runner) or it
+ * is a piece they added themselves (`slot: null`), which exists only because
+ * they put it there. Both kinds carry their own position and size, so the
+ * whole scene can be rearranged by dragging.
+ *
+ * x/y are percentages of the scene box, not pixels: the play field is fluid
+ * (it grows into whatever height GameShell has left) and a kid who arranges
+ * their steppe on a phone should get the same arrangement on a projector.
+ */
+export type ScenePiece = {
+  id: string;
+  slot: string | null;
+  src: string; // dataUrl
+  x: number; // 0-100, centre of the piece
+  y: number; // 0-100, centre of the piece
+  scale: number; // multiplies the slot's natural size
+};
+
 export type Profile = {
   id: string;
   displayName: string;
@@ -85,6 +105,7 @@ export type Profile = {
   vocabHints: Record<string, string>; // vocab slug -> kid-attached mnemonic image dataUrl
   pawPrints: string[]; // clue ids collected this session
   gameBackgrounds: Record<string, string>; // game slug -> uploaded background dataUrl
+  scenePieces: Record<string, ScenePiece[]>; // game slug -> kid-placed scene pictures
   homeCoverId: string | null; // KidCover id chosen as the home-page background
   baseLanguage: BaseLanguage; // language prompts are explained in; Kazakh is always what's taught
   customGames: CustomGame[];
@@ -130,6 +151,7 @@ function freshProfile(): Profile {
     vocabHints: {},
     pawPrints: [],
     gameBackgrounds: {},
+    scenePieces: {},
     homeCoverId: null,
     baseLanguage: "en",
     customGames: [],
@@ -173,6 +195,7 @@ function normalizeProfile(profile: Profile): Profile {
     vocabHints: profile.vocabHints ?? {},
     mistakes: profile.mistakes ?? {},
     gameBackgrounds: profile.gameBackgrounds ?? {},
+    scenePieces: profile.scenePieces ?? {},
     homeCoverId: profile.homeCoverId ?? null,
     // English is the only base language now — every kid here is schooled in
     // English, and the toggle UI is gone. Force it regardless of any value
@@ -309,6 +332,12 @@ export const store = {
     update((p) => { p.avatarArtifactId = artifactId; });
   },
 
+  /** Go back to the drawn default runner. Only drops the reference - the
+   *  drawing itself stays in the gallery, so this is not a delete. */
+  clearRunner() {
+    update((p) => { p.runnerArtifactId = null; });
+  },
+
   setHomeCover(coverId: string | null) {
     update((p) => { p.homeCoverId = coverId; });
   },
@@ -348,6 +377,59 @@ export const store = {
 
   clearGameBackground(slug: string) {
     update((p) => { delete p.gameBackgrounds[slug]; });
+  },
+
+  // Scene pictures: the kid-authored art sitting inside a game's play field.
+  // Deliberately NOT routed through addArtifact/syncArtifact the way avatars
+  // and backgrounds are - a scene can hold a dozen of these and mirroring each
+  // one into the capped artifacts list would evict the drawings a kid actually
+  // wants to keep. They live in the profile blob and are shrunk hard on the way
+  // in (see the editor), which is what keeps them inside the storage budget.
+
+  /** Add a picture, or replace whatever currently occupies `slot`. */
+  putScenePiece(
+    slug: string,
+    piece: { slot: string | null; src: string; x: number; y: number; scale?: number },
+  ): string {
+    const id = crypto.randomUUID();
+    update((p) => {
+      const pieces = p.scenePieces[slug] ?? [];
+      // A slot holds exactly one picture; an added piece (slot null) never
+      // displaces anything, so those only ever append.
+      const kept = piece.slot === null ? pieces : pieces.filter((x) => x.slot !== piece.slot);
+      p.scenePieces[slug] = [
+        ...kept,
+        { id, slot: piece.slot, src: piece.src, x: piece.x, y: piece.y, scale: piece.scale ?? 1 },
+      ];
+    });
+    return id;
+  },
+
+  /** Drag: percentages of the scene box, clamped so a piece can't be lost off-edge. */
+  moveScenePiece(slug: string, id: string, x: number, y: number) {
+    update((p) => {
+      const piece = (p.scenePieces[slug] ?? []).find((s) => s.id === id);
+      if (!piece) return;
+      piece.x = Math.min(100, Math.max(0, x));
+      piece.y = Math.min(100, Math.max(0, y));
+    });
+  },
+
+  scaleScenePiece(slug: string, id: string, scale: number) {
+    update((p) => {
+      const piece = (p.scenePieces[slug] ?? []).find((s) => s.id === id);
+      if (piece) piece.scale = Math.min(4, Math.max(0.25, scale));
+    });
+  },
+
+  removeScenePiece(slug: string, id: string) {
+    update((p) => {
+      p.scenePieces[slug] = (p.scenePieces[slug] ?? []).filter((s) => s.id !== id);
+    });
+  },
+
+  clearScenePieces(slug: string) {
+    update((p) => { delete p.scenePieces[slug]; });
   },
 
   createCustomGame(input: {

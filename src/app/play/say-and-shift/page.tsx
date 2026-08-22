@@ -2,10 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Ear, Flag, Heart, Mic, MicOff, RotateCcw, Share2, SkipForward, Trash2, Upload, Volume2, WifiOff, X, Zap } from "lucide-react";
+import { Check, Ear, Flag, Heart, ImagePlus, Mic, MicOff, Palette, RotateCcw, Share2, SkipForward, Trash2, Upload, Volume2, WifiOff, X, Zap } from "lucide-react";
 import { BandPuppet } from "@/components/game/band-puppet";
 import { Confetti } from "@/components/game/confetti";
 import { DrawingBoard } from "@/components/game/drawing-board";
+import {
+  InsertPicturesPanel,
+  SceneDesignBar,
+  ScenePieceLayer,
+  pieceForSlot,
+  useSceneDesign,
+  type SceneSlot,
+} from "@/components/game/scene-pictures";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
 import { ReportQuestion } from "@/components/report-question";
 import { Waves } from "@/components/reactbits/waves";
@@ -61,6 +69,21 @@ const SKY_PALETTES: SkyStop[] = [
 
 // Sun-with-rays by day, crescent moon by night — same hand-drawn language as
 // MountainBackdrop's scene-sun, not a plain CSS circle with a glow filter.
+// The scenery a kid can replace with their own picture. Order is the order
+// of the tiles in the panel: the two big fills first, then the things standing
+// on the steppe. `x`/`y` are where a freshly uploaded picture lands, matched to
+// where the drawn version sits so a swap looks like a swap and not a jump.
+const SCENE_SLOTS: SceneSlot[] = [
+  { key: "sky", label: "Sky", hint: "The whole backdrop behind the run", x: 50, y: 30, width: 0, target: "background" },
+  { key: "ground", label: "Ground", hint: "The strip your runner runs along", x: 50, y: 92, width: 0, target: "ground" },
+  { key: "runner", label: "Runner", hint: "Your character", x: 48, y: 78, width: 72, target: "runner" },
+  { key: "sun", label: "Sun", hint: "The sun up in the corner", x: 82, y: 18, width: 64, target: "scene" },
+  { key: "bush", label: "Bush", hint: "The bush your runner jumps", x: 58, y: 80, width: 56, target: "scene" },
+  // The horse gallops across on the run animation's timeline, so its artwork
+  // is the kid's but its position is not.
+  { key: "horse", label: "Horse", hint: "The horse that gallops past", x: 20, y: 78, width: 80, target: "scene", anchored: true },
+];
+
 function SkySun({ color, night }: { color: string; night: boolean }) {
   if (night) {
     return (
@@ -557,6 +580,17 @@ export default function SayAndShiftPage() {
   const skyIndex = themeMode === "day" ? 2 : themeMode === "night" ? 5 : Math.min(wallIndex, SKY_PALETTES.length - 1);
   const sky = SKY_PALETTES[skyIndex];
   const customBackground = profile.gameBackgrounds["say-and-shift"] ?? null;
+  // Kid-placed scenery. `designing` fades the ready panel out and hands the
+  // scene over, so pictures are swapped and dragged against the real backdrop
+  // rather than a thumbnail of it — same shape as Kazakh Colours' Design
+  // button, which shares this hook.
+  const design = useSceneDesign("say-and-shift");
+  const { designing, selectedId: selectedPieceId, setSelectedId: setSelectedPieceId, sceneRef, pieces: scenePieces } = design;
+  const [picturePanelOpen, setPicturePanelOpen] = useState(true);
+  const groundPiece = pieceForSlot(scenePieces, "ground");
+  const sunPiece = pieceForSlot(scenePieces, "sun");
+  const bushPiece = pieceForSlot(scenePieces, "bush");
+  const horsePiece = pieceForSlot(scenePieces, "horse");
   const themeWord = themeWordFor(pool, walls);
   const themeLetters = [...themeWord.kk].filter((ch) => ch !== " ");
   // One new letter reveals per wall's run — always includes the current
@@ -875,6 +909,7 @@ export default function SayAndShiftPage() {
         // window that pinned the whole game to a band in the middle of a lot
         // of empty white (issue #28). The min-height is now only a floor for
         // short windows, not the size it always is.
+        ref={sceneRef}
         className="relative mx-auto min-h-[480px] w-full flex-1 overflow-hidden rounded-lg border border-steppe/10 shadow-inner"
         animate={customBackground ? {} : { background: `linear-gradient(180deg, ${sky.top}, ${sky.mid} 55%, ${sky.bottom})` }}
         transition={{ duration: 1.4, ease: "easeInOut" }}
@@ -899,7 +934,9 @@ export default function SayAndShiftPage() {
           </div>
         )}
 
-        {!customBackground && (
+        {/* The kid's own sun is a scene piece with its own dragged position, so
+            the drawn one steps aside entirely rather than sitting behind it. */}
+        {!customBackground && !sunPiece && (
         <motion.div
           className="pointer-events-none absolute z-0 h-16 w-16"
           animate={{ left: "82%", top: `${sky.sunY}%` }}
@@ -964,7 +1001,14 @@ export default function SayAndShiftPage() {
 
         {/* Ground + runner */}
         <div className="absolute inset-x-0 bottom-0 top-[15%] overflow-hidden">
-          <div className="runner-ground absolute inset-x-0 bottom-0 h-16" />
+          <div
+            className={`absolute inset-x-0 bottom-0 h-16 ${groundPiece ? "" : "runner-ground"}`}
+            style={
+              groundPiece
+                ? { backgroundImage: `url(${groundPiece.src})`, backgroundSize: "cover", backgroundPosition: "center" }
+                : undefined
+            }
+          />
 
           {phase === "run" && wallIndex % 2 === 0 && (
             <motion.div
@@ -973,14 +1017,24 @@ export default function SayAndShiftPage() {
               animate={{ left: "120%" }}
               transition={{ duration: RUN_MS / 1000, ease: "linear" }}
             >
-              <HorseSilhouette className="w-full" />
+              {horsePiece ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={horsePiece.src} alt="" className="w-full" style={{ transform: `scale(${horsePiece.scale})` }} />
+              ) : (
+                <HorseSilhouette className="w-full" />
+              )}
             </motion.div>
           )}
 
           {(phase === "run" || phase === "wall") && (
+            // A replaced bush is a draggable scene piece and is drawn by the
+            // piece layer at wherever the kid left it, so the fixed one here
+            // only renders while they have not swapped it.
+            !bushPiece && (
             <div key={`bush-${wallIndex}`} className="absolute bottom-14 z-10 w-14 text-[#2f8d47] sm:w-16" style={{ left: "58%" }}>
               <Bush className="w-full" />
             </div>
+            )
           )}
 
           <motion.div
@@ -1036,12 +1090,82 @@ export default function SayAndShiftPage() {
           </motion.div>
         </div>
 
+        <ScenePieceLayer
+          slug="say-and-shift"
+          slots={SCENE_SLOTS}
+          pieces={scenePieces}
+          editing={designing}
+          selectedId={selectedPieceId}
+          onSelect={setSelectedPieceId}
+          boundsRef={sceneRef}
+        />
+
+        {designing && (
+          <>
+            {/* Catches taps that miss a picture, so tapping bare sky clears the
+                selection instead of leaving the size slider pointed at
+                something the kid has stopped thinking about. */}
+            <div className="absolute inset-0 z-10" onPointerDown={() => setSelectedPieceId(null)} />
+
+            {/* The tile grid lives *inside* design mode, not back in the ready
+                sheet: a kid picks a picture and sees it land on the scene it
+                belongs to, in one place, and both games now read the same —
+                Design, tap a thing, drag it, Done. It covers the lower third
+                of the scene, so it folds away: dragging a piece down there is
+                impossible while it's open. Scrolls on its own too, so a long
+                grid can't push the Done bar off a short screen. */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-16 z-40">
+              {/* Only the tab itself takes pointer events — the strip either
+                  side of it is over the scene, where a drag has to get
+                  through. */}
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setPicturePanelOpen((open) => !open)}
+                  className="pointer-events-auto flex items-center gap-1.5 rounded-t-lg bg-white/92 px-3 py-1.5 text-xs font-black text-steppe shadow-[0_-4px_12px_rgba(19,62,90,.10)] backdrop-blur"
+                >
+                  <ImagePlus size={14} />
+                  {picturePanelOpen ? "Hide pictures" : "Insert pictures"}
+                </button>
+              </div>
+              {picturePanelOpen && (
+                <div className="pointer-events-auto max-h-[42vh] overflow-y-auto bg-white/92 p-2 backdrop-blur">
+                  <InsertPicturesPanel
+                    slug="say-and-shift"
+                    slots={SCENE_SLOTS}
+                    pieces={scenePieces}
+                    background={customBackground}
+                    runnerImage={runnerImage}
+                  />
+                </div>
+              )}
+            </div>
+
+            <SceneDesignBar
+              slug="say-and-shift"
+              slots={SCENE_SLOTS}
+              pieces={scenePieces}
+              selectedId={selectedPieceId}
+              onSelect={setSelectedPieceId}
+              onDone={design.stop}
+            />
+          </>
+        )}
+
         <AnimatePresence>
           {phase === "ready" && (
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              // Design mode fades this panel out rather than unmounting it.
+              // Unmounting left an AnimatePresence exit that settled at an
+              // opacity of ~3e-5 without ever completing, so an invisible
+              // z-30 sheet stayed over the scene and swallowed every drag
+              // aimed at a picture underneath it. Staying mounted and going
+              // pointer-events-none is deterministic: the sheet is out of the
+              // hit-test the moment `designing` flips, animation or not.
+              animate={{ opacity: designing ? 0 : 1 }}
               exit={{ opacity: 0 }}
+              style={{ pointerEvents: designing ? "none" : "auto" }}
               className="absolute inset-0 z-30 grid place-items-center overflow-y-auto bg-[#133e5a]/68 p-3 backdrop-blur-[3px] sm:p-5"
             >
               <div className="w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl sm:p-6">
@@ -1210,9 +1334,17 @@ export default function SayAndShiftPage() {
                   </div>
                 </div>
 
-                <Button variant="gold" size="lg" className="mt-5 w-full" onClick={startRun} disabled={startingMic}>
-                  {startingMic ? "One sec…" : "Start"}
-                </Button>
+                <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                  <Button variant="gold" size="lg" className="flex-1" onClick={startRun} disabled={startingMic}>
+                    {startingMic ? "One sec…" : "Start"}
+                  </Button>
+                  {/* Same entry as Kazakh Colours: the scene behind this sheet
+                      is the scene you edit, so Design just gets the sheet out
+                      of the way rather than opening a separate screen. */}
+                  <Button variant="outline" size="lg" onClick={design.start}>
+                    <Palette size={18} /> Design
+                  </Button>
+                </div>
                 {micPermission === "denied" && (
                   <p className="mt-2 text-center text-xs font-bold text-steppe/50">Mic access is off. You can still play by tapping the right word.</p>
                 )}
