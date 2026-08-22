@@ -3,11 +3,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import { GameShell, Scoreboard } from "@/components/game/game-shell";
+import {
+  ReviewWorkshopButton,
+  WorkshopReview,
+  workshopWords,
+} from "@/components/game/workshop-review";
 import { GameStatsLine } from "@/components/game/game-stats-line";
 import { Confetti } from "@/components/game/confetti";
 import { Button } from "@/components/ui/button";
 import { ReportQuestion } from "@/components/report-question";
 import { ALPHABET } from "@/content/alphabet";
+import { CATEGORY_LABELS } from "@/content/vocab";
+import { type JourneyStop } from "@/content/journey";
 import { GREETINGS, type Greeting } from "@/content/greetings";
 import { type VocabItem } from "@/content/vocab";
 import { playClip, playCorrect, playLetterPronunciation, playWin, playWrong, speakWord } from "@/lib/audio";
@@ -138,7 +145,11 @@ export default function Learn() {
   const profile = useProfile();
   const { baseLanguage } = profile;
   const vocab = useVocab();
-  const [mode, setMode] = useState<"normal" | "mistakes">("normal");
+  const [mode, setMode] = useState<"normal" | "mistakes" | "workshop">("normal");
+  // The workshop being drilled, kept for the labels; the words themselves are
+  // in workshopDeck below.
+  const [workshopStop, setWorkshopStop] = useState<JourneyStop | null>(null);
+  const [reviewing, setReviewing] = useState(false);
   const [endless, setEndless] = useState(false);
   const [roundIndex, setRoundIndex] = useState(0);
   const [round, setRound] = useState<Round | null>(null);
@@ -177,6 +188,18 @@ export default function Learn() {
   // Frozen at the moment "Practice mistakes" is pressed — profile.mistakes
   // shrinks live as items are answered correctly again (trackMistake), and
   // indexing into a list that's mutating under it would skip/repeat entries.
+  // One stop's words, shuffled, dealt one per round: a workshop set is short
+  // (8-10 words) and the point is to see all of it, not a random eight.
+  const workshopDeck = useRef<VocabItem[]>([]);
+
+  const buildWorkshopRound = useCallback((index: number): Round => {
+    const words = workshopDeck.current;
+    const answer = words[index % words.length];
+    // Distractors come from the same workshop, so a kid is choosing between
+    // words they actually sat in a room and learned together.
+    return roundFor("word", index, answer, { letter: SPECIAL_CUES, greeting: GREETINGS, word: words });
+  }, []);
+
   const practiceDeckRef = useRef<MistakeEntry[]>([]);
   const buildMistakeRound = useCallback((index: number): Round => {
     const entry = practiceDeckRef.current[index % practiceDeckRef.current.length];
@@ -261,14 +284,25 @@ export default function Learn() {
   }
 
   function next() {
-    const total = mode === "mistakes" ? practiceDeckRef.current.length : TOTAL;
+    const total =
+      mode === "mistakes"
+        ? practiceDeckRef.current.length
+        : mode === "workshop"
+          ? workshopDeck.current.length
+          : TOTAL;
     if (!endless && roundIndex + 1 >= total) {
       finish(score);
       return;
     }
     const nextIndex = roundIndex + 1;
     setRoundIndex(nextIndex);
-    setRound(mode === "mistakes" ? buildMistakeRound(nextIndex) : buildRound(nextIndex));
+    setRound(
+      mode === "mistakes"
+        ? buildMistakeRound(nextIndex)
+        : mode === "workshop"
+          ? buildWorkshopRound(nextIndex)
+          : buildRound(nextIndex),
+    );
     setPicked(null);
     setPhase("guess");
     shownAt.current = Date.now();
@@ -285,6 +319,7 @@ export default function Learn() {
     seenSlugs.current = new Set();
     correctSlugs.current = new Set();
     setMode("normal");
+    setWorkshopStop(null);
     setEndless(false);
     setRoundIndex(0);
     setRound(buildRound(0));
@@ -318,6 +353,29 @@ export default function Learn() {
     audioPlays.current = 0;
   }
 
+  /** Drill one journey stop's words, in a shuffled order, one round each.
+   *  Same rounds Learn already builds for a word — hear it, or match the
+   *  sound — just drawn from a single workshop's list. */
+  function startWorkshop(stop: JourneyStop) {
+    const words = shuffle(workshopWords(vocab, stop));
+    if (words.length < 3) return;
+    workshopDeck.current = words;
+    seenSlugs.current = new Set();
+    correctSlugs.current = new Set();
+    setWorkshopStop(stop);
+    setMode("workshop");
+    setReviewing(false);
+    setEndless(false);
+    setRoundIndex(0);
+    setRound(roundFor("word", 0, words[0], { letter: SPECIAL_CUES, greeting: GREETINGS, word: words }));
+    setPicked(null);
+    setLives(3);
+    setScore(0);
+    setPhase("guess");
+    shownAt.current = Date.now();
+    audioPlays.current = 0;
+  }
+
   // Offered on the results screen after a normal 8-round set — the base run
   // already recorded/scored normally; this just keeps the same rotation
   // (decks reshuffle forever already, see dealNext) going past it with a
@@ -338,21 +396,52 @@ export default function Learn() {
   if (!round) return null;
 
   const playsOnLoad = round.mode === "hear-letter" || round.mode === "hear-phrase" || round.mode === "hear-word";
-  const kindLabel = round.kind === "letter" ? "Focus letters · Ә Ғ Қ Ң Ө Ұ Ү Һ І" : round.kind === "greeting" ? "Everyday Kazakh greetings" : "Kazakh vocabulary";
-  const effectiveTotal = mode === "mistakes" ? practiceDeckRef.current.length : TOTAL;
+  const kindLabel =
+    mode === "workshop" && workshopStop
+      ? `Week ${workshopStop.week} · ${workshopStop.name} · ${CATEGORY_LABELS[workshopStop.category]}`
+      : round.kind === "letter"
+        ? "Focus letters · Ә Ғ Қ Ң Ө Ұ Ү Һ І"
+        : round.kind === "greeting"
+          ? "Everyday Kazakh greetings"
+          : "Kazakh vocabulary";
+  const effectiveTotal =
+    mode === "mistakes"
+      ? practiceDeckRef.current.length
+      : mode === "workshop"
+        ? workshopDeck.current.length
+        : TOTAL;
 
   return (
     <GameShell title="Learn" kk="Үйрен" right={<Scoreboard label="♥" value={`${lives}`} />}>
       {burst && <Confetti count={45} />}
 
+      {reviewing && (
+        <WorkshopReview
+          vocab={vocab}
+          baseLanguage={baseLanguage}
+          unlockedWeeks={profile.unlockedWeeks}
+          onPractice={startWorkshop}
+          onClose={() => setReviewing(false)}
+        />
+      )}
+
       {phase === "done" ? (
         <div className="mx-auto max-w-xl rounded-2xl bg-steppe p-7 text-center text-warm shadow-xl">
-          <div className="text-3xl font-black text-gold">{mode === "mistakes" ? "Mistakes cleared!" : "Round complete!"}</div>
+          <div className="text-3xl font-black text-gold">
+            {mode === "mistakes"
+              ? "Mistakes cleared!"
+              : mode === "workshop" && workshopStop
+                ? `${workshopStop.name} done!`
+                : "Round complete!"}
+          </div>
           <p className="mt-2 text-lg font-bold">{score} / {effectiveTotal} correct · +{score * 12} points</p>
           <div className="mt-3"><GameStatsLine slug="learn" /></div>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             {mode === "normal" && (
               <Button variant="primary" size="lg" onClick={continueEndless}>Keep going ♾️</Button>
+            )}
+            {mode === "workshop" && (
+              <Button variant="primary" size="lg" onClick={() => setReviewing(true)}>Another workshop</Button>
             )}
             <Button variant="gold" size="lg" onClick={replay}>Replay</Button>
             <Button variant="outline" size="lg" onClick={() => history.back()}>Back</Button>
@@ -369,17 +458,22 @@ export default function Learn() {
               {endless ? `Endless · round ${roundIndex + 1}` : kindLabel}
             </p>
             <h1 className="mt-2 text-2xl font-black text-steppe sm:text-3xl">{prompt}</h1>
-            {mode === "mistakes" ? (
-              <button type="button" onClick={replay} className="mt-1 text-xs font-black text-steppe/60 underline decoration-dotted">
-                ↩ Back to the full mix
-              </button>
-            ) : (
-              mistakeEntries.length > 0 && (
-                <button type="button" onClick={startMistakePractice} className="mt-1 text-xs font-black text-steppe/60 underline decoration-dotted">
-                  🎯 Practice {mistakeEntries.length} you missed before
+            <div className="flex flex-wrap items-center justify-center gap-x-4">
+              {mode === "normal" ? (
+                <>
+                  {mistakeEntries.length > 0 && (
+                    <button type="button" onClick={startMistakePractice} className="mt-1 text-xs font-black text-steppe/60 underline decoration-dotted">
+                      🎯 Practice {mistakeEntries.length} you missed before
+                    </button>
+                  )}
+                  <ReviewWorkshopButton onOpen={() => setReviewing(true)} />
+                </>
+              ) : (
+                <button type="button" onClick={replay} className="mt-1 text-xs font-black text-steppe/60 underline decoration-dotted">
+                  ↩ Back to the full mix
                 </button>
-              )
-            )}
+              )}
+            </div>
           </div>
 
           {playsOnLoad ? (
