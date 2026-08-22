@@ -264,6 +264,16 @@ function writeToStorage(): boolean {
 
 function persist() {
   const saved = writeToStorage();
+  // A new top-level object on every change, so the profile's *identity* moves
+  // even though the fields were mutated in place. useProfile reads through
+  // useSyncExternalStore, which compares snapshots with Object.is: while the
+  // reference stayed put React bailed out of the render entirely, and a screen
+  // only picked a change up when something else happened to re-render it. That
+  // is what made a picture added in design mode show up later, in the running
+  // game, but never on the tile that added it. Shallow: every nested object is
+  // shared with the copy before it, so this costs a handful of pointers, not
+  // the megabytes of base64 the profile carries.
+  if (state) state = { ...state };
   listeners.forEach((l) => l());
   if (!saved) {
     toastBus.show({
