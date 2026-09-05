@@ -25,10 +25,10 @@ html {
 
 body {
   font-family: var(--font-kid);
-  /* Android's Capacitor shell draws edge-to-edge, so the WebView's bottom
-     end sits under the gesture/nav bar unless it's padded out — without
-     this, page content is cut off there and you have to scroll to reach
-     it. env() is 0 on the regular web build, so this is a no-op there. */
+  /* Capacitor draws edge-to-edge. Keep controls clear of the iPhone status
+     bar/Dynamic Island and Android gesture area. env() is 0 in normal
+     desktop browsers, so the website layout is unchanged. */
+  padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -573,4 +573,3 @@ body {
     animation-iteration-count: 1;
   }
 }
-

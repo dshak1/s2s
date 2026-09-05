@@ -78,6 +78,18 @@ export default async function Home({
           <div className="absolute bottom-1 h-9 w-72 rounded-[50%] bg-steppe/10 blur-sm" />
         </section>
       </main>
+
+      <nav
+        aria-label="Help and legal"
+        className="absolute inset-x-0 bottom-3 z-20 flex justify-center gap-5 px-6 text-xs font-extrabold text-steppe/70"
+      >
+        <Link href="/support" className="underline decoration-2 underline-offset-4 hover:text-steppe">
+          Support
+        </Link>
+        <Link href="/privacy" className="underline decoration-2 underline-offset-4 hover:text-steppe">
+          Privacy
+        </Link>
+      </nav>
     </div>
   );
 }
