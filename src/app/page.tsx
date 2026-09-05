@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ClipboardList, PlayCircle, Users } from "lucide-react";
 import { HomeCoverBackdrop } from "@/components/home-cover-backdrop";
+import { DynamicLearningHome } from "@/components/dynamic-learning-home";
 import { Bilingual } from "@/components/ui/bilingual";
 import { IS_LITE } from "@/lib/lite";
 import { ONLINE_FEATURES_ENABLED } from "@/lib/online-features";
@@ -8,11 +9,6 @@ import { ONLINE_FEATURES_ENABLED } from "@/lib/online-features";
 export default async function Home({
   searchParams,
 }: {
-  // Supabase's own /auth/v1/verify endpoint sends a failed magic-link
-  // straight here (not to /auth/callback) — it doesn't know which app route
-  // to use for an error case, so it falls back to the bare site_url. Without
-  // this, that failure landed silently on the normal kid homepage with raw
-  // error params sitting unexplained in the address bar.
   searchParams: Promise<{ error?: string; error_code?: string; error_description?: string }>;
 }) {
   const { error_code, error_description } = await searchParams;
@@ -20,53 +16,37 @@ export default async function Home({
   return (
     <div className="relative min-h-dvh overflow-hidden bg-[#dff7ff] text-steppe">
       <HomeCoverBackdrop />
-
       <main className="relative z-10 mx-auto grid min-h-dvh max-w-6xl items-center gap-8 px-6 pb-28 pt-16 md:grid-cols-[1.05fr_.95fr] md:pb-20">
         {error_code && (
           <div className="col-span-full -mb-2 rounded-2xl border-2 border-[#ff9a4f] bg-white/90 px-5 py-3 text-center text-sm font-bold text-steppe shadow-sm backdrop-blur md:text-left">
             {error_code === "otp_expired"
               ? "That sign-in link expired or was already used."
               : (error_description?.replaceAll("+", " ") ?? "That sign-in link didn't work.")}{" "}
-            <Link href="/login" className="underline decoration-2 underline-offset-2">
-              Request a new one
-            </Link>
-            .
+            <Link href="/login" className="underline decoration-2 underline-offset-2">Request a new one</Link>.
           </div>
         )}
         <section className="max-w-2xl text-center md:text-left">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/75 px-4 py-2 text-sm font-extrabold text-steppe shadow-sm backdrop-blur">
             CC-UNESCO • Steppe to Screen
           </div>
-          <h1 className="mt-6 text-5xl font-black leading-[1.02] text-steppe sm:text-7xl">
-            Қазақ тілін үйренейік
-          </h1>
-          <p className="mt-5 max-w-xl text-xl font-extrabold leading-8 text-steppe/80 md:text-2xl">
-            Let&apos;s learn Kazakh, one fun word at a time.
-          </p>
+          <h1 className="mt-6 text-5xl font-black leading-[1.02] text-steppe sm:text-7xl">Қазақ тілін үйренейік</h1>
+          <p className="mt-5 max-w-xl text-xl font-extrabold leading-8 text-steppe/80 md:text-2xl">Let&apos;s learn Kazakh, one fun word at a time.</p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row md:items-start">
-            <Link
-              href="/play"
-              className="inline-flex items-center justify-center gap-3 rounded-2xl bg-gold px-8 py-4 text-lg font-black text-steppe-700 shadow-[4px_5px_0_0_#b8960a] transition hover:brightness-105 active:translate-y-[2px] active:shadow-none"
-            >
+            <Link href="/play" className="inline-flex items-center justify-center gap-3 rounded-2xl bg-gold px-8 py-4 text-lg font-black text-steppe-700 shadow-[4px_5px_0_0_#b8960a] transition hover:brightness-105 active:translate-y-[2px] active:shadow-none">
               <PlayCircle size={24} /> <Bilingual kk="Ойнау">Play</Bilingual>
             </Link>
             {!IS_LITE && ONLINE_FEATURES_ENABLED && (
-              <Link
-                href="/join"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-steppe bg-white/80 px-6 py-4 text-base font-black text-steppe shadow-sm transition hover:bg-[#fff3cf]"
-              >
+              <Link href="/join" className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-steppe bg-white/80 px-6 py-4 text-base font-black text-steppe shadow-sm transition hover:bg-[#fff3cf]">
                 <Users size={20} /> <Bilingual kk="Қосылу">Join session</Bilingual>
               </Link>
             )}
           </div>
           {!IS_LITE && ONLINE_FEATURES_ENABLED && (
-            <Link
-              href="/facilitator"
-              className="mt-5 inline-flex items-center gap-2 text-sm font-black text-steppe/70 underline-offset-4 hover:text-steppe hover:underline"
-            >
+            <Link href="/facilitator" className="mt-5 inline-flex items-center gap-2 text-sm font-black text-steppe/70 underline-offset-4 hover:text-steppe hover:underline">
               <ClipboardList size={16} /> Facilitator tools
             </Link>
           )}
+          <DynamicLearningHome />
         </section>
 
         <section className="relative mx-auto flex min-h-[340px] w-full max-w-md items-end justify-center">
