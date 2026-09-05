@@ -4,6 +4,7 @@ import { useState } from "react";
 import { KeyRound, Loader2, Mail, Send } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { useIsNativeShell } from "@/lib/native-shell";
+import { signInErrorMessage } from "@/lib/auth-errors";
 import { Button } from "@/components/ui/button";
 
 // Supabase is configured for an 8-digit email OTP (mailer_otp_length).
@@ -38,7 +39,7 @@ export function LoginForm({ next }: { next: string }) {
     });
 
     setBusy(null);
-    if (err) setError(err.message);
+    if (err) setError(signInErrorMessage(err));
     else {
       setCode("");
       setStage("code");
@@ -61,11 +62,7 @@ export function LoginForm({ next }: { next: string }) {
 
     if (err) {
       setBusy(null);
-      setError(
-        err.message.toLowerCase().includes("expired") || err.message.toLowerCase().includes("invalid")
-          ? "That code is wrong or has expired. Send a new one."
-          : err.message,
-      );
+      setError(signInErrorMessage(err));
       return;
     }
 

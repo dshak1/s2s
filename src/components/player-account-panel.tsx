@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PlayerNamePicker } from "@/components/player-name-picker";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { useIsNativeShell } from "@/lib/native-shell";
+import { signInErrorMessage } from "@/lib/auth-errors";
 import {
   fetchLinkedPlayerProfiles,
   fetchRecoveryCode,
@@ -125,7 +126,7 @@ export function PlayerAccountPanel() {
     });
     setBusy(null);
     if (error) {
-      setMessage(error.message);
+      setMessage(signInErrorMessage(error));
       return;
     }
     setOtp("");
@@ -149,12 +150,7 @@ export function PlayerAccountPanel() {
 
     if (error || !data.user) {
       setBusy(null);
-      const reason = error?.message ?? "That code did not work.";
-      setMessage(
-        /expired|invalid/i.test(reason)
-          ? "That code is wrong or has expired. Send a new one."
-          : reason,
-      );
+      setMessage(signInErrorMessage(error ?? { message: "That code did not work." }));
       return;
     }
 
