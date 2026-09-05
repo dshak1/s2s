@@ -36,6 +36,14 @@ const RAMP_LEVEL_BONUS = 2; // higher levels ramp a little steeper
 // against the wrong word. This holds the word at the bottom for one beat so
 // a tap that arrives within it still resolves against the word it was for.
 const MISS_GRACE_MS = 220;
+// rAF stops firing while the tab is hidden, so the first frame back carries a
+// dt of however long the kid was away. Unclamped that teleports the word past
+// the bottom and costs a life for switching tabs. 50ms = a 20fps floor.
+const MAX_FRAME_DT = 0.05;
+// Rendered heights of the falling tile and the basket row, so the word lands
+// *on* the baskets instead of behind them.
+const WORD_H = 44; // py-2 + text-xl line box
+const BASKET_ZONE = 80; // p-3 wrapper + py-3/border-4 buttons
 
 const BEST_KEY = "s2s.falling.best.v2";
 
@@ -179,9 +187,9 @@ export default function FallingSozder() {
 
   // Shared by the grace-timer elapsing and a wrong tap landing after the word
   // already reached bottom — both mean the same thing: this word is over.
-  const resolveMiss = useCallback(() => {
+  const resolveMiss = useCallback((alreadyLogged = false) => {
     playWrong();
-    if (currentRef.current) {
+    if (currentRef.current && !alreadyLogged) {
       logAnswer({
         gameSlug: "falling-sozder",
         itemId: vocabItemId(currentRef.current),
@@ -207,7 +215,7 @@ export default function FallingSozder() {
     (ts: number) => {
       if (phaseRef.current !== "play") return;
       if (!lastTs.current) lastTs.current = ts;
-      const dt = (ts - lastTs.current) / 1000;
+      const dt = Math.min((ts - lastTs.current) / 1000, MAX_FRAME_DT);
       lastTs.current = ts;
       // Every level starts at BASE_SPEED and ramps per catch; the ramp gets a
       // touch steeper at higher levels so late levels end harder.
@@ -264,13 +272,15 @@ export default function FallingSozder() {
   }
 
   function levelUp() {
-    levelRef.current += 1;
-    catchesInLevel.current = 0;
-    setLevel(levelRef.current);
-    if (levelRef.current > MAX_LEVEL) {
+    // Clearing the last level ends the run *at* MAX_LEVEL. Bumping first meant
+    // the scoreboard flashed "Lvl 11" and saved an 11 as the pack best.
+    if (levelRef.current >= MAX_LEVEL) {
       finish("mastered");
       return false;
     }
+    levelRef.current += 1;
+    catchesInLevel.current = 0;
+    setLevel(levelRef.current);
     // Layer in new words; once the deck is exhausted the level-ups are pure speed.
     const nextWords = deck.current.slice(pool.current.length, pool.current.length + WORDS_PER_LEVEL);
     pool.current = [...pool.current, ...nextWords];
@@ -320,13 +330,22 @@ export default function FallingSozder() {
       spawn();
       lastTs.current = 0;
     } else if (wasExpired) {
-      resolveMiss();
+      resolveMiss(true); // the logAnswer above already recorded this attempt
     } else {
+      // A wrong tap costs one life and ends the word. It used to leave the word
+      // falling, so the same mistake also cost the miss when it hit the bottom
+      // (two lives per tap), and a kid drumming on the baskets could burn all
+      // three lives on a single word before it was halfway down.
       playWrong();
       wrongCount.current.set(target.slug, (wrongCount.current.get(target.slug) ?? 0) + 1);
       missesRef.current += 1;
       setMisses(missesRef.current);
-      if (missesRef.current >= MAX_MISS) finish("over");
+      if (missesRef.current >= MAX_MISS) {
+        finish("over");
+        return;
+      }
+      spawn();
+      lastTs.current = 0;
     }
   }
 
@@ -360,9 +379,14 @@ export default function FallingSozder() {
         <span className="font-extrabold text-steppe">Caught: {catches}</span>
       </div>
 
+      {/* w-full, not mx-auto: GameShell's card is a flex *column*, and an auto
+          cross-axis margin opts a flex item out of the default stretch. Every
+          child of this field is absolutely positioned, so with mx-auto its
+          content width was 0 and the whole play field collapsed to an
+          invisible zero-width strip. */}
       <div
-        className="relative mx-auto overflow-hidden rounded-3xl bg-gradient-to-b from-steppe to-steppe-700 bg-cover bg-center"
-        style={{ height: FIELD + 90, backgroundImage: currentHint ? `url(${currentHint})` : undefined }}
+        className="relative w-full overflow-hidden rounded-3xl bg-gradient-to-b from-steppe to-steppe-700 bg-cover bg-center"
+        style={{ height: FIELD + WORD_H + BASKET_ZONE, backgroundImage: currentHint ? `url(${currentHint})` : undefined }}
       >
         {currentHint && <div className="pointer-events-none absolute inset-0 bg-steppe/45" />}
 
