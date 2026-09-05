@@ -14,6 +14,32 @@ The tradeoff is that neither app works offline, even though the web app itself
 is localStorage-first. If a workshop needs offline play, install the PWA
 instead — that is what it is for.
 
+## Signing in from a shell
+
+**A magic link cannot sign the native apps in.** Supabase uses PKCE, so the
+verifier is a cookie on this origin, in the WebView's own cookie jar. Tapping
+the link in Mail opens Safari or Chrome instead — a different jar with no
+verifier — so the exchange fails, and even when it succeeds the session lands
+in that browser and the app is still logged out. App Review hit exactly this on
+an iPad and rejected 1.0 under guideline 2.1(a) on 1 September 2026.
+
+So both sign-in surfaces (`/login` for the team, the player account panel on
+`/profile/[id]`) send the email and then ask for the **8-digit code in that same
+email**, verified in the page with `verifyOtp`. That writes the session cookies
+for this origin, in whichever WebView the person is actually standing in, and
+never leaves the app.
+
+This depends on the Supabase **Magic Link** email template containing
+`{{ .Token }}` as well as `{{ .ConfirmationURL }}`. If someone trims the
+template back to just the link, both native apps lose sign-in again with no
+build change to blame. Code length follows `mailer_otp_length` (currently 8) —
+change one and change `CODE_LENGTH` in `src/app/login/login-form.tsx` and
+`src/components/player-account-panel.tsx` with it.
+
+The link still works and is still sent; on the web it is the faster route.
+`/auth/callback` handles the link landing, `/auth/complete` handles the code
+landing, and both run the same `completeTeamSignIn` afterwards.
+
 ## Layout
 
 | Path | What it is |

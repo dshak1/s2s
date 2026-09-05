@@ -6,6 +6,7 @@ import { Check, KeyRound, Loader2, LogIn, Mail, RefreshCw, UserRound } from "luc
 import { Button } from "@/components/ui/button";
 import { PlayerNamePicker } from "@/components/player-name-picker";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { useIsNativeShell } from "@/lib/native-shell";
 import {
   fetchLinkedPlayerProfiles,
   fetchRecoveryCode,
@@ -17,7 +18,42 @@ import { toastBus } from "@/lib/toast";
 
 const PENDING_PLAYER_LINK = "s2s_pending_player_link_v1";
 
+// Supabase is configured for an 8-digit email OTP (mailer_otp_length).
+const CODE_LENGTH = 8;
+
 type EmailMode = "save" | "find";
+type EmailStage = "email" | "code";
+
+// Everything that has to happen the moment an email session exists: link the
+// player the person asked to save, then load every player already on that
+// email. Called from the mount effect on a return visit and again straight
+// after a code sign-in, so both routes in end up in the same state.
+async function attachEmailAccount(profileId: string, displayName: string) {
+  let message: string | null = null;
+
+  const pending = localStorage.getItem(PENDING_PLAYER_LINK);
+  if (pending === profileId) {
+    const recoveryCode = await fetchRecoveryCode(profileId, displayName);
+    if (recoveryCode) {
+      try {
+        await linkPlayerProfile(profileId, recoveryCode);
+        localStorage.removeItem(PENDING_PLAYER_LINK);
+        message = "This player is now saved to your email.";
+      } catch {
+        message = "Email is signed in, but this player could not be linked yet.";
+      }
+    }
+  }
+
+  let profiles: LinkedPlayerProfile[] = [];
+  try {
+    profiles = await fetchLinkedPlayerProfiles();
+  } catch {
+    profiles = [];
+  }
+
+  return { message, profiles };
+}
 
 export function PlayerAccountPanel() {
   const profile = useProfile();
@@ -26,10 +62,13 @@ export function PlayerAccountPanel() {
   const [email, setEmail] = useState("");
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [emailMode, setEmailMode] = useState<EmailMode>("save");
+  const [emailStage, setEmailStage] = useState<EmailStage>("email");
+  const [otp, setOtp] = useState("");
   const [linkedProfiles, setLinkedProfiles] = useState<LinkedPlayerProfile[]>([]);
   const [switchCode, setSwitchCode] = useState("");
-  const [busy, setBusy] = useState<"email" | "link" | "code" | "switch" | null>(null);
+  const [busy, setBusy] = useState<"email" | "otp" | "link" | "code" | "switch" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const isNative = useIsNativeShell();
 
   useEffect(() => {
     if (profile.id === "server-profile") return;
@@ -46,32 +85,24 @@ export function PlayerAccountPanel() {
       if (cancelled || !data.user) return;
       setAccountEmail(data.user.email ?? null);
 
-      const pending = localStorage.getItem(PENDING_PLAYER_LINK);
-      if (pending === profile.id) {
-        const recoveryCode = await fetchRecoveryCode(profile.id, profile.displayName);
-        if (recoveryCode) {
-          try {
-            await linkPlayerProfile(profile.id, recoveryCode);
-            localStorage.removeItem(PENDING_PLAYER_LINK);
-            if (!cancelled) setMessage("This player is now saved to your email.");
-          } catch {
-            if (!cancelled) setMessage("Email is signed in, but this player could not be linked yet.");
-          }
-        }
-      }
-
-      try {
-        const profiles = await fetchLinkedPlayerProfiles();
-        if (!cancelled) setLinkedProfiles(profiles);
-      } catch {
-        if (!cancelled) setLinkedProfiles([]);
-      }
+      const { message: linkMessage, profiles } = await attachEmailAccount(
+        profile.id,
+        profile.displayName,
+      );
+      if (cancelled) return;
+      if (linkMessage) setMessage(linkMessage);
+      setLinkedProfiles(profiles);
     });
 
     return () => { cancelled = true; };
   }, [profile.id, profile.displayName]);
 
-  async function sendEmailLink(event: React.FormEvent<HTMLFormElement>) {
+  // The emailed link only signs you in inside the browser that asked for it —
+  // the PKCE verifier is a cookie on this origin. In the native shell the link
+  // opens Safari or Chrome instead, which signs *that* browser in and leaves
+  // the app logged out, so the code in the same email is what finishes the job
+  // here. App Review hit exactly this on iPad (guideline 2.1(a), Sep 2026).
+  async function sendEmailCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const sb = getSupabaseBrowser();
     if (!sb) {
@@ -97,7 +128,46 @@ export function PlayerAccountPanel() {
       setMessage(error.message);
       return;
     }
-    setMessage(`Check ${normalizedEmail} for your player link.`);
+    setOtp("");
+    setEmailStage("code");
+    setMessage(null);
+  }
+
+  async function verifyEmailCode(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const sb = getSupabaseBrowser();
+    if (!sb) return;
+
+    setBusy("otp");
+    setMessage(null);
+
+    const { data, error } = await sb.auth.verifyOtp({
+      email: email.trim(),
+      token: otp.trim(),
+      type: "email",
+    });
+
+    if (error || !data.user) {
+      setBusy(null);
+      const reason = error?.message ?? "That code did not work.";
+      setMessage(
+        /expired|invalid/i.test(reason)
+          ? "That code is wrong or has expired. Send a new one."
+          : reason,
+      );
+      return;
+    }
+
+    setAccountEmail(data.user.email ?? null);
+    const { message: linkMessage, profiles } = await attachEmailAccount(
+      profile.id,
+      profile.displayName,
+    );
+    setLinkedProfiles(profiles);
+    setEmailStage("email");
+    setOtp("");
+    setBusy(null);
+    setMessage(linkMessage ?? "You are signed in on this device.");
   }
 
   async function linkCurrentPlayer() {
@@ -203,37 +273,85 @@ export function PlayerAccountPanel() {
               )}
             </div>
           ) : (
-            <form onSubmit={sendEmailLink} className="mt-3 space-y-3">
-              <div className="grid grid-cols-2 rounded-lg bg-[#edf2f5] p-1" aria-label="Email account action">
-                {(["save", "find"] as const).map((mode) => (
+            <form
+              onSubmit={emailStage === "code" ? verifyEmailCode : sendEmailCode}
+              className="mt-3 space-y-3"
+            >
+              {emailStage === "code" ? (
+                <>
+                  <p className="text-sm font-bold leading-5 text-steppe/70">
+                    We emailed {email} {isNative ? "an" : "a sign-in link and an"}{" "}
+                    {CODE_LENGTH}-digit code. Type the code in here.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      required
+                      value={otp}
+                      onChange={(event) =>
+                        setOtp(event.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))
+                      }
+                      placeholder={"0".repeat(CODE_LENGTH)}
+                      aria-label="Sign-in code"
+                      className="min-w-0 flex-1 rounded-lg border-2 border-steppe/15 bg-white px-3 py-2 text-center font-mono text-lg font-black tracking-[0.2em] text-steppe outline-none focus:border-steppe"
+                    />
+                    <Button
+                      variant="gold"
+                      size="sm"
+                      type="submit"
+                      disabled={busy === "otp" || otp.length < CODE_LENGTH}
+                    >
+                      {busy === "otp" ? <Loader2 size={15} className="animate-spin" /> : <LogIn size={15} />}
+                      Sign in
+                    </Button>
+                  </div>
                   <button
-                    key={mode}
                     type="button"
-                    onClick={() => setEmailMode(mode)}
-                    aria-pressed={emailMode === mode}
-                    className={`rounded-md px-3 py-2 text-xs font-black transition ${
-                      emailMode === mode ? "bg-white text-steppe shadow-sm" : "text-steppe/60"
-                    }`}
+                    onClick={() => {
+                      setEmailStage("email");
+                      setOtp("");
+                      setMessage(null);
+                    }}
+                    className="text-xs font-black text-steppe/55 underline decoration-2 underline-offset-4"
                   >
-                    {mode === "save" ? "Save this player" : "Find my player"}
+                    Use a different email or send a new code
                   </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@example.com"
-                  aria-label="Email address"
-                  className="min-w-0 flex-1 rounded-lg border-2 border-steppe/15 bg-white px-3 py-2 font-bold text-steppe outline-none focus:border-steppe"
-                />
-                <Button variant="gold" size="sm" type="submit" disabled={busy === "email" || !email.trim()}>
-                  {busy === "email" ? <Loader2 size={15} className="animate-spin" /> : <LogIn size={15} />}
-                  Send link
-                </Button>
-              </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 rounded-lg bg-[#edf2f5] p-1" aria-label="Email account action">
+                    {(["save", "find"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setEmailMode(mode)}
+                        aria-pressed={emailMode === mode}
+                        className={`rounded-md px-3 py-2 text-xs font-black transition ${
+                          emailMode === mode ? "bg-white text-steppe shadow-sm" : "text-steppe/60"
+                        }`}
+                      >
+                        {mode === "save" ? "Save this player" : "Find my player"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="you@example.com"
+                      aria-label="Email address"
+                      className="min-w-0 flex-1 rounded-lg border-2 border-steppe/15 bg-white px-3 py-2 font-bold text-steppe outline-none focus:border-steppe"
+                    />
+                    <Button variant="gold" size="sm" type="submit" disabled={busy === "email" || !email.trim()}>
+                      {busy === "email" ? <Loader2 size={15} className="animate-spin" /> : <LogIn size={15} />}
+                      Email a code
+                    </Button>
+                  </div>
+                </>
+              )}
             </form>
           )}
         </div>

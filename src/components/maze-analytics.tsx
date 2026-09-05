@@ -1,7 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import Script from "next/script";
+import { useIsNativeShell } from "@/lib/native-shell";
 
 // Maze is useful for browser-based workshop research, but the native apps are
 // for children and must not load third-party analytics. Capacitor injects the
@@ -35,18 +35,8 @@ const MAZE_SNIPPET = `(function (m, a, z, e) {
 })(window, document, 'https://snippet.maze.co/maze-universal-loader.js', '5bbb3393-47cc-4903-8c55-317c62ea5172');`;
 
 export function MazeAnalytics() {
-  const enabled = useSyncExternalStore(
-    () => () => {},
-    () => {
-      const cap = (window as unknown as {
-        Capacitor?: { isNativePlatform?: () => boolean };
-      }).Capacitor;
-      return !cap?.isNativePlatform?.();
-    },
-    () => false,
-  );
-
-  if (!enabled) return null;
+  const isNative = useIsNativeShell();
+  if (isNative) return null;
 
   return (
     <Script
