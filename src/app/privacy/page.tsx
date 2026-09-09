@@ -22,8 +22,8 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-black text-steppe">The short version</h2>
             <p className="mt-2">
-              Steppe to Screen is a Kazakh-language learning app for children. Children can play without
-              an email account. We do not sell personal information, show advertising, or track people
+              Steppe to Screen is a Kazakh-language learning app used by families and classrooms.
+              Learners can play without an email account. We do not sell personal information, show advertising, or track people
               across other companies&apos; apps or websites. The app creates a random learner ID, keeps a
               working copy of progress on the device, and—when online—syncs learner progress and game
               activity to our service so it can be recovered and used to improve the lessons.
