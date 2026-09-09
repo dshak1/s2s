@@ -1,0 +1,11 @@
+{
+  "name": "Steppe to Screen",
+  "install": "pnpm install --frozen-lockfile",
+  "terminals": [
+    {
+      "name": "next-dev",
+      "command": "pnpm exec next dev -p 3100"
+    }
+  ],
+  "ports": [3100]
+}
