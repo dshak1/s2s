@@ -308,19 +308,13 @@ function Ready({ name, onFinish }: { name: string; onFinish: () => void }) {
         transition={{ type: "spring", stiffness: 220, damping: 16 }}
         className="mx-auto w-fit rounded-[2rem] border-4 border-steppe/10 bg-white px-7 py-5 shadow-[0_14px_0_rgba(30,77,140,.08)]"
       >
-        <div className="text-5xl font-black leading-none text-steppe">Кеттік!</div>
-        <div className="mt-2 text-base font-extrabold text-steppe/60">Let&apos;s go!</div>
+        <div className="text-5xl font-black leading-none text-steppe">
+          {name ? `Қош келдің, ${name}!` : "Қош келдің!"}
+        </div>
+        <div className="mt-2 text-base font-extrabold text-steppe/60">
+          {name ? `Welcome, ${name}!` : "Welcome!"}
+        </div>
       </motion.div>
-
-      <motion.p
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.12, duration: 0.35 }}
-        className="mx-auto mt-7 max-w-md text-xl font-extrabold leading-8 text-steppe/80"
-      >
-        {name ? `${name}, ` : ""}every game in Steppe to Screen teaches Kazakh. Nothing to
-        lose, nothing to sign up for. Play whichever one looks fun.
-      </motion.p>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
